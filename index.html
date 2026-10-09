@@ -15392,6 +15392,7 @@ var VUE = "suivi", COSIUM_C = null, BARRE_REPLIEE = false;   // var : lu par ren
 const ilEstEnCours = l => enCours(l);
 function rendreBarre(){
   const z = document.getElementById("barreSuvi"), c = COSIUM_C; if (!c) return;
+  if (EN_COSIUM && BANDEAU_AJOUT){ z.classList.remove("replie"); z.innerHTML = bandeauAjoutHTML(); return; }   // 9 oct. 2026 : ajout dans la barre
   const ls = LIGNES.filter(l => l.c === c && ilEstEnCours(l)), x = ls.length ? soldeClient(c) : null, fam = famDe(c);
   z.classList.toggle("replie", BARRE_REPLIEE);
   const tete = `<div class="bs-tete"><span class="bs-marque">Suvi</span>
@@ -15505,11 +15506,41 @@ setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
    Seules les lignes du client ouvert dans Cosium s'affichent, exactement comme dans Dossiers (pastilles modifiables, actions…).
    La fiche, les fenêtres et la connexion prennent toute la fenêtre (cadre « plein »), Cosium visible derrière le voile.
    Le cadre de l'extension reçoit la hauteur voulue : {chouf:"cadre", h, plein}. */
-let BANDEAU = null, BANDEAU_CONNEXION = false, BANDEAU_C = null;   // BANDEAU_C : client pas encore suivi, le temps de l'afficher   // BANDEAU : client lu dans Cosium ({dossier, complet, nom, prenom…} ou {dossier, libelle})
+let BANDEAU = null, BANDEAU_CONNEXION = false, BANDEAU_C = null;
+/* Ajout au suivi dans la barre même (9 oct. 2026, demande de Mohamed) : seuls la mutuelle, le réseau et l'équipement sont à confirmer */
+let BANDEAU_AJOUT = null;   // {mut, reseau, types} pendant la saisie
+const reseauDe = mut => { const l = mut && LIGNES.filter(x => x.mut && plat(x.mut.nom) === plat(mut)).pop(); return l ? l.mut.reseau : ""; };
+const connuBandeau = () => clientsDe().find(x => x.dossier === BANDEAU.dossier || (x.autresDossiers || []).includes(BANDEAU.dossier)) || null;
+function bandeauAjoutOuvrir(){
+  if (!BANDEAU.complet){ toast("Ouvre sa fiche Cosium pour l’ajouter au suivi"); return; }
+  const mut = BANDEAU.mut ? MUTUELLES.find(m => plat(m) === plat(BANDEAU.mut)) || BANDEAU.mut : "";
+  BANDEAU_AJOUT = {mut, reseau:reseauDe(mut), types:["lunettes"]}; rendreBarre();
+  document.querySelector('#barreSuvi [data-ba="mut"]')?.focus();
+}
+function bandeauAjoutHTML(){
+  const a = BANDEAU_AJOUT, connu = connuBandeau(), chg = connu && a.mut ? mutChangee(connu, a.mut) : null;
+  return `<div class="bs-tete"><span class="bs-marque">Suivi</span><span class="petit">${esc(nomClient(COSIUM_C))} · ajout au suivi</span></div>
+    <div class="bs-ajout">
+      <label class="ba-champ"><span>Mutuelle</span><input data-ba="mut" list="liste-mutuelles" value="${esc(a.mut)}" placeholder="Aucune (sans tiers payant)" autocomplete="off"></label>
+      <label class="ba-champ"><span>Réseau</span><input data-ba="reseau" list="liste-reseaux" value="${esc(a.reseau)}" placeholder="Hors réseau" autocomplete="off"${a.mut ? "" : " disabled"}></label>
+      <div class="ba-types" role="group" aria-label="Équipement">${Object.entries(TYPES).map(([k, lib]) => `<label class="ba-type"><input type="checkbox" data-ba-type="${k}"${a.types.includes(k) ? " checked" : ""}>${ICO[k]}${lib}</label>`).join("")}</div>
+      ${chg ? `<span class="ba-alerte">Nouvelle mutuelle${chg.mut ? ` (avant : ${esc(chg.mut)})` : ""} : les dates de renouvellement repartiront de zéro</span>` : ""}
+      <span class="ba-fin"><button type="button" class="ba-annuler" data-ba-annuler>Annuler</button><button type="button" class="bs-ouvrir" data-ba-valider${a.types.length ? "" : " disabled"}>Ajouter au suivi</button></span>
+    </div>`;
+}
+function bandeauAjoutValider(){
+  const d = BANDEAU, a = BANDEAU_AJOUT, connu = connuBandeau();
+  // Même nom chez un autre client (doublon, client de passage) : la fenêtre complète demande s'il faut les rattacher
+  const homonyme = !connu && clientsDe().some(x => plat(x.nom) === plat(d.nom) && plat(x.prenom) === plat(d.prenom));
+  BANDEAU_AJOUT = null;
+  if (homonyme){ COSIUM_C = null; DEMANDE_COSIUM = Object.assign({}, d, {quoi:"ajout"}); traiterDemandeCosium(); return; }
+  ajouterDepuisCosium({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut:a.mut, reseau:a.mut ? a.reseau || "Hors réseau" : "", types:a.types, client:connu, cosium:d.cosium});
+  COSIUM_C = null; bandeauMaj(true);   // la barre affiche la nouvelle ligne
+}   // BANDEAU_C : client pas encore suivi, le temps de l'afficher   // BANDEAU : client lu dans Cosium ({dossier, complet, nom, prenom…} ou {dossier, libelle})
 const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autresDossiers || []).includes(BANDEAU.dossier));
 const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
 const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
-function bandeauSuivre(d){ BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
+function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null; BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
 let bandeauDernier = "";
 function bandeauMaj(forcer){
   const R = document.documentElement, connecte = !!(window.ChoufAPI && window.ChoufAPI.moi());
@@ -15543,12 +15574,25 @@ function bandeauMaj(forcer){
 }
 if (EN_COSIUM){
   document.querySelector("#zone-suivi main").insertAdjacentHTML("afterbegin", `<div class="bandeau-cosium" id="bandeauCosium" role="region" aria-label="Chouf’Tout"></div>`);
-  document.getElementById("barreSuvi").addEventListener("click", e => {
-    if (!e.target.closest("[data-bs-ajouter]")) return;
-    e.stopPropagation();
-    if (!BANDEAU.complet){ toast("Ouvre sa fiche Cosium pour l’ajouter au suivi"); return; }
-    DEMANDE_COSIUM = Object.assign({}, BANDEAU, {quoi:"ajout"}); traiterDemandeCosium();
+  const bs = document.getElementById("barreSuvi");
+  bs.insertAdjacentHTML("afterend", `<datalist id="liste-reseaux">${RESEAUX.map(r => `<option value="${esc(r)}">`).join("")}</datalist>`);
+  bs.addEventListener("click", e => {
+    if (e.target.closest("[data-bs-ajouter]")){ e.stopPropagation(); bandeauAjoutOuvrir(); return; }
+    if (e.target.closest("[data-ba-annuler]")){ e.stopPropagation(); BANDEAU_AJOUT = null; COSIUM_C = null; bandeauMaj(true); return; }
+    if (e.target.closest("[data-ba-valider]")){ e.stopPropagation(); bandeauAjoutValider(); }
   }, true);
+  bs.addEventListener("input", e => {   // la saisie reste dans l'état : un nouvel affichage de la barre la retrouve
+    if (!BANDEAU_AJOUT) return;
+    const t = e.target, a = BANDEAU_AJOUT;
+    if (t.dataset.ba === "mut"){ a.mut = t.value.trim(); const r = bs.querySelector('[data-ba="reseau"]'); r.disabled = !a.mut; if (!r.value) { a.reseau = reseauDe(a.mut); r.value = a.reseau; } }
+    else if (t.dataset.ba === "reseau") a.reseau = t.value.trim();
+    else if (t.dataset.baType){ a.types = [...bs.querySelectorAll("[data-ba-type]:checked")].map(x => x.dataset.baType); bs.querySelector("[data-ba-valider]").disabled = !a.types.length; }
+  });
+  bs.addEventListener("keydown", e => {
+    if (!BANDEAU_AJOUT) return;
+    if (e.key === "Enter" && e.target.matches("input") && BANDEAU_AJOUT.types.length){ e.preventDefault(); bandeauAjoutValider(); }
+    if (e.key === "Escape"){ e.stopPropagation(); BANDEAU_AJOUT = null; COSIUM_C = null; bandeauMaj(true); }
+  });
   document.getElementById("bandeauCosium").addEventListener("click", e => {
     const b = e.target.closest("[data-bc]"); if (!b) return;
     if (b.dataset.bc === "connexion"){ BANDEAU_CONNEXION = true; bandeauMaj(); return; }
@@ -19388,6 +19432,27 @@ html.mode-cosium #cosium > :not(#barreSuvi){display:none !important}
 html.mode-cosium #zone-suivi .bs{position:static; font-family:var(--font)}
 html.mode-cosium #zone-suivi .bs-ligne + .bs-ligne{border-top-color:rgba(255,255,255,.1)}
 html.mode-cosium #zone-suivi .bs-tete button, html.mode-cosium #zone-suivi .bs-ouvrir, html.mode-cosium #zone-suivi .bs-marque{border-radius:6px}
+html.mode-cosium #zone-suivi .bs-tete{padding:8px 20px 0} html.mode-cosium #zone-suivi .bs-ligne, html.mode-cosium #zone-suivi .bs-vide{padding-left:20px; padding-right:20px}
+/* Ajout dans la barre */
+html.mode-cosium #zone-suivi .bs-ajout{display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; padding:10px 20px 12px}
+html.mode-cosium #zone-suivi .ba-champ{display:flex; align-items:center; gap:8px}
+html.mode-cosium #zone-suivi .ba-champ span{color:var(--second); font-size:.8125rem}
+html.mode-cosium #zone-suivi .ba-champ input{width:210px; height:32px; padding:0 10px; border-radius:6px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.07);
+  color:var(--encre); font:inherit; font-size:.875rem; transition:border-color .2s var(--ease-stripe), background-color .2s var(--ease-stripe)}
+html.mode-cosium #zone-suivi .ba-champ input:focus{outline:none; border-color:var(--bleu); background:rgba(255,255,255,.1)}
+html.mode-cosium #zone-suivi .ba-champ input:disabled{opacity:.45}
+html.mode-cosium #zone-suivi .ba-types{display:flex; gap:6px}
+html.mode-cosium #zone-suivi .ba-type{position:relative; display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:6px; cursor:pointer;
+  background:rgba(255,255,255,.07); color:var(--encre); font-size:.875rem; transition:background-color .2s var(--ease-stripe)}
+html.mode-cosium #zone-suivi .ba-type:has(input:checked){background:var(--bleu); color:#fff}
+html.mode-cosium #zone-suivi .ba-type:has(input:focus-visible){outline:2px solid #fff; outline-offset:1px}
+html.mode-cosium #zone-suivi .ba-type input{position:absolute; opacity:0; pointer-events:none}
+html.mode-cosium #zone-suivi .ba-type svg{width:16px; height:16px}
+html.mode-cosium #zone-suivi .ba-alerte{color:var(--orange); font-size:.8125rem}
+html.mode-cosium #zone-suivi .ba-fin{display:flex; gap:8px; margin-left:auto}
+html.mode-cosium #zone-suivi .ba-annuler{height:32px; padding:0 12px; border:0; border-radius:6px; background:transparent; color:var(--second); font:inherit; font-size:.8125rem; cursor:pointer}
+html.mode-cosium #zone-suivi .ba-annuler:hover{color:var(--encre)}
+html.mode-cosium #zone-suivi .bs-ouvrir:disabled{opacity:.45; cursor:default}
 /* Ligne d'appoint : non connecté, aucun client, ou client pas encore suivi */
 .bandeau-cosium{display:none}
 html.mode-cosium .bandeau-cosium:not(:empty){display:flex; align-items:center; gap:14px; min-height:56px; padding:10px 28px; font-family:var(--font); color:var(--encre)}
