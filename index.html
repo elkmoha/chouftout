@@ -16536,11 +16536,12 @@ addEventListener("keydown", e => { if (e.key !== "Escape") return; if (ouverte &
 feuille.addEventListener("click", e => {
   if (e.target.closest("#versCosium")) allerPage(1, "f-cosium");
   else if (e.target.closest("[data-ouvrir-cosium]")){   // 9 oct. 2026 : l'adresse de Cosium ne change pas d'un client à l'autre → on copie le n° de dossier, puis on ouvre Cosium
-    const n = LIGNES[ficheLi].c.dossier, url = window.ChoufAPI?.cosiumUrl() || "", va = /^https?:\/\//.test(url);
+    const c = LIGNES[ficheLi].c, n = c.dossier, url = window.ChoufAPI?.cosiumUrl() || "", va = /^https?:\/\//.test(url);
     copier(n).then(ok => toast(!ok ? "Copie impossible dans ce navigateur" : va ? `Numéro de dossier ${n} copié : à coller dans la recherche de Cosium`
       : `Numéro de dossier ${n} copié. Adresse de Cosium à renseigner dans les réglages (Magasin › Boutique)`, null));
     // Avec l'extension : l'onglet Cosium déjà ouvert passe au premier plan (9 oct. 2026) ; sans elle, même onglet nommé à chaque fois
-    if (document.documentElement.dataset.choufExtension) postMessage({chouf:"ouvrir-cosium", url}, location.origin);
+    // et l'extension y cherche le client : n° de dossier, sinon nom et prénom
+    if (document.documentElement.dataset.choufExtension) postMessage({chouf:"ouvrir-cosium", url, texte:n || `${c.nom} ${c.prenom}`.trim()}, location.origin);
     else if (va){ const w = window.open(url, "cosium"); if (w) w.opener = null; }
   }
   else if (e.target.closest("[data-voir-histo]")){ rendreHisto(LIGNES[ficheLi]); allerPage(1, "f-histo"); }
