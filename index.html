@@ -10557,8 +10557,12 @@ function login(userId){
   window.scrollTo(0, 0);
   if (window.ChoufIntro) window.ChoufIntro.bienvenue(donneesAccueil(u));   /* « Bienvenue Samy dans Chouf’Tout » */
 }
-/* 9 oct. 2026 : dans le bandeau Cosium, le dernier compte connecté revient au rechargement (jusqu'à « Se déconnecter ») */
-if (DANS_COSIUM) setTimeout(() => { try { const id = localStorage.getItem("chouftout-cosium-compte"); if (id && !S.user && compteUtilisable(userOf(id))) login(id); } catch (_) {} }, 0);
+/* 9 oct. 2026 : dans le bandeau Cosium, le dernier compte connecté revient au rechargement (jusqu'à « Se déconnecter »),
+   sinon le compte équipe s'ouvre seul : aucun mot de passe au lancement (demande de Mohamed) */
+if (DANS_COSIUM) setTimeout(() => { if (S.user) return; let id = null; try { id = localStorage.getItem("chouftout-cosium-compte"); } catch (_) {}
+  const eq = S.users.find(u => u.role === "equipe" && compteUtilisable(u));
+  if (!(id && compteUtilisable(userOf(id)))) id = eq ? eq.id : null;
+  if (id) login(id); }, 0);
 /* Prénom, couleur et avatars pour l'accueil et l'au revoir animés */
 function donneesAccueil(u){
   const p = u.collab ? personOf(u.collab) : null, equipe = !p && /équipe/i.test(u.name);
@@ -15514,7 +15518,7 @@ const connuBandeau = () => clientsDe().find(x => x.dossier === BANDEAU.dossier |
 function bandeauAjoutOuvrir(){
   if (!BANDEAU.complet){ toast("Ouvre sa fiche Cosium pour l’ajouter au suivi"); return; }
   const mut = BANDEAU.mut ? MUTUELLES.find(m => plat(m) === plat(BANDEAU.mut)) || BANDEAU.mut : "";
-  BANDEAU_AJOUT = {mut, reseau:reseauDe(mut), types:["lunettes"]}; rendreBarre();
+  BANDEAU_AJOUT = {mut, reseau:reseauDe(mut), types:["lunettes"], par:auteur() || ""}; rendreBarre();
   document.querySelector('#barreSuvi [data-ba="mut"]')?.focus();
 }
 function bandeauAjoutHTML(){
@@ -15523,6 +15527,7 @@ function bandeauAjoutHTML(){
     <div class="bs-ajout">
       <label class="ba-champ"><span>Mutuelle</span><input data-ba="mut" list="liste-mutuelles" value="${esc(a.mut)}" placeholder="Aucune (sans tiers payant)" autocomplete="off"></label>
       <label class="ba-champ"><span>Réseau</span><input data-ba="reseau" list="liste-reseaux" value="${esc(a.reseau)}" placeholder="Hors réseau" autocomplete="off"${a.mut ? "" : " disabled"}></label>
+      ${COMPTE.equipe ? `<label class="ba-champ"><span>Par</span><select data-ba="par" aria-label="Qui ajoute ce client ?"><option value=""${a.par ? "" : " selected"} disabled>Qui ajoute ?</option>${EQUIPE.map(x => `<option${x === a.par ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label>` : ""}
       <div class="ba-types" role="group" aria-label="Équipement">${Object.entries(TYPES).map(([k, lib]) => `<label class="ba-type"><input type="checkbox" data-ba-type="${k}"${a.types.includes(k) ? " checked" : ""}>${ICO[k]}${lib}</label>`).join("")}</div>
       ${chg ? `<span class="ba-alerte">Nouvelle mutuelle${chg.mut ? ` (avant : ${esc(chg.mut)})` : ""} : les dates de renouvellement repartiront de zéro</span>` : ""}
       <span class="ba-fin"><button type="button" class="ba-annuler" data-ba-annuler>Annuler</button><button type="button" class="bs-ouvrir" data-ba-valider${a.types.length ? "" : " disabled"}>Ajouter au suivi</button></span>
@@ -15530,6 +15535,9 @@ function bandeauAjoutHTML(){
 }
 function bandeauAjoutValider(){
   const d = BANDEAU, a = BANDEAU_AJOUT, connu = connuBandeau();
+  // Compte équipe : le collaborateur qui ajoute signe le dossier (9 oct. 2026, demande de Mohamed)
+  if (COMPTE.equipe && !a.par){ toast("Choisis qui ajoute ce client"); document.querySelector('#barreSuvi [data-ba="par"]')?.focus(); return; }
+  if (COMPTE.equipe){ AUTEUR = {nom:a.par, t:Date.now()}; majAuteurs(); }
   // Même nom chez un autre client (doublon, client de passage) : la fenêtre complète demande s'il faut les rattacher
   const homonyme = !connu && clientsDe().some(x => plat(x.nom) === plat(d.nom) && plat(x.prenom) === plat(d.prenom));
   BANDEAU_AJOUT = null;
@@ -15586,6 +15594,7 @@ if (EN_COSIUM){
     const t = e.target, a = BANDEAU_AJOUT;
     if (t.dataset.ba === "mut"){ a.mut = t.value.trim(); const r = bs.querySelector('[data-ba="reseau"]'); r.disabled = !a.mut; if (!r.value) { a.reseau = reseauDe(a.mut); r.value = a.reseau; } }
     else if (t.dataset.ba === "reseau") a.reseau = t.value.trim();
+    else if (t.dataset.ba === "par") a.par = t.value;
     else if (t.dataset.baType){ a.types = [...bs.querySelectorAll("[data-ba-type]:checked")].map(x => x.dataset.baType); bs.querySelector("[data-ba-valider]").disabled = !a.types.length; }
   });
   bs.addEventListener("keydown", e => {
@@ -19449,6 +19458,8 @@ html.mode-cosium #zone-suivi .ba-champ input{width:210px; height:32px; padding:0
   color:var(--encre); font:inherit; font-size:.875rem; transition:border-color .2s var(--ease-stripe), background-color .2s var(--ease-stripe)}
 html.mode-cosium #zone-suivi .ba-champ input:focus{outline:none; border-color:var(--bleu); background:rgba(255,255,255,.1)}
 html.mode-cosium #zone-suivi .ba-champ input:disabled{opacity:.45}
+html.mode-cosium #zone-suivi .ba-champ select{height:32px; padding:0 10px; border-radius:6px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.07); color:var(--encre); font:inherit; font-size:.8125rem; color-scheme:dark}
+html.mode-cosium #zone-suivi .ba-champ select:focus{outline:none; border-color:var(--bleu); background:rgba(255,255,255,.1)}
 html.mode-cosium #zone-suivi .ba-types{display:flex; gap:6px}
 html.mode-cosium #zone-suivi .ba-type{position:relative; display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:6px; cursor:pointer;
   background:rgba(255,255,255,.07); color:var(--encre); font-size:.875rem; transition:background-color .2s var(--ease-stripe)}
