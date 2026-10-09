@@ -5877,6 +5877,7 @@ window.ChoufAPI = {
   /* Pour l'intro animée : le logo et le slogan du magasin */
   marque(){ return {logo:S.settings.logo || LOGO_MAGASIN, logoSombre:S.settings.logoSombre || LOGO_MAGASIN_SOMBRE, slogan:S.settings.slogan || ""}; },
   /* La roue du module Dossiers ouvre les Réglages communs */
+  basePrete(){ return basePret || baseEnPanne; },   // 9 oct. 2026 : extension Cosium, attendre les dossiers de la base
   allerDossiers(){ if (S.tab !== "dossiers"){ S.tab = "dossiers"; S.drawer = null; closePopover(); render(); window.scrollTo(0, 0); } },   // 9 oct. 2026
   reglages(section){ S.regSection = section || S.regSection; S.regQ = ""; S.tab = "reglages"; render(); },
   /* Ce que la fiche du client montre de Chouf'Tout */
@@ -13326,7 +13327,7 @@ function rendreCosium(idx){
 
     <p class="tl-sec">Sécurité sociale</p>
     <div class="bloc">
-      ${champ("N° de sécurité sociale", `<span id="secu" data-v="${k.secu}">${k.secu.slice(0, 1)} •• •• •• ••• ••• ${k.secu.slice(-2)}</span>`, true, `<button class="masque" type="button" id="voirSecu" aria-controls="secu">Afficher</button>${copieIco(k.secu.replace(/\s/g, ""), "N° de sécurité sociale")}`)}
+      ${champ("N° de sécurité sociale", k.secu ? `<span id="secu" data-v="${k.secu}">${k.secu.slice(0, 1)} •• •• •• ••• ••• ${k.secu.slice(-2)}</span>` : "Non lu", true, k.secu ? `<button class="masque" type="button" id="voirSecu" aria-controls="secu">Afficher</button>${copieIco(k.secu.replace(/\s/g, ""), "N° de sécurité sociale")}` : "")}
       ${champ("Caisse d’assurance maladie", cp(k.caisse, "Caisse"), false)}
     </div>
 
@@ -15200,9 +15201,9 @@ function dialogueAjout(pre){
     fond.className = "dialogue-fond";
     fond.innerHTML = `<div class="dialogue" role="dialog" aria-modal="true" aria-labelledby="aj-t">
       <h3 id="aj-t">Ajouter depuis Cosium</h3>
-      <p class="intro">Simulation de l’extension : en vrai, ces informations sont lues sur la fiche Cosium du client.</p>
+      ${pre && pre.lu ? `<p class="intro">Lu sur la fiche Cosium du client. Vérifie la mutuelle et son réseau, puis choisis l’équipement.</p>` : `<p class="intro">Simulation de l’extension : en vrai, ces informations sont lues sur la fiche Cosium du client.</p>
       <div class="aj-exemples"><span class="petit" style="align-self:center">Exemples :</span>
-        <button type="button" data-ex="retour">Client qui revient</button><button type="button" data-ex="doublon">Doublon possible</button><button type="button" data-ex="nouveau">Nouveau client</button></div>
+        <button type="button" data-ex="retour">Client qui revient</button><button type="button" data-ex="doublon">Doublon possible</button><button type="button" data-ex="nouveau">Nouveau client</button></div>`}
       <div class="bloc">
         <div class="ld"><span>N° de dossier Cosium</span><input class="aj-champ" id="aj-dossier" inputmode="numeric" autocomplete="off"></div>
         <div class="ld"><span>Nom</span><input class="aj-champ" id="aj-nom" autocomplete="off"></div>
@@ -15322,6 +15323,7 @@ function ajouterDepuisCosium(v){
     c.dossier = v.dossier; c.passage = false; cosiumFictif(c); c.cosium.ne = v.ne || c.cosium.ne; c.cosium.tel = tel; lie = false;
   }
   if (lie) c.autresDossiers = [...(c.autresDossiers || []), v.dossier];
+  if (v.cosium) c.cosium = Object.assign({secu:"", ordo:{date:"", prescripteur:""}}, v.cosium, {lu:"le " + dateISO(isoJour(), "short")});   // 9 oct. 2026 : lue par l'extension
   const tp = !!v.mut, avant = LIGNES.filter(l => l.c === c && l.archive).sort((a, b) => (b.archiveLe || "").localeCompare(a.archiveLe || ""))[0];
   const enCours = LIGNES.filter(l => l.c === c && !l.archive && !estProgramme(l) && l.mut);
   const l = {c, mut:tp ? {nom:v.mut, reseau:v.reseau || "Hors réseau"} : null, equip:"prep", depuis:0, ouvertJ:0,
@@ -15428,6 +15430,32 @@ document.getElementById("cosium").addEventListener("click", async e => {
     if (v){ ajouterDepuisCosium(v); rendreCosiumPage(); }
   }
 });
+/* ---------- Extension Cosium (9 oct. 2026) : demandes passées dans l'adresse (#cosium=…), traitées une fois connecté et la base relevée ---------- */
+let DEMANDE_COSIUM = null;
+function traiterDemandeCosium(){
+  const d = DEMANDE_COSIUM, ch = window.ChoufAPI;
+  if (!d || !ch || !ch.moi() || !ch.basePrete()) return;
+  DEMANDE_COSIUM = null; ch.allerDossiers();
+  const c = clientsDe().find(x => x.dossier === d.dossier || (x.autresDossiers || []).includes(d.dossier));
+  if (d.quoi === "fiche"){ if (c) window.SuviAPI.ouvrirClient(cleClient(c)); else toast(`Dossier Cosium ${d.dossier} : pas encore suivi`); return; }
+  if (d.quoi !== "ajout") return;
+  // Mutuelle de Cosium (« SWISS LIFE ») ramenée au nom connu ; réseau repris du dernier dossier avec cette mutuelle
+  const der = c && LIGNES.filter(l => l.c === c && l.mut).pop();
+  const mut = d.mut ? MUTUELLES.find(m => plat(m) === plat(d.mut)) || d.mut : der ? der.mut.nom : "";
+  const meme = LIGNES.filter(l => l.mut && plat(l.mut.nom) === plat(mut)).pop();
+  setTimeout(async () => {
+    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:meme ? meme.mut.reseau : "", types:["lunettes"], lu:true});
+    if (v){ v.cosium = d.cosium; ajouterDepuisCosium(v); }
+  }, 120);
+}
+const lireDemandeCosium = () => {
+  const m = /#cosium=([^&]*)/.exec(location.hash); if (!m) return;
+  history.replaceState(history.state, "", location.pathname + location.search);   // les infos du client ne restent pas dans l'adresse
+  try { DEMANDE_COSIUM = JSON.parse(decodeURIComponent(m[1])); } catch (e){ console.warn("Extension Cosium :", e); return; }
+  traiterDemandeCosium();
+};
+lireDemandeCosium(); addEventListener("hashchange", lireDemandeCosium);
+setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
 (() => { const q = new URLSearchParams(location.search); if (q.get("vue") === "cosium") basculerVue("cosium", clientsDe().find(x => x.dossier === q.get("dossier"))); })();
 
 /* ---------- Vues rapides et filtres combinables ---------- */
