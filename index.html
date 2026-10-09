@@ -15616,7 +15616,7 @@ async function bandeauDuplicata(){
   if (!cfg){ await confirmer({titre:"Duplicata d’ordonnance", message:"Ton compte ne permet pas de demander un duplicata. La direction peut l’ajouter dans Réglages, Équipe et accès.", bouton:"OK", annuler:"Fermer", doux:true}); return; }
   const c = clientCosium(d.dossier), client = c ? nomClient(c) : `${d.prenom} ${d.nom.charAt(0)}${d.nom.slice(1).toLowerCase()}`;
   const p = d.type === "lentilles" ? "len" : "lun";
-  const message = ch.dupMessage(client, {naissance:c && c.cosium.ne || "", [p + "On"]:"1", [p + "Date"]:d.ordoLe, [p + "OD"]:d.od, [p + "OG"]:d.og});
+  const message = ch.dupMessage(client, {naissance:c && c.cosium.ne || "", secu:d.secu || "", [p + "On"]:"1", [p + "Date"]:d.ordoLe, [p + "OD"]:d.od, [p + "OG"]:d.og});
   // Cabinet proposé : celui dont le nom contient le nom du prescripteur (« Dr Benali »)
   const mots = plat(d.prescripteur || "").replace(/\b(dr|docteur|pr)\b\.?/g, " ").split(/[^a-z]+/).filter(m => m.length > 2);
   const cab = cfg.cabinets.find(x => mots.some(m => plat(x.nom).includes(m)));
@@ -15633,7 +15633,7 @@ async function bandeauDuplicata(){
     </div>
     <p class="tl-sec">Message pour le cabinet</p>
     <div class="bloc"><textarea class="aj-champ dp-message" id="dp-msg" rows="7" aria-label="Message pour le cabinet">${esc(message)}</textarea></div>
-    <p class="intro dp-sante">Données de santé : le message est copié, mais ni lui ni la correction ne sont enregistrés.</p>
+    <p class="intro dp-sante">${d.secu ? "" : "N° de sécu inconnu : ouvre d’abord la fiche du client dans Cosium pour qu’il figure dans le message. "}Données de santé : le message est copié, mais ni lui, ni la correction, ni le n° de sécu ne sont enregistrés.</p>
     <div class="pied"><button type="button" class="secondaire" data-r="0">Annuler</button><button type="button" class="principal" data-r="1" disabled>Enregistrer et copier</button></div>
   </div>`;
   ZONE_SUIVI.appendChild(fond);
