@@ -19423,10 +19423,16 @@ html.mode-cosium #zone-suivi .tableau tbody tr{margin:0 !important; padding:12px
   background:transparent !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; transform:none !important}
 html.mode-cosium #zone-suivi .tableau tbody tr + tr{box-shadow:inset 0 1px 0 var(--separateur) !important}
 html.mode-cosium #zone-suivi .tableau tbody tr:hover{background:color-mix(in srgb, var(--primaire) 4%, transparent) !important}
-/* Bleu nuit qui se fond dans la barre bleue de Cosium (#1D4771), sans arrondi (9 oct. 2026, demande de Mohamed) */
-html.mode-cosium{--cosium-bleu:#1D4771}
-html.mode-cosium #zone-suivi main, html.mode-cosium #zone-suivi .bs{background:linear-gradient(180deg, color-mix(in srgb, var(--cosium-bleu) 62%, #050B1A), var(--cosium-bleu)) !important;
-  border-radius:0 !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important}
+/* Verre des fenêtres de Chouf'Tout (mode sombre) posé sur le papier « coton » du fond, sans arrondi (9 oct. 2026, demande de Mohamed).
+   Le fond est dans la barre elle-même : la fiche ouverte laisse voir Cosium derrière son voile. */
+html.mode-cosium #zone-suivi main, html.mode-cosium #zone-suivi .bs{
+  background-color:var(--fond) !important;
+  background-image:radial-gradient(120% 220% at 12% -60%, color-mix(in srgb, var(--primaire) 22%, transparent), transparent 60%),
+    linear-gradient(var(--carte), var(--carte)), var(--papier, none) !important;
+  background-size:auto, auto, var(--papier-taille, auto) !important; background-repeat:no-repeat, no-repeat, repeat !important;
+  border-radius:0 !important; box-shadow:var(--reflet), inset 0 -1px 0 rgba(255,255,255,.08) !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important}
+html.mode-cosium #zone-suivi .bs-tete{display:none !important}   /* ni « SUIVI · nom », ni « Replier » */
+html.mode-cosium #zone-suivi .bs-lignes{padding-top:4px}
 html.mode-cosium body.vue-cosium #cosium{min-height:0 !important; background:transparent !important}
 html.mode-cosium #cosium > :not(#barreSuvi){display:none !important}
 html.mode-cosium #zone-suivi .bs{position:static; font-family:var(--font)}
