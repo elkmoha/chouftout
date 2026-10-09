@@ -6167,13 +6167,13 @@ const resumeAtl = f => { const n = f.equip.length; return n ? n + (n > 1 ? " com
 const produitChoisi = v => v && v.choix && v.choix !== "autre" ? produitOf(v.choix) || null : null;
 function nomProduit(v){
   const p = produitChoisi(v);
-  if (p) return p.fournisseur + " " + labelProduit(p);
+  if (p) return p.fournisseur + " " + nomCompletProduit(p);
   return v && v.choix === "autre" ? String(v.libre || "").trim() : "";
 }
 const refProduit = v => { const p = produitChoisi(v); return p && p.ref ? p.ref : ""; };
 /* Recherche dans le catalogue : on tape quelques lettres (nom, indice, traitement, référence), le catalogue propose ;
    ce qui ne correspond à aucune référence est gardé tel quel et imprimé comme « pas dans le catalogue ». */
-const texteProduit = p => labelProduit(p) + " · " + p.fournisseur;
+const texteProduit = p => nomCompletProduit(p) + " · " + p.fournisseur;
 const valeurChamp = v => { const p = produitChoisi(v); return p ? texteProduit(p) : (v && v.choix === "autre" ? v.libre : ""); };
 const filtreDe = el => el.dataset.filtre === "lentille" ? estLentille : estVerre;
 function candidatsProduits(filtre, q){
@@ -6181,9 +6181,9 @@ function candidatsProduits(filtre, q){
   const cats = st().tarifs.categories;
   const rang = p => { const i = cats.indexOf(p.cat); return i < 0 ? 99 : i; };
   return produitsActifs().filter(p => filtre(p.cat))
-    .filter(p => { const h = sansAccent([labelProduit(p), p.fournisseur, p.ref, p.cat].concat(traitsTxt(p)).join(" ")); return mots.every(m => h.includes(m)); })
+    .filter(p => { const h = sansAccent([nomCompletProduit(p), p.fournisseur, p.ref, p.cat].concat(traitsTxt(p)).join(" ")); return mots.every(m => h.includes(m)); })
     .sort((a, b) => (favorisOn() ? (b.favori ? 1 : 0) - (a.favori ? 1 : 0) : 0) || rang(a) - rang(b)
-      || a.fournisseur.localeCompare(b.fournisseur, "fr") || labelProduit(a).localeCompare(labelProduit(b), "fr", {numeric:true}))
+      || a.fournisseur.localeCompare(b.fournisseur, "fr") || nomCompletProduit(a).localeCompare(nomCompletProduit(b), "fr", {numeric:true}))
     .slice(0, 8);
 }
 function detailProduit(v){
@@ -6216,7 +6216,7 @@ function sugHtml(el){
   if (!l.length) return q ? `<p class="atl-sug-vide">Rien dans le catalogue pour « ${esc(q)} » : il sera imprimé tel que tu l’as écrit.</p>` : "";
   return (q ? "" : `<p class="atl-sug-titre">${favorisOn() && l.some(p => p.favori) ? "Favoris en premier, tape pour chercher" : "Tape pour chercher"}</p>`)
     + l.map((p, i) => `<button type="button" class="atl-sug-item${i === 0 && q ? " actif" : ""}" role="option" data-action="atl-sug" data-eq="${el.dataset.eq}" data-cote="${el.dataset.cote}" data-prod="${p.id}">
-      <span class="atl-sug-nom">${p.favori && favorisOn() ? `<span class="fav-on">★</span>` : ""}${esc(labelProduit(p))}</span>
+      <span class="atl-sug-nom">${p.favori && favorisOn() ? `<span class="fav-on">★</span>` : ""}${esc(nomCompletProduit(p))}</span>
       <span class="atl-sug-det">${esc(p.fournisseur)}${p.ref ? " · réf. " + esc(p.ref) : ""}${traitsTxt(p).length ? " · " + esc(traitsTxt(p).join(", ")) : ""}</span></button>`).join("");
 }
 function majSuggestions(el, ouvrir){
@@ -6236,7 +6236,7 @@ function lireChampProduit(el){
   const txt = el.value.slice(0, 80).trim(), t = sansAccent(txt);
   const tous = produitsActifs().filter(p => filtreDe(el)(p.cat));
   let p = t ? tous.find(x => sansAccent(texteProduit(x)) === t) : null;
-  if (!p && t){ const m = tous.filter(x => sansAccent(labelProduit(x)) === t); if (m.length === 1) p = m[0]; }
+  if (!p && t){ const m = tous.filter(x => sansAccent(nomCompletProduit(x)) === t); if (m.length === 1) p = m[0]; }
   const ancien = produitChoisi(v);
   if (!p && ancien && sansAccent(texteProduit(ancien)) === t) p = ancien;
   if (p){ v.choix = p.id; v.libre = ""; } else if (t){ v.choix = "autre"; v.libre = txt; } else { v.choix = ""; v.libre = ""; }
@@ -7895,13 +7895,13 @@ function blocDevis(){
   if (!devisOn()) return "";
   const e = devisEtat(), cfg = st().tarifs;
   const mutuelles = uniq(tarifsValides().map(t => t.mutuelle)).sort((a, b) => a.localeCompare(b, "fr")), plats = e.mut ? devisPlats(e.mut) : [];
-  const verres = produitsActifs().filter(p => p.cat === e.cat).sort((a, b) => labelProduit(a).localeCompare(labelProduit(b), "fr"));
+  const verres = produitsActifs().filter(p => p.cat === e.cat).sort((a, b) => nomCompletProduit(a).localeCompare(nomCompletProduit(b), "fr"));
   return `<details ${openAttr("devis-cmp")} class="suivi-block"><summary><span class="sum-label">Comparer un devis</span> <small class="sub">proposer le meilleur verre, dans le prix limite de la mutuelle</small></summary>
     <div class="devis-grille">
       <label>Mutuelle<select class="inp" data-devis="mut" data-key="devis-mut"><option value="">Choisir…</option>${mutuelles.map(m => `<option ${e.mut === m ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>
       <label>Plateforme<select class="inp" data-devis="plat" data-key="devis-plat">${plats.map(m => `<option value="${esc(m)}" ${e.plat === m ? "selected" : ""}>${esc(m || "Sans plateforme")}</option>`).join("") || `<option value="">—</option>`}</select></label>
       <label>Type<select class="inp" data-devis="cat" data-key="devis-cat">${["Unifocal", "Progressif"].filter(c => (cfg.categories || []).includes(c)).map(c => `<option ${e.cat === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>
-      <label>Verre du devis<select class="inp" data-devis="ref" data-key="devis-ref"><option value="">Aucun, voir seulement les propositions</option>${verres.map(p => `<option value="${esc(p.ref)}" ${e.ref === p.ref ? "selected" : ""}>${esc(labelProduit(p) + " · " + p.fournisseur + " · " + p.ref)}</option>`).join("")}</select></label>
+      <label>Verre du devis<select class="inp" data-devis="ref" data-key="devis-ref"><option value="">Aucun, voir seulement les propositions</option>${verres.map(p => `<option value="${esc(p.ref)}" ${e.ref === p.ref ? "selected" : ""}>${esc(nomCompletProduit(p) + " · " + p.fournisseur + " · " + p.ref)}</option>`).join("")}</select></label>
       <label>Prix du devis, par verre<input class="inp" inputmode="decimal" data-devis="prix" data-key="devis-prix" value="${esc(e.prix)}" placeholder="160" autocomplete="off"></label>
     </div>
     ${e.mut ? `<div class="devis-grille" style="margin-top:8px">${[["unifocal", "Plafond par verre, unifocal"], ["progressif", "Plafond par verre, progressif"], ["monture", "Plafond monture"]].map(([k, lib]) => `<label>${lib}<input class="inp" inputmode="decimal" data-plafond="${k}" data-key="plaf-${k}" value="${esc(devisPlafonds(e)[k] == null ? "" : devisPlafonds(e)[k])}" placeholder="non renseigné" autocomplete="off" ${can("tarifs.gerer") ? "" : "readonly"}></label>`).join("")}</div>
@@ -7941,7 +7941,7 @@ function blocDefautsAuto(e){
   if (!devisAutoOn()) return "";
   const d = devisDefauts(e), gerer = can("tarifs.gerer"), ro = gerer ? "" : "readonly", dis = gerer ? "" : "disabled";
   const optVerres = cat => { const l = devisGrille(Object.assign({}, e, {cat})), cur = d[cat.toLowerCase()];
-    return `<option value="">Aucun</option>` + l.map(x => `<option value="${esc(x.p.ref)}" ${cur === x.p.ref ? "selected" : ""}>${esc(labelProduit(x.p) + " · " + x.p.ref + " · " + eur(x.limite))}</option>`).join("") + (cur && !l.some(x => x.p.ref === cur) ? `<option value="${esc(cur)}" selected>${esc(cur)} (hors grille)</option>` : ""); };
+    return `<option value="">Aucun</option>` + l.map(x => `<option value="${esc(x.p.ref)}" ${cur === x.p.ref ? "selected" : ""}>${esc(nomCompletProduit(x.p) + " · " + x.p.ref + " · " + eur(x.limite))}</option>`).join("") + (cur && !l.some(x => x.p.ref === cur) ? `<option value="${esc(cur)}" selected>${esc(cur)} (hors grille)</option>` : ""); };
   const lenLigne = (k, lib) => { const l = d.lentilles[k]; return `<p class="sub" style="margin:12px 0 2px"><b>${lib}</b></p><div class="devis-grille">
     <label>Code produit<input class="inp" data-len="${k}.code" data-key="len-${k}-code" value="${esc(l.code)}" ${ro} autocomplete="off"></label>
     <label>Prix la boîte<input class="inp" inputmode="decimal" data-len="${k}.prix" data-key="len-${k}-prix" value="${esc(String(l.prix).replace(".", ","))}" ${ro} autocomplete="off"></label>
@@ -8070,7 +8070,7 @@ function formTarif(gerer, cfg){
       </div>
       <div class="row">
         <input class="inp" name="produit" maxlength="60" placeholder="Verre ou produit" required style="flex:1 1 200px" list="dl-produits" data-edit="tf-produit" autocomplete="off">
-        <datalist id="dl-produits">${produitsActifs().map(p => `<option value="${esc(labelProduit(p))}"></option>`).join("")}</datalist>
+        <datalist id="dl-produits">${produitsActifs().map(p => `<option value="${esc(nomCompletProduit(p))}"></option>`).join("")}</datalist>
         <input class="inp" name="code" maxlength="20" placeholder="Code produit" style="width:150px">
         ${can("tarifs.achat") ? `<span class="inline"><input class="inp" name="achat" type="number" min="0" max="2000" step="0.5" style="width:100px" placeholder="Achat"> € d’achat</span>` : ""}
         <span class="inline"><input class="inp" name="prix" type="number" min="0" max="2000" step="0.5" style="width:100px" placeholder="Prix" required> € limite</span>
@@ -8137,7 +8137,9 @@ const resoudre = (p, fid) => {
   return v ? {valeur:v, nomFourn:""} : null;
 };
 const valeurIdDe = (p, fid) => { const r = resoudre(p, fid); return r && r.valeur ? r.valeur.id : ""; };
-const labelProduit = p => [p.nom].concat(famillesDe(p).map(f => { const r = resoudre(p, f.id); return r ? (r.nomFourn || (r.valeur ? r.valeur.nom : "")) : ""; })).filter(Boolean).join(" ");
+/* Libellé affiché = la gamme seule ; le nom complet (gamme + traitements du fournisseur) sert à reconnaître le verre, à l’imprimer et à l’exporter (9 oct.) */
+const nomCompletProduit = p => [p.nom].concat(famillesDe(p).map(f => { const r = resoudre(p, f.id); return r ? (r.nomFourn || (r.valeur ? r.valeur.nom : "")) : ""; })).filter(Boolean).join(" ");
+const labelProduit = p => String(p.nom || "").trim() || nomCompletProduit(p);
 const traitsTxt = p => famillesDe(p).map(f => { const r = resoudre(p, f.id); return r && r.valeur ? r.valeur.nom : null; }).filter(Boolean);
 const snapProduits = () => JSON.stringify({f:st().produits.familles, t:traitements(), p:S.produits.map(p => [p.id, p.trait || {}])});
 function restaurerProduits(snap){
@@ -8242,7 +8244,7 @@ function triProd(a, b){
     else if (k === "pv") d = (a.vente == null ? 1e9 : a.vente) - (b.vente == null ? 1e9 : b.vente);
     if (d) return d;
   }
-  return labelProduit(a).localeCompare(labelProduit(b), "fr");
+  return nomCompletProduit(a).localeCompare(nomCompletProduit(b), "fr", {numeric:true});
 }
 const eurOuVide = v => v == null ? "—" : eur(v);
 
@@ -8349,7 +8351,7 @@ function renderProduits(){
   const traitOk = p => famillesPour(p.cat).every(f => { const sel = S.prodTrait[f.id] || []; return !sel.length || sel.includes(valeurIdDe(p, f.id)); });
   const garde = p => (S.prodArchives ? p.archive : !p.archive) && (!S.prodCat || p.cat === S.prodCat)
     && (!S.prodFourn || p.fournisseur === S.prodFourn) && traitOk(p) && (!S.prodFav || !favorisOn() || p.favori)
-    && (!q || [p.nom, p.ref, p.fournisseur, p.lpp, labelProduit(p)].concat(traitsTxt(p)).some(v => sansAccent(v || "").includes(q)));
+    && (!q || [p.nom, p.ref, p.fournisseur, p.lpp, nomCompletProduit(p)].concat(traitsTxt(p)).some(v => sansAccent(v || "").includes(q)));
   const valides = produitsValides(), actifs = produitsActifs();
   const fourns = uniq(valides.map(p => p.fournisseur)).sort((a, b) => a.localeCompare(b, "fr"));
   const nCat = c => actifs.filter(p => p.cat === c).length;
@@ -8503,7 +8505,7 @@ function champsProduit(p){
     ${can("tarifs.achat") && !S.oeil ? `<span class="lbl">PA ${esc(parUnite(p.cat))}</span><span class="sub">Masqué : ouvre l’œil pour le voir ou le modifier.</span>` : ""}
     ${can("tarifs.achat") && S.oeil ? `<label for="pm-achat">PA ${esc(parUnite(p.cat))}</label><span class="inline"><input class="inp" type="number" id="pm-achat" min="0" max="5000" step="0.01" style="width:110px" value="${p.achat == null ? "" : p.achat}"> €</span>` : ""}
     <label for="pm-remise">Remise possible</label><span class="inline"><input class="inp" type="number" id="pm-remise" min="0" max="50" step="1" style="width:110px" value="${p.remise || 0}"> % au maximum</span>
-    <p class="hint-line">Le nom affiché se compose tout seul : la gamme, puis le nom de chaque traitement chez ce fournisseur. La remise n’apparaît que dans la fiche.</p>
+    <p class="hint-line">Le nom affiché est la gamme seule ; les traitements restent dans la fiche du verre et sur la fiche atelier imprimée. La remise n’apparaît que dans la fiche.</p>
   </div>`;
 }
 /* Remplit les listes de traitements selon le fournisseur et le type de verre choisis */
@@ -9099,7 +9101,7 @@ const EXPORTS_ECRAN = {
   produits:{fichier:"catalogue-produits", titre:"le catalogue", quoi:"produit", dateLib:"d’après la dernière mise à jour du produit", liste:() => S.produits, date:p => p.majLe || p.date, lignes:liste => {
     const cout = can("tarifs.cout");   // le prix d'achat reste derrière l'œil
     return [["Fournisseur", "Produit", "Référence", "Catégorie", "Code LPP", "Prix de vente", ...(cout ? ["Prix d’achat", "Remise"] : []), "Statut", "Déréférencé le", "Mis à jour le", "Note"],
-      ...liste.map(p => [p.fournisseur, labelProduit(p), p.ref, p.cat, p.lpp, nbFr(p.vente), ...(cout ? [nbFr(p.achat), nbFr(p.remise)] : []),
+      ...liste.map(p => [p.fournisseur, nomCompletProduit(p), p.ref, p.cat, p.lpp, nbFr(p.vente), ...(cout ? [nbFr(p.achat), nbFr(p.remise)] : []),
         p.archive ? "Déréférencé" : p.statut === "propose" ? "Proposé" : "Validé", dateFr(p.archiveLe), dateFr(p.majLe), p.note || ""])]; }}
 };
 /* Choix de la période : des raccourcis, un mois ou des dates au choix ; « Tout » garde aussi les éléments sans date */
@@ -10429,7 +10431,7 @@ function resultatsRecherche(q){
       detail:cap(resumeAtl(f)) + (f.statut === "brouillon" ? ", pas encore imprimée" : ", éditée le " + fmtDay.format(parseKey(f.editeeLe))), action:"atelier", val:f.id}));
   if (can("planning.voir") && S.settings.processOn !== false) processActifs().filter(p => sansAccent(textePlat(p)).includes(q)).slice(0, max)
     .forEach(p => out.push({groupe:"Comment faire", titre:p.titre, detail:rubriqueNom(p.rubrique) + ", " + p.etapes.length + " étapes", action:"process", val:p.id}));
-  if (canSeeTarifs()) produitsActifs().filter(p => [p.nom, p.ref, p.fournisseur, labelProduit(p)].concat(traitsTxt(p)).some(v => sansAccent(v || "").includes(q))).slice(0, max)
+  if (canSeeTarifs()) produitsActifs().filter(p => [p.nom, p.ref, p.fournisseur, nomCompletProduit(p)].concat(traitsTxt(p)).some(v => sansAccent(v || "").includes(q))).slice(0, max)
     .forEach(p => out.push({groupe:"Produits", titre:labelProduit(p), detail:p.fournisseur + (p.vente == null ? "" : ", " + eur(p.vente) + " " + parUnite(p.cat)), action:"produits", val:p.id}));
   if (canSeeTarifs()) tarifsValides().filter(t => sansAccent(t.produit).includes(q) || sansAccent(t.code || "").includes(q)).slice(0, max)
     .forEach(t => out.push({groupe:"Tarifs", titre:t.produit, detail:gridLabel(t.mutuelle, t.plateforme) + ", " + eur(t.prix), action:"tarifs", val:t.produit}));
@@ -10463,7 +10465,7 @@ function allerVersResultat(cible, val){
   else if (cible === "atelier"){ S.tab = "ateliers"; S.atlEdit = null; S.atlQ = ""; if (atlOf(val)) S.drawer = {type:"atelier", id:val}; }
   else if (cible === "process"){ S.tab = "process"; S.procQ = ""; S.procRub = ""; S.drawer = {type:"process", id:val}; }
   else if (cible === "produits"){ const p = produitOf(val); S.tab = "produits"; S.prodCat = ""; S.prodFourn = ""; S.prodTrait = {}; S.prodArchives = false;
-    S.prodQ = p ? labelProduit(p) : ""; if (p) S.drawer = {type:"produit", id:p.id}; }
+    S.prodQ = p ? nomCompletProduit(p) : ""; if (p) S.drawer = {type:"produit", id:p.id}; }
   else if (cible === "tarifs"){ S.tab = "tarifs"; S.tarifQ = val; S.tarifMut = ""; S.tarifPlat = ""; S.tarifCat = ""; }
   else if (cible === "personne"){ S.tab = "jour"; if (moiLie()) S.jourVoir = val === moiLie() ? null : val; else S.me = val; }
   render();
@@ -10863,7 +10865,7 @@ document.addEventListener("click", async e => {
       if ($("pm-vente") && $("pm-vente").value === ""){ toast("Indique le prix de vente pour ajouter la référence."); return; }
       if (!lireProduit(p)) return;
       if (p.vente == null){ toast("Indique le prix de vente pour ajouter la référence."); return; }
-      const doublon = produitsActifs().find(x => x.fournisseur === p.fournisseur && sansAccent(labelProduit(x)) === sansAccent(labelProduit(p)));
+      const doublon = produitsActifs().find(x => x.fournisseur === p.fournisseur && sansAccent(nomCompletProduit(x)) === sansAccent(nomCompletProduit(p)));
       if (doublon && !(await confirmBox("Cette référence existe déjà", labelProduit(doublon) + " (" + doublon.fournisseur + ")" + (doublon.vente != null ? " à " + eur(doublon.vente) + " " + parUnite(doublon.cat) : "") + ". L’ajouter quand même ?", "Ajouter quand même"))) return;
       p.statut = "valide"; p.historique = [];
       S.produits.push(p);
@@ -11800,7 +11802,7 @@ document.addEventListener("change", e => {
   }
   if (k === "tf-produit"){
     const fm = el.form;
-    const pr = produitsActifs().find(x => sansAccent(labelProduit(x)) === sansAccent(el.value.trim()));
+    const pr = produitsActifs().find(x => sansAccent(nomCompletProduit(x)) === sansAccent(el.value.trim()));
     if (pr && fm){
       if (fm.elements.code) fm.elements.code.value = pr.ref || "";
       if (fm.elements.cat && [...fm.elements.cat.options].some(o => o.value === pr.cat)) fm.elements.cat.value = pr.cat;
@@ -12137,7 +12139,7 @@ document.addEventListener("submit", async e => {
     const achatV = f.elements.achat ? Number(f.elements.achat.value) : NaN;
     const provisoire = {nom, fournisseur:fourn, cat, trait, ref};
     const doublon = S.produits.find(x => !x.archive && ((ref && (x.ref || "").toUpperCase() === ref)
-      || (x.fournisseur === fourn && sansAccent(labelProduit(x)) === sansAccent(labelProduit(provisoire)))));
+      || (x.fournisseur === fourn && sansAccent(nomCompletProduit(x)) === sansAccent(nomCompletProduit(provisoire)))));
     if (doublon){
       const ok = await confirmBox(doublon.statut === "propose" ? "Ce verre est déjà demandé" : "Cette référence est déjà au catalogue",
         labelProduit(doublon) + " (" + doublon.fournisseur + ")" + (doublon.vente != null ? " à " + eur(doublon.vente) + " " + parUnite(doublon.cat) : "") + ". L’ajouter quand même ?", "Ajouter quand même");
