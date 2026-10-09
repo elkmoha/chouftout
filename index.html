@@ -2834,6 +2834,9 @@ body.selection #zone-suivi main{padding-bottom:110px}
 #zone-suivi .prog-actions{display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-top:10px}
 #zone-suivi .prog-date{display:inline-flex; align-items:center; gap:8px; font-size:.875rem; color:var(--second)}
 #zone-suivi .prog-date input{height:32px; border:0; border-radius:8px; background:var(--groupe); padding:0 8px; font:inherit; font-size:.875rem; color:var(--encre)}
+#zone-suivi .suppr-dossier{display:flex; justify-content:center; margin:22px 0 6px}
+#zone-suivi .suppr-dossier .danger{border:0; background:none; color:var(--rouge); font:inherit; font-weight:600; cursor:pointer; min-height:44px; padding:0 14px; border-radius:10px}
+#zone-suivi .suppr-dossier .danger:hover{background:color-mix(in srgb, var(--rouge) 10%, transparent)}
 #zone-suivi .prog-actions .danger{border:0; background:none; color:var(--rouge); font-weight:600; cursor:pointer; padding:4px 0}
 #zone-suivi .bloc-avance{margin-top:10px; background:color-mix(in srgb, var(--orange) 9%, var(--groupe-2))}
 #zone-suivi .bloc-avance .ld > span:first-child{display:flex; flex-direction:column}
@@ -14227,6 +14230,8 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
 `;
   if (window.ChoufAPI) contenu.insertAdjacentHTML("beforeend", window.ChoufAPI.blocFiche(cleClient(c), {nom:nomClient(c), conseiller:c.conseiller || ""}));
   if (FLUX){ const bf = bandeauFlux(idx); if (bf) contenu.insertAdjacentHTML("afterbegin", bf); }
+  // 9 oct. 2026 : supprimer la ligne (dossier créé par erreur ou abandonné), rétablissable depuis l'Activité récente
+  if (!estProgramme(l)) contenu.insertAdjacentHTML("beforeend", `<div class="suppr-dossier"><button type="button" class="danger" data-suppr-dossier="${idx}">Supprimer ce dossier</button></div>`);
   /* « Équipement » rejoint la rangée des ajouts, placée juste sous les équipements */
   { const eq = contenu.querySelector(":scope > label.ajout"), rangee = contenu.querySelector(":scope > .ajouts-fiche");
     if (eq){ const r = rangee || Object.assign(document.createElement("div"), {className:"ajouts-fiche"}); eq.before(r); r.prepend(eq); } }
@@ -14491,6 +14496,23 @@ feuille.addEventListener("click", async ev => {
       acts(l).forEach(a => { if (ancien) a.texte = a.texte.split(ancien).join(m.nom); });   // l'action parle de la nouvelle mutuelle
       l.mut = m; activerRenouv(l, "mutuelle", par, `${m.nom} (${m.reseau}) au lieu de ${avant}`); rafraichirFiche();
       toast(`Renouvellement activé avec ${m.nom}`, null); });
+    return;
+  }
+  const sd = ev.target.closest("[data-suppr-dossier]");
+  if (sd){   // 9 oct. 2026 : la ligne disparaît du suivi ; « Rétablir » la remet à sa place
+    const l = LIGNES[+sd.dataset.supprDossier], c = l.c, quoi = l.items.map(i => TYPES[i.t]).join(" + ") || "dossier";
+    const de = (/^[aeiouyéèêàâîôûh]/i.test(c.prenom) ? "d’" : "de ") + nomClient(c);
+    const oui = await confirmer({titre:`Supprimer le dossier ${esc(de)} ?`,
+      message:`La ligne ${esc(quoi)}${l.mut ? ` (${esc(l.mut.nom)})` : ""} sera retirée du suivi, avec ses actions et son historique. Tu pourras la remettre depuis l’Activité récente, avec « Rétablir ».`, bouton:"Supprimer"});
+    if (!oui) return;
+    const pos = LIGNES.indexOf(l), fams = FAMS.slice(), membres = FAMS.map(f => [f, f.membres.slice(), f.parent]);
+    LIGNES.splice(pos, 1);
+    if (!LIGNES.some(x => x.c === c)){ const f = famDe(c);   // plus aucune ligne pour ce client : il quitte sa famille
+      if (f){ if (f.membres.length <= 2) FAMS = FAMS.filter(x => x !== f); else { f.membres = f.membres.filter(m => m !== c); if (f.parent === c) f.parent = f.membres[0]; } } }
+    RENOUV_CACHE = null; rendre();
+    const autre = LIGNES.findIndex(x => x.c === c && !x.archive);
+    if (autre >= 0) ouvrir(autre, false, true); else fermer();
+    toast(`Dossier ${de} supprimé`, () => { LIGNES.splice(Math.min(pos, LIGNES.length), 0, l); FAMS = fams; membres.forEach(([f, m, p]) => { f.membres = m; f.parent = p; }); RENOUV_CACHE = null; rendre(); }, c);
     return;
   }
   const an = ev.target.closest("[data-prog-annuler]");
@@ -18893,6 +18915,9 @@ ul.export-liste > li{display:flex; align-items:center; gap:12px; padding:10px 0;
 :root:root:root:root[data-contraste="fort"]{--second:color-mix(in srgb, var(--encre) 74%, var(--fond)); --tert:color-mix(in srgb, var(--encre) 52%, var(--fond)); --separateur:color-mix(in srgb, var(--encre) 24%, transparent)}
 /* Mon compte › Fond uni */
 :root[data-fond="uni"] .luxe-mesh{display:none}
+/* Dossiers (9 oct. 2026) : un prénom ou un nom trop long passe à la ligne au lieu de déborder sur la colonne voisine */
+#zone-suivi:not(#luxe) :is(#lignes, #liste) .nom{white-space:normal; overflow-wrap:anywhere; min-width:0}
+#zone-suivi:not(#luxe) #liste .haut > .nom{flex:1 1 auto}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
