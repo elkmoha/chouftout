@@ -15747,10 +15747,10 @@ if (EN_COSIUM){
 }
 if (COTE){
   document.body.insertAdjacentHTML("afterbegin", `<header class="cote-tete"><span class="bc-marque">Chouf’Tout</span></header>`);
-  // Indicateurs : un clic ouvre la liste dans Chouf'Tout (onglet « chouftout », réutilisé), voir traiterDemandeCosium()
+  // Indicateurs : un clic ouvre la liste dans Chouf'Tout, dans l'onglet déjà ouvert s'il y en a un (l'extension le cherche), voir traiterDemandeCosium()
   document.addEventListener("click", e => {
     const t = e.target.closest("[data-ck]"); if (!t) return;
-    open(`${location.origin}${location.pathname}#cosium=${encodeURIComponent(JSON.stringify({quoi:"liste", k:t.dataset.ck}))}`, "chouftout");
+    parent.postMessage({chouf:"liste", url:`${location.origin}${location.pathname}#cosium=${encodeURIComponent(JSON.stringify({quoi:"liste", k:t.dataset.ck}))}`}, "*");
   });
 }
 (() => { const q = new URLSearchParams(location.search); if (q.get("vue") === "cosium") basculerVue("cosium", clientsDe().find(x => x.dossier === q.get("dossier"))); })();
@@ -19683,7 +19683,7 @@ html.mode-cosium.cosium-cote .bandeau-cosium:not(:empty){flex-wrap:wrap; justify
 html.mode-cosium.cosium-cote .bandeau-cosium .bc-nom{font-size:19px; width:100%}
 /* Indicateurs (aucun client ouvert) : tuiles deux par deux, la première sur toute la largeur */
 html.mode-cosium.cosium-cote .bandeau-cosium .ck-titre{width:100%; margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--second)}
-html.mode-cosium.cosium-cote .bandeau-cosium .ck{width:100%; display:grid; grid-template-columns:1fr 1fr; gap:6px}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck{width:100%; display:grid; grid-template-columns:1fr 1fr; gap:12px 10px; margin-top:4px}
 html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile{display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 4px 9px; border:0; border-radius:10px; background:rgba(255,255,255,.05); text-align:center; font:inherit; cursor:pointer; transition:background-color .2s}
 html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile:hover{background:rgba(255,255,255,.1)}
 html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile:focus-visible{outline:2px solid var(--primaire); outline-offset:2px}
