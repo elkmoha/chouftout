@@ -15555,6 +15555,11 @@ const coteLarge = () => {
   });
   return Math.min(COTE_MAX, Math.max(COTE_MIN, Math.ceil(m) + 36));
 };
+/* Aucun client ouvert dans Cosium : les indicateurs du suivi, comme les vues rapides de Dossiers (9 oct. 2026, demande de Mohamed) */
+const COTE_KPI = ["tous", "relancer", "perime", "livrer", "livres", "facturer", "encaisser"];
+const coteKpi = () => `<p class="ck-titre">Suivi du magasin</p><div class="ck">${COTE_KPI.map(k => {
+  const r = RAPIDES.find(x => x.k === k), n = LIGNES.filter(r.test).length;
+  return `<div class="ck-tuile${k === "tous" ? " large" : ""}${r.urgent && n ? " urgent" : ""}${n ? "" : " nul"}" title="${esc(r.aide || "")}"><b>${n}</b><span>${k === "tous" ? "Dossiers en cours" : r.lib}</span></div>`; }).join("")}</div>`;
 // Largeur retenue, gardée en --cote-w : la fiche ouverte (cadre en plein écran), la colonne reste peinte à sa place sous le voile
 const coteW = () => { const w = coteLarge(); document.documentElement.style.setProperty("--cote-w", w + "px"); return w; };
 let COTE_ATTENTE = false;   // le cadre passe en plein écran avant d'ouvrir la fiche
@@ -15597,6 +15602,7 @@ const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autr
 const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
 const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null;
+  if (d.aucun){ BANDEAU = null; BANDEAU_C = null; bandeauMaj(true); return; }   // 9 oct. 2026 : aucun client ouvert dans Cosium (accueil)
   // 9 oct. 2026 : n° de sécu lu sur la fiche Cosium d'un client déjà suivi, inscrit dans sa fiche (dossiers de test seulement, base encore ouverte)
   const cs = d.complet && d.cosium && d.cosium.secu && clientCosium(d.dossier);
   if (cs && cs.cosium && cs.cosium.secu !== d.cosium.secu){ cs.cosium.secu = d.cosium.secu; if (ouverte) rafraichirFiche(); } BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
@@ -15691,7 +15697,7 @@ function bandeauMaj(forcer){
   // Ligne d'appoint : non connecté, aucun client, ou client pas encore suivi
   const z = document.getElementById("bandeauCosium"), c = BANDEAU && clientsDe().find(x => aBandeau({c:x})), passe = BANDEAU && LIGNES.some(l => aBandeau(l));
   const html = !connecte ? `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">${BANDEAU ? esc(nomBandeau(BANDEAU)) + " · " : ""}Connecte-toi pour voir le suivi</span><button type="button" class="bc-bouton" data-bc="connexion">Se connecter</button>`
-    : !BANDEAU ? `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">Ouvre une fiche client dans Cosium pour voir son suivi.</span>`
+    : !BANDEAU ? (COTE ? coteKpi() : `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">Ouvre une fiche client dans Cosium pour voir son suivi.</span>`)
     : !nb ? `<span class="bc-nom">${esc(c ? nomClient(c) : nomBandeau(BANDEAU))}</span><span class="bc-txt">${passe ? "Aucun dossier en cours dans le suivi" : "Pas encore suivi"}</span>
       ${passe ? `<button type="button" class="bc-bouton second" data-bc="fiche">Ouvrir la fiche</button>` : ""}${BANDEAU.complet ? `<button type="button" class="bc-bouton" data-bc="ajout">+ Ajouter au suivi</button>` : `<span class="bc-txt">Ouvre sa fiche Cosium pour l’ajouter</span>`}` : "";
   if (z.dataset.html !== html){ z.dataset.html = html; z.innerHTML = html; }
@@ -19682,6 +19688,16 @@ html.mode-cosium.cosium-cote #zone-suivi .bs-fin:not(:has(.f-solde)){display:non
 html.mode-cosium.cosium-cote #zone-suivi .bs-vide{flex-wrap:wrap; justify-content:center; text-align:center; gap:8px; padding:16px}
 html.mode-cosium.cosium-cote .bandeau-cosium:not(:empty){flex-wrap:wrap; justify-content:center; text-align:center; gap:8px 10px; min-height:0; padding:16px; font-size:14px}
 html.mode-cosium.cosium-cote .bandeau-cosium .bc-nom{font-size:19px; width:100%}
+/* Indicateurs (aucun client ouvert) : tuiles deux par deux, la première sur toute la largeur */
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-titre{width:100%; margin:0; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--second)}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck{width:100%; display:grid; grid-template-columns:1fr 1fr; gap:6px}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile{display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 4px 9px; border-radius:10px; background:rgba(255,255,255,.05); text-align:center; cursor:default}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile.large{grid-column:1 / -1}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile b{font-size:22px; font-weight:500; line-height:1.1; font-variant-numeric:tabular-nums; color:var(--encre)}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile.large b{font-size:28px}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile span{font-size:11.5px; line-height:1.25; color:var(--second)}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile.urgent b{color:var(--orange)}
+html.mode-cosium.cosium-cote .bandeau-cosium .ck-tuile.nul b{color:var(--second)}
 html.mode-cosium.cosium-cote .bandeau-cosium .bc-bouton{margin-left:0; height:32px; padding:0 14px; font-size:.8125rem}
 html.mode-cosium.cosium-cote #zone-suivi .bs-ajout{gap:8px; padding:16px}
 html.mode-cosium.cosium-cote #zone-suivi .ba-champ{width:100%} html.mode-cosium.cosium-cote #zone-suivi .ba-champ span{width:58px; flex:none}
