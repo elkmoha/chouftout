@@ -15439,7 +15439,7 @@ function rendreBarre(){
   }
   z.innerHTML = tete + `<div class="bs-lignes">${ls.map((l, k) => { const i = LIGNES.indexOf(l);
     return `<div class="bs-ligne">
-      <div class="bs-client" data-bs-fiche="${i}"><div class="nom">${esc(nomClient(c))}${c.passage ? '<span class="badge-passage">De passage</span>' : ""}</div>
+      <div class="bs-client" data-bs-fiche="${i}"><div class="nom">${COTE ? `<span>${esc(nomCasse(c))}</span> <span>${esc(c.prenom)}</span>` : esc(nomClient(c))}${c.passage ? '<span class="badge-passage">De passage</span>' : ""}</div>
         <div class="petit ${vieux(l) ? "vieux" : ""}">${depuis(l.depuis)}</div></div>
       <div class="bs-mut">${htmlMut(l, true)}</div>
       <div><div class="items">${htmlItems(l)}</div>${htmlAlerte(l)}</div>
@@ -15544,7 +15544,7 @@ setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
 let BANDEAU = null, BANDEAU_CONNEXION = false, BANDEAU_C = null;
 /* Colonne à droite de Cosium (9 oct. 2026, demande de Mohamed) : ?cosium=1&cote=1. Les mêmes informations que le bandeau, empilées
    dans COTE_LARGE px que Cosium lui laisse en permanence. Cadre voulu : {chouf:"cadre", w, plein}. */
-const COTE = EN_COSIUM && new URLSearchParams(location.search).get("cote") === "1", COTE_LARGE = 296;
+const COTE = EN_COSIUM && new URLSearchParams(location.search).get("cote") === "1", COTE_LARGE = 200;
 let COTE_ATTENTE = false;   // le cadre passe en plein écran avant d'ouvrir la fiche
 if (COTE) document.documentElement.classList.add("cosium-cote");
 /* Ajout au suivi dans la barre même (9 oct. 2026, demande de Mohamed) : seuls la mutuelle, le réseau et l'équipement sont à confirmer */
@@ -15728,6 +15728,7 @@ if (EN_COSIUM){
   setInterval(() => { bandeauMaj(); if (ORDO_ATTENTE) bandeauOrdo(); if (DUP_ATTENTE) bandeauDuplicata(); }, 250);
 }
 if (COTE){
+  document.body.insertAdjacentHTML("afterbegin", `<header class="cote-tete"><span class="bc-marque">Chouf’Tout</span></header>`);
   /* Fiche, ajout : le cadre passe d'abord en plein écran, sinon la fiche s'ouvrirait dans la colonne (mise en page téléphone) */
   document.addEventListener("click", e => {
     const b = e.target.closest('[data-bs-fiche], [data-bc="fiche"], [data-bc="ajout"]');
@@ -19617,36 +19618,43 @@ html.mode-cosium .bandeau-cosium .bc-bouton:hover{background:var(--primaire-fonc
 html.mode-cosium .bandeau-cosium .bc-bouton:active{transform:scale(.97)}
 html.mode-cosium .bandeau-cosium .bc-bouton.second{background:var(--groupe); color:var(--encre); border:1px solid var(--separateur)}
 html.mode-cosium .bandeau-cosium .bc-bouton:focus-visible{outline:2px solid var(--primaire); outline-offset:2px}
-/* ---------- Colonne à droite de Cosium (9 oct. 2026, ?cosium=1&cote=1) : les infos du bandeau, empilées et resserrées ---------- */
+/* ---------- Colonne à droite de Cosium (9 oct. 2026, ?cosium=1&cote=1), d'après le schéma de Mohamed :
+   en-tête « Chouf'Tout », puis nom / prénom, date, mutuelle / réseau, avancement de l'équipement, équipement, état, BL, actions, tout empilé ---------- */
 html.mode-cosium.cosium-cote:not(.cosium-plein), html.mode-cosium.cosium-cote:not(.cosium-plein) body{background:#141417 !important;
   background-image:linear-gradient(165deg, rgba(44,44,48,.66), rgba(24,24,27,.58) 45%, rgba(30,30,34,.64)) !important}
 html.mode-cosium.cosium-cote:not(.cosium-plein) body{min-height:100vh; overflow-y:auto; box-shadow:inset 1px 0 0 rgba(255,255,255,.14)}
-html.mode-cosium.cosium-cote.cosium-plein #zone-suivi > main, html.mode-cosium.cosium-cote.cosium-plein #cosium{display:none !important}   /* fiche ouverte : rien d'autre par-dessus Cosium */
+html.mode-cosium.cosium-cote.cosium-plein #zone-suivi > main, html.mode-cosium.cosium-cote.cosium-plein #cosium, html.mode-cosium.cosium-cote.cosium-plein .cote-tete{display:none !important}   /* fiche ouverte : rien d'autre par-dessus Cosium */
+.cote-tete{display:none}
+html.mode-cosium.cosium-cote.cosium-connecte .cote-tete{display:flex; align-items:center; height:42px; padding:0 16px; background:rgba(0,0,0,.25); box-shadow:inset 0 -1px 0 rgba(255,255,255,.08); font-family:var(--font)}
+.cote-tete .bc-marque{font-weight:600; color:var(--primaire)}
 html.mode-cosium.cosium-cote #zone-suivi main, html.mode-cosium.cosium-cote #zone-suivi .bs{background:transparent !important; background-image:none !important; box-shadow:none !important}
-html.mode-cosium.cosium-cote #zone-suivi .bs{font-size:13px}
+html.mode-cosium.cosium-cote #zone-suivi .bs{font-size:14px}
 html.mode-cosium.cosium-cote #zone-suivi .bs-lignes{display:block; padding:0}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne{display:flex !important; flex-direction:column; align-items:stretch; gap:7px; padding:10px 12px !important}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne{display:flex !important; flex-direction:column; align-items:flex-start; gap:12px; padding:16px !important}
 html.mode-cosium.cosium-cote #zone-suivi .bs-ligne + .bs-ligne{border-top:1px solid rgba(255,255,255,.1)}
-html.mode-cosium.cosium-cote #zone-suivi .bs-client{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
-html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom{font-size:14px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-client .petit{font-size:11px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-mut{display:block}
-html.mode-cosium.cosium-cote #zone-suivi .bs-mut .mut{display:inline-flex; gap:6px; align-items:baseline}
-html.mode-cosium.cosium-cote #zone-suivi .bs-mut > *{display:inline !important} html.mode-cosium.cosium-cote #zone-suivi .bs-mut > .petit::before{content:" · "}
-/* équipement sur sa ligne, puis l'état et le BL côte à côte */
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items{grid-template-columns:fit-content(58%) minmax(0, 1fr); gap:4px 6px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items > :nth-child(3n+1){grid-column:1 / -1}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items .choix{min-width:0; margin-left:0; overflow:hidden; text-overflow:ellipsis; font-size:12.5px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .alerte{font-size:11.5px; margin-top:4px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .equip{gap:4px}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > *{order:9; max-width:100%}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-client{order:1}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-mut{order:2; display:block}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > :has(> .equip){order:3}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > :has(> .items){order:4; width:100%}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-act{order:5; width:100%}
+html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom{font-size:21px; font-weight:400; line-height:1.2}
+html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom > span{display:block}
+html.mode-cosium.cosium-cote #zone-suivi .bs-client .petit{margin-top:4px; font-size:13px}
+html.mode-cosium.cosium-cote #zone-suivi .bs-mut .mut-nom{font-size:15px}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .equip{display:flex; flex-direction:column; align-items:flex-start; gap:6px}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items{grid-template-columns:minmax(0, 1fr); gap:10px; justify-items:start}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items .choix{min-width:0; max-width:100%; margin-left:0; overflow:hidden; text-overflow:ellipsis}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items .choix:not(.discret){width:100%; justify-content:center}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .alerte{font-size:12px; margin-top:6px}
 html.mode-cosium.cosium-cote #zone-suivi .bs-fin{justify-self:auto; display:flex; flex-wrap:wrap; gap:6px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-fin .bs-ouvrir{flex:1}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ouvrir{height:30px}
-html.mode-cosium.cosium-cote #zone-suivi .bs-vide{flex-wrap:wrap; gap:8px; padding:10px 12px}
-html.mode-cosium.cosium-cote .bandeau-cosium:not(:empty){flex-wrap:wrap; gap:6px 10px; min-height:0; padding:10px 12px; font-size:13px}
-html.mode-cosium.cosium-cote .bandeau-cosium .bc-nom{font-size:15px; width:100%}
-html.mode-cosium.cosium-cote .bandeau-cosium .bc-bouton{margin-left:0; height:30px; padding:0 12px; font-size:.8125rem}
-html.mode-cosium.cosium-cote #zone-suivi .bs-ajout{gap:8px; padding:10px 12px}
+html.mode-cosium.cosium-cote #zone-suivi .bs-fin .bs-ouvrir{display:none}   /* le nom ouvre la fiche */
+html.mode-cosium.cosium-cote #zone-suivi .bs-fin:not(:has(.f-solde)){display:none}
+html.mode-cosium.cosium-cote #zone-suivi .bs-vide{flex-wrap:wrap; gap:8px; padding:16px}
+html.mode-cosium.cosium-cote .bandeau-cosium:not(:empty){flex-wrap:wrap; gap:8px 10px; min-height:0; padding:16px; font-size:14px}
+html.mode-cosium.cosium-cote .bandeau-cosium .bc-nom{font-size:19px; width:100%}
+html.mode-cosium.cosium-cote .bandeau-cosium .bc-bouton{margin-left:0; height:32px; padding:0 14px; font-size:.8125rem}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ajout{gap:8px; padding:16px}
 html.mode-cosium.cosium-cote #zone-suivi .ba-champ{width:100%} html.mode-cosium.cosium-cote #zone-suivi .ba-champ span{width:58px; flex:none}
 html.mode-cosium.cosium-cote #zone-suivi .ba-champ :is(input, select){flex:1; width:auto; min-width:0; height:30px}
 html.mode-cosium.cosium-cote #zone-suivi .ba-types{flex-wrap:wrap} html.mode-cosium.cosium-cote #zone-suivi .ba-type{height:30px; padding:0 9px}
