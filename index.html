@@ -15439,7 +15439,7 @@ function rendreBarre(){
   }
   z.innerHTML = tete + `<div class="bs-lignes">${ls.map((l, k) => { const i = LIGNES.indexOf(l);
     return `<div class="bs-ligne">
-      <div class="bs-client" data-bs-fiche="${i}"><div class="nom">${COTE ? `<span>${esc(nomCasse(c))}</span> <span>${esc(c.prenom)}</span>` : esc(nomClient(c))}${c.passage ? '<span class="badge-passage">De passage</span>' : ""}</div>
+      <div class="bs-client" data-bs-fiche="${i}"><div class="nom">${COTE ? `<span>${esc(c.nom.toUpperCase())}</span> <span>${esc(c.prenom)}</span>` : esc(nomClient(c))}${c.passage ? '<span class="badge-passage">De passage</span>' : ""}</div>
         <div class="petit ${vieux(l) ? "vieux" : ""}">${depuis(l.depuis)}</div></div>
       <div class="bs-mut">${htmlMut(l, true)}</div>
       <div><div class="items">${htmlItems(l)}</div>${htmlAlerte(l)}</div>
@@ -19648,7 +19648,11 @@ html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-mut{order:2; display:bl
 html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > :has(> .equip){order:3}
 html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > :has(> .items){order:4; width:100%}
 html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-act{order:5; width:100%}
+/* petits traits de séparation entre les blocs, centrés et discrets */
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > :is(.bs-mut, :has(> .equip), :has(> .items), .bs-act){padding-top:12px;
+  background:linear-gradient(rgba(255,255,255,.12), rgba(255,255,255,.12)) top center / 40px 1px no-repeat}
 html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom{font-size:21px; font-weight:400; line-height:1.2}
+html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom > span:first-child{font-size:19px; letter-spacing:.02em}
 html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom > span{display:block}
 html.mode-cosium.cosium-cote #zone-suivi .bs-client .petit{margin-top:4px; font-size:13px}
 html.mode-cosium.cosium-cote #zone-suivi .bs-mut .mut-nom{font-size:15px}
