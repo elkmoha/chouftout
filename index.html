@@ -15512,12 +15512,12 @@ function traiterDemandeCosium(){
     return;
   }
   if (d.quoi !== "ajout") return;
-  // Mutuelle de Cosium (« SWISS LIFE ») ramenée au nom connu ; réseau repris du dernier dossier avec cette mutuelle
+  // Mutuelle de Cosium (« SWISS LIFE ») ramenée au nom connu ; réseau lu dans Cosium, sinon repris du dernier dossier avec cette mutuelle
   const der = c && LIGNES.filter(l => l.c === c && l.mut).pop();
   const mut = d.mut ? MUTUELLES.find(m => plat(m) === plat(d.mut)) || d.mut : der ? der.mut.nom : "";
   const meme = LIGNES.filter(l => l.mut && plat(l.mut.nom) === plat(mut)).pop();
   setTimeout(async () => {
-    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:meme ? meme.mut.reseau : "", types:["lunettes"], lu:true});
+    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:(d.mut && reseauCosium(d.reseau)) || (meme ? meme.mut.reseau : ""), types:["lunettes"], lu:true});
     if (v){ v.cosium = d.cosium; ajouterDepuisCosium(v); }
   }, 120);
 }
@@ -15567,11 +15567,13 @@ if (COTE) document.documentElement.classList.add("cosium-cote");
 /* Ajout au suivi dans la barre même (9 oct. 2026, demande de Mohamed) : seuls la mutuelle, le réseau et l'équipement sont à confirmer */
 let BANDEAU_AJOUT = null;   // {mut, reseau, types} pendant la saisie
 const reseauDe = mut => { const l = mut && LIGNES.filter(x => x.mut && plat(x.mut.nom) === plat(mut)).pop(); return l ? l.mut.reseau : ""; };
+// 9 oct. 2026 : réseau lu dans Cosium (« Gestionnaire Contrat » de la complémentaire, « VIAMEDIS ») ramené au nom connu
+const reseauCosium = g => { if (!g) return ""; const k = plat(g).replace(/[^a-z]/g, ""); return RESEAUX.find(r => plat(r).replace(/[^a-z]/g, "") === k) || g.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, x => x.toUpperCase()); };
 const connuBandeau = () => clientsDe().find(x => x.dossier === BANDEAU.dossier || (x.autresDossiers || []).includes(BANDEAU.dossier)) || null;
 function bandeauAjoutOuvrir(){
   if (!BANDEAU.complet){ toast("Ouvre sa fiche Cosium pour l’ajouter au suivi"); return; }
   const mut = BANDEAU.mut ? MUTUELLES.find(m => plat(m) === plat(BANDEAU.mut)) || BANDEAU.mut : "";
-  BANDEAU_AJOUT = {mut, reseau:reseauDe(mut), types:["lunettes"], par:auteur() || ""}; rendreBarre();
+  BANDEAU_AJOUT = {mut, reseau:(BANDEAU.mut && reseauCosium(BANDEAU.reseau)) || reseauDe(mut), types:["lunettes"], par:auteur() || ""}; rendreBarre();
   document.querySelector('#barreSuvi [data-ba="mut"]')?.focus();
 }
 function bandeauAjoutHTML(){
@@ -15602,10 +15604,16 @@ const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autr
 const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
 const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null;
+  else if (BANDEAU_AJOUT && d.reseau && !BANDEAU.reseau) BANDEAU_AJOUT.reseau = reseauCosium(d.reseau);   // réseau arrivé après l'ouverture de l'ajout
   if (d.aucun){ BANDEAU = null; BANDEAU_C = null; bandeauMaj(true); return; }   // 9 oct. 2026 : aucun client ouvert dans Cosium (accueil)
   // 9 oct. 2026 : n° de sécu lu sur la fiche Cosium d'un client déjà suivi, inscrit dans sa fiche (dossiers de test seulement, base encore ouverte)
   const cs = d.complet && d.cosium && d.cosium.secu && clientCosium(d.dossier);
-  if (cs && cs.cosium && cs.cosium.secu !== d.cosium.secu){ cs.cosium.secu = d.cosium.secu; if (ouverte) rafraichirFiche(); } BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
+  if (cs && cs.cosium && cs.cosium.secu !== d.cosium.secu){ cs.cosium.secu = d.cosium.secu; if (ouverte) rafraichirFiche(); }
+  // 9 oct. 2026 : réseau lu dans Cosium, inscrit sur les lignes en cours de cette mutuelle restées « Hors réseau » (réseau inconnu à l'ajout)
+  const rc = d.complet && d.mut && reseauCosium(d.reseau), cr = rc && rc !== "Hors réseau" && clientCosium(d.dossier);
+  const aRegler = cr ? LIGNES.filter(l => l.c === cr && !l.archive && l.mut && plat(l.mut.nom) === plat(d.mut) && l.mut.reseau === "Hors réseau") : [];
+  aRegler.forEach(l => { l.mut.reseau = rc; histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Réseau ${rc} lu dans Cosium (gestionnaire de la complémentaire)`}); });
+  if (aRegler.length && ouverte) rafraichirFiche(); BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
 /* Ordonnance du dossier Lunettes ou Lentilles ouvert dans Cosium (9 oct. 2026, demande de Mohamed) : inscrite dans la fiche du client,
    sauf si ce dossier Cosium est bien plus ancien que la ligne de suivi de cet équipement : ce n'est alors pas la bonne ordonnance.
    L'avis s'affiche dans Cosium, sous la correction ({chouf:"avis"}). */
