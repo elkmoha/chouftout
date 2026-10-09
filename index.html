@@ -15555,6 +15555,8 @@ const coteLarge = () => {
   });
   return Math.min(COTE_MAX, Math.max(COTE_MIN, Math.ceil(m) + 36));
 };
+// Largeur retenue, gardée en --cote-w : la fiche ouverte (cadre en plein écran), la colonne reste peinte à sa place sous le voile
+const coteW = () => { const w = coteLarge(); document.documentElement.style.setProperty("--cote-w", w + "px"); return w; };
 let COTE_ATTENTE = false;   // le cadre passe en plein écran avant d'ouvrir la fiche
 if (COTE) document.documentElement.classList.add("cosium-cote");
 /* Ajout au suivi dans la barre même (9 oct. 2026, demande de Mohamed) : seuls la mutuelle, le réseau et l'équipement sont à confirmer */
@@ -15704,7 +15706,7 @@ function bandeauMaj(forcer){
   // Hauteur du bandeau : la ligne d'appoint, ou les lignes du client
   const bas = el => el && el.offsetParent !== null ? el.getBoundingClientRect().bottom : 0;
   const h = Math.ceil(bas(document.querySelector(barre ? "#barreSuvi" : "#zone-suivi main")));
-  const msg = JSON.stringify(COTE ? {chouf:"cadre", w:plein ? 0 : coteLarge(), plein} : {chouf:"cadre", h, plein});
+  const msg = JSON.stringify(COTE ? {chouf:"cadre", w:plein ? 0 : coteW(), plein} : {chouf:"cadre", h, plein});
   if (forcer || msg !== bandeauDernier){ bandeauDernier = msg; parent.postMessage(JSON.parse(msg), "*"); }
 }
 if (EN_COSIUM){
@@ -19633,7 +19635,12 @@ html.mode-cosium .bandeau-cosium .bc-bouton:focus-visible{outline:2px solid var(
 html.mode-cosium.cosium-cote:not(.cosium-plein), html.mode-cosium.cosium-cote:not(.cosium-plein) body{background:#141417 !important;
   background-image:linear-gradient(165deg, rgba(44,44,48,.66), rgba(24,24,27,.58) 45%, rgba(30,30,34,.64)) !important}
 html.mode-cosium.cosium-cote:not(.cosium-plein) body{min-height:100vh; overflow-y:auto; box-shadow:inset 1px 0 0 rgba(255,255,255,.14)}
-html.mode-cosium.cosium-cote.cosium-plein #zone-suivi > main, html.mode-cosium.cosium-cote.cosium-plein #cosium, html.mode-cosium.cosium-cote.cosium-plein .cote-tete{display:none !important}   /* fiche ouverte : rien d'autre par-dessus Cosium */
+/* fiche ouverte (cadre en plein écran) : la colonne reste à sa place, sous le voile ; sinon Cosium apparaissait (blanc) le temps de l'animation */
+html.mode-cosium.cosium-cote.cosium-plein #zone-suivi > main{display:none !important}
+html.mode-cosium.cosium-cote.cosium-plein .cote-tete, html.mode-cosium.cosium-cote.cosium-plein #cosium{position:fixed; right:0; width:var(--cote-w, 184px)}
+html.mode-cosium.cosium-cote.cosium-plein .cote-tete{top:0; left:auto; display:flex}
+html.mode-cosium.cosium-cote.cosium-plein #cosium{top:42px; bottom:0; overflow:hidden}
+html.mode-cosium.cosium-cote.cosium-plein body{background:linear-gradient(to left, #19191c var(--cote-w, 184px), transparent var(--cote-w, 184px)) fixed !important}
 .cote-tete{display:none}
 html.mode-cosium.cosium-cote.cosium-connecte .cote-tete{display:flex; align-items:center; justify-content:center; height:42px; padding:0 16px; background:rgba(0,0,0,.25); box-shadow:inset 0 -1px 0 rgba(255,255,255,.08); font-family:var(--font)}
 .cote-tete .bc-marque{font-weight:600; color:var(--primaire)}
@@ -19651,6 +19658,8 @@ html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > .bs-act{order:5; width:100%
 /* petits traits de séparation entre les blocs, centrés et discrets */
 html.mode-cosium.cosium-cote #zone-suivi .bs-ligne > :is(.bs-mut, :has(> .equip), :has(> .items), .bs-act){padding-top:12px;
   background:linear-gradient(rgba(255,255,255,.12), rgba(255,255,255,.12)) top center / 40px 1px no-repeat}
+html.mode-cosium.cosium-cote #zone-suivi .bs-ligne .items > .it-nom:not(:first-child){width:100%; margin-top:2px; padding-top:12px; justify-content:center;
+  background:linear-gradient(rgba(255,255,255,.12), rgba(255,255,255,.12)) top center / 40px 1px no-repeat}   /* entre deux équipements */
 html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom{font-size:21px; font-weight:400; line-height:1.2}
 html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom > span:first-child{font-size:19px; letter-spacing:.02em}
 html.mode-cosium.cosium-cote #zone-suivi .bs-client .nom > span{display:block}
