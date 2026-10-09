@@ -4659,6 +4659,8 @@ function appliquerHtml(html){
    9 oct. 2026 : étapes numérotées (posHisto). « Suivant » ne rejoue plus un retour, et l'étape 0, posée à la connexion,
    renvoie à l'étape 1 : un « Précédent » de trop ne quitte plus l'app (les données seraient perdues). */
 let posHisto = 0;
+const DANS_COSIUM = new URLSearchParams(location.search).get("cosium") === "1";   // 9 oct. 2026 : bandeau de l'extension Cosium, voir bandeauMaj()
+if (DANS_COSIUM){ document.documentElement.classList.add("mode-cosium"); document.documentElement.dataset.theme = "light"; }   // clair, comme Cosium
 function empiler(etat){
   S.pile.push(etat);
   if (S.pile.length > 40) S.pile.shift();
@@ -4666,7 +4668,7 @@ function empiler(etat){
 }
 function memoriserNavigation(){
   if (!S.user){ S.dernierTab = null; return; }
-  if (!posHisto) try { history.replaceState({chouftout:0}, ""); history.pushState({chouftout:1}, ""); posHisto = 1; } catch (_) {}
+  if (!posHisto && !DANS_COSIUM) try { history.replaceState({chouftout:0}, ""); history.pushState({chouftout:1}, ""); posHisto = 1; } catch (_) {}   // dans Cosium, « Précédent » reste à Cosium
   if (!S.enRetour && S.dernierTab && S.tab !== S.dernierTab) empiler({tab:S.dernierTab});
   S.dernierTab = S.tab;
 }
@@ -4774,7 +4776,8 @@ function render(){
       const cle = (p ? p.name : "") + "|" + adm;
       if (S.suviCompte !== cle){ S.suviCompte = cle; window.SuviAPI.connecter(p ? p.name : null, adm); } } }
   const pr = prefsOf();
-  if (pr.theme === "auto") delete document.documentElement.dataset.theme;
+  if (DANS_COSIUM) document.documentElement.dataset.theme = "light";   // 9 oct. 2026 : bandeau Cosium, toujours clair
+  else if (pr.theme === "auto") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = pr.theme;
   /* Préférences personnelles de la refonte : recherche, info-bulles, animations (lues par les scripts luxe) */
   { const h = document.documentElement.dataset; h.recherche = pr.recherche === "fenetre" ? "fenetre" : "barre"; h.bulles = pr.bulles === "non" ? "non" : "oui"; h.mouvement = pr.mouvement === "reduit" ? "reduit" : "normal";
@@ -15434,6 +15437,7 @@ document.getElementById("cosium").addEventListener("click", async e => {
 });
 /* ---------- Extension Cosium (9 oct. 2026) : demandes passées dans l'adresse (#cosium=…), traitées une fois connecté et la base relevée ---------- */
 let DEMANDE_COSIUM = null;
+const EN_COSIUM = document.documentElement.classList.contains("mode-cosium");   // bandeau de l'extension (posé par Chouf'Tout, ?cosium=1)
 function traiterDemandeCosium(){
   const d = DEMANDE_COSIUM, ch = window.ChoufAPI;
   if (!d || !ch || !ch.moi() || !ch.basePrete()) return;
@@ -15466,9 +15470,53 @@ lireDemandeCosium(); addEventListener("hashchange", lireDemandeCosium);
 // Dans le panneau latéral de l'extension, les demandes arrivent par message (la page de l'extension, et elle seule)
 addEventListener("message", e => {
   if (!/^chrome-extension:\/\//.test(e.origin) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
+  if (EN_COSIUM && e.data.demande.quoi === "suivre"){ bandeauSuivre(e.data.demande); return; }
   DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
 });
 setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
+
+/* ---------- Bandeau dans Cosium (9 oct. 2026) : ?cosium=1, Chouf'Tout dans un cadre sous la barre bleue de Cosium ----------
+   Seules les lignes du client ouvert dans Cosium s'affichent, exactement comme dans Dossiers (pastilles modifiables, actions…).
+   La fiche, les fenêtres et la connexion prennent toute la fenêtre (cadre « plein »), Cosium visible derrière le voile.
+   Le cadre de l'extension reçoit la hauteur voulue : {chouf:"cadre", h, plein}. */
+let BANDEAU = null, BANDEAU_CONNEXION = false;   // BANDEAU : client lu dans Cosium ({dossier, complet, nom, prenom…} ou {dossier, libelle})
+const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autresDossiers || []).includes(BANDEAU.dossier));
+const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
+const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
+function bandeauSuivre(d){ BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
+let bandeauDernier = "";
+function bandeauMaj(forcer){
+  const R = document.documentElement, connecte = !!(window.ChoufAPI && window.ChoufAPI.moi());
+  if (connecte && BANDEAU_CONNEXION) BANDEAU_CONNEXION = false;
+  if (connecte && document.getElementById("zone-suivi").hidden) window.ChoufAPI.allerDossiers();
+  if (connecte && FILTRE_TACHE !== FILTRE_BANDEAU){ FILTRE_TACHE = FILTRE_BANDEAU; rendre(); }   // une vue rapide ou une tâche l'avait retiré
+  const nb = connecte ? LIGNES.filter(FILTRE_BANDEAU.test).length : 0;
+  const plein = BANDEAU_CONNEXION || (connecte && !!(ouverte || SEL.actif || menuOuvert || etatPop || jgPop || !panneauAct.hidden || !panneauF.hidden || !feuilleR.hidden
+    || !pageR.hidden || !pageT.hidden || !pageJ.hidden || document.querySelector(".alerte-fond, .dialogue-fond")));
+  R.classList.toggle("cosium-connecte", connecte); R.classList.toggle("cosium-plein", plein); R.classList.toggle("cosium-vide", connecte && !nb);
+  // Ligne d'appoint : non connecté, aucun client, ou client pas encore suivi
+  const z = document.getElementById("bandeauCosium"), c = BANDEAU && clientsDe().find(x => aBandeau({c:x})), passe = BANDEAU && LIGNES.some(l => aBandeau(l));
+  const html = !connecte ? `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">${BANDEAU ? esc(nomBandeau(BANDEAU)) + " · " : ""}Connecte-toi pour voir le suivi</span><button type="button" class="bc-bouton" data-bc="connexion">Se connecter</button>`
+    : !BANDEAU ? `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">Ouvre une fiche client dans Cosium pour voir son suivi.</span>`
+    : !nb ? `<span class="bc-nom">${esc(c ? nomClient(c) : nomBandeau(BANDEAU))}</span><span class="bc-txt">${passe ? "Aucun dossier en cours dans le suivi" : "Pas encore suivi"}</span>
+      ${passe ? `<button type="button" class="bc-bouton second" data-bc="fiche">Ouvrir la fiche</button>` : ""}${BANDEAU.complet ? `<button type="button" class="bc-bouton" data-bc="ajout">+ Ajouter au suivi</button>` : `<span class="bc-txt">Ouvre sa fiche Cosium pour l’ajouter</span>`}` : "";
+  if (z.dataset.html !== html){ z.dataset.html = html; z.innerHTML = html; }
+  // Hauteur du bandeau : la ligne d'appoint, ou les lignes du client
+  const bas = el => el && el.offsetParent !== null ? el.getBoundingClientRect().bottom : 0;
+  const h = Math.ceil(Math.max(bas(z), ...[...document.querySelectorAll("#zone-suivi .tableau tbody tr, #zone-suivi .liste > li")].map(bas)) + 10);
+  const msg = JSON.stringify({chouf:"cadre", h, plein});
+  if (forcer || msg !== bandeauDernier){ bandeauDernier = msg; parent.postMessage(JSON.parse(msg), "*"); }
+}
+if (EN_COSIUM){
+  document.querySelector("#zone-suivi main").insertAdjacentHTML("afterbegin", `<div class="bandeau-cosium" id="bandeauCosium" role="region" aria-label="Chouf’Tout"></div>`);
+  document.getElementById("bandeauCosium").addEventListener("click", e => {
+    const b = e.target.closest("[data-bc]"); if (!b) return;
+    if (b.dataset.bc === "connexion"){ BANDEAU_CONNEXION = true; bandeauMaj(); return; }
+    DEMANDE_COSIUM = b.dataset.bc === "fiche" ? {quoi:"fiche", dossier:BANDEAU.dossier} : Object.assign({}, BANDEAU, {quoi:"ajout"}); traiterDemandeCosium();
+  });
+  addEventListener("keydown", e => { if (e.key === "Escape" && BANDEAU_CONNEXION){ BANDEAU_CONNEXION = false; bandeauMaj(); } });   // renoncer à se connecter
+  setInterval(bandeauMaj, 250);
+}
 (() => { const q = new URLSearchParams(location.search); if (q.get("vue") === "cosium") basculerVue("cosium", clientsDe().find(x => x.dossier === q.get("dossier"))); })();
 
 /* ---------- Vues rapides et filtres combinables ---------- */
@@ -19263,5 +19311,37 @@ ul.export-liste > li{display:flex; align-items:center; gap:12px; padding:10px 0;
   addEventListener("resize", () => { if (ouvert) poser(pos); });
 })();
 </script>
+<style id="cosium-css">
+/* ---------- Bandeau dans Cosium (9 oct. 2026) : ?cosium=1, voir bandeauMaj() ----------
+   Connecté : fond transparent, seules les lignes du client restent ; Cosium se voit derrière le voile de la fiche. */
+html.mode-cosium .ci-voile, html.mode-cosium .skip{display:none !important}
+html.mode-cosium{color-scheme:light !important}   /* même schéma que le cadre : sinon Chrome peint le cadre en opaque */
+html.mode-cosium.cosium-connecte, html.mode-cosium.cosium-connecte body{background:transparent !important; background-image:none !important}
+html.mode-cosium.cosium-connecte .luxe-mesh, html.mode-cosium.cosium-connecte #app,
+html.mode-cosium #zone-suivi > header.barre, html.mode-cosium #resume, html.mode-cosium #ailleurs, html.mode-cosium #zone-suivi .tableau thead{display:none !important}
+html.mode-cosium:not(.cosium-connecte):not(.cosium-plein) #app, html.mode-cosium:not(.cosium-connecte):not(.cosium-plein) #login, html.mode-cosium:not(.cosium-connecte):not(.cosium-plein) .luxe-mesh{display:none !important}
+html.mode-cosium:not(.cosium-connecte):not(.cosium-plein), html.mode-cosium:not(.cosium-connecte):not(.cosium-plein) body{background:transparent !important; background-image:none !important}
+html.mode-cosium:not(.cosium-plein) body{overflow:hidden}
+html.mode-cosium #zone-suivi main{padding:6px 16px 0 !important; margin:0 !important; max-width:none !important; min-height:0 !important}
+html.mode-cosium #zone-suivi .groupe{margin:0 !important}
+html.mode-cosium.cosium-vide #zone-suivi .groupe, html.mode-cosium:not(.cosium-connecte) #zone-suivi .groupe{display:none !important}
+html.mode-cosium:not(.cosium-connecte) #zone-suivi{display:block !important}
+html.mode-cosium #zone-suivi .toast{top:10px; bottom:auto}
+/* Ligne d'appoint : non connecté, aucun client, ou client pas encore suivi */
+.bandeau-cosium{display:none}
+html.mode-cosium .bandeau-cosium:not(:empty){display:flex; align-items:center; gap:14px; min-height:64px; padding:12px 24px; border-radius:var(--r-card, 16px);
+  background:var(--carte); border:1px solid var(--carte-ligne); box-shadow:var(--ombre-2); backdrop-filter:var(--verre-flou); -webkit-backdrop-filter:var(--verre-flou);
+  font-family:var(--font); color:var(--encre)}
+html.mode-cosium .bandeau-cosium .bc-marque{font-weight:600; color:var(--primaire)}
+html.mode-cosium .bandeau-cosium .bc-nom{font-size:1.25rem; font-weight:300; letter-spacing:-.2px}
+html.mode-cosium .bandeau-cosium .bc-txt{color:var(--second); flex:0 1 auto}
+html.mode-cosium .bandeau-cosium .bc-bouton{margin-left:auto; height:36px; padding:0 16px; border-radius:999px; border:0; cursor:pointer; font:500 .875rem var(--font);
+  background:var(--primaire); color:#fff; transition:background-color .3s var(--ease-stripe), transform .35s var(--ease-ressort)}
+html.mode-cosium .bandeau-cosium .bc-bouton + .bc-bouton, html.mode-cosium .bandeau-cosium .bc-bouton + .bc-txt{margin-left:0}
+html.mode-cosium .bandeau-cosium .bc-bouton:hover{background:var(--primaire-fonce)}
+html.mode-cosium .bandeau-cosium .bc-bouton:active{transform:scale(.97)}
+html.mode-cosium .bandeau-cosium .bc-bouton.second{background:var(--groupe); color:var(--encre); border:1px solid var(--separateur)}
+html.mode-cosium .bandeau-cosium .bc-bouton:focus-visible{outline:2px solid var(--primaire); outline-offset:2px}
+</style>
 </body>
 </html>
