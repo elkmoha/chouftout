@@ -13388,7 +13388,7 @@ function rendreCosium(idx){
     </div>
 
     <p class="tl-sec">Ordonnance (dossier lunettes)</p>
-    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}</div>
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${k.ordo.delivrance ? champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true) : ""}</div>
     ${k.ordoLen && k.ordoLen.date ? `<p class="tl-sec">Ordonnance (dossier lentilles)</p>
     <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}</div>` : ""}
     <div class="note-sante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
@@ -15633,9 +15633,10 @@ function bandeauOrdo(){
   if (isoFr(d.dossierLe) < isoMoins(l.ouvertJ + ORDO_ECART_J))
     return rep("ancien", `Dossier ${nom} du ${d.dossierLe}, bien antérieur à la ligne de suivi (créée le ${dateCourteISO(cree)}) : ce n’est sans doute pas la bonne ordonnance. Rien n’est repris dans Chouf’Tout.`);
   const k = d.type === "lentilles" ? "ordoLen" : "ordo", avant = c.cosium[k];
-  if (!avant || avant.date !== d.ordoLe || avant.prescripteur !== d.prescripteur){
-    c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe};
-    l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Ordonnance ${nom} du ${d.ordoLe}${d.prescripteur ? ` (${d.prescripteur})` : ""} lue dans Cosium`});
+  const deliv = d.delivrance || "";   // 9 oct. 2026 : lunettes, « Première délivrance » ou « Renouvellement avec adaptation »
+  if (!avant || avant.date !== d.ordoLe || avant.prescripteur !== d.prescripteur || (avant.delivrance || "") !== deliv){
+    c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe, delivrance:deliv};
+    l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Ordonnance ${nom} du ${d.ordoLe}${d.prescripteur ? ` (${d.prescripteur})` : ""}${deliv ? `, ${deliv.charAt(0).toLowerCase() + deliv.slice(1)}` : ""} lue dans Cosium`});
     RENOUV_CACHE = null; rafraichirFiche();
   }
   rep("ok", `Ordonnance du ${d.ordoLe} inscrite dans Chouf’Tout`);
