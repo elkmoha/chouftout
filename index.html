@@ -16539,7 +16539,9 @@ feuille.addEventListener("click", e => {
     const n = LIGNES[ficheLi].c.dossier, url = window.ChoufAPI?.cosiumUrl() || "", va = /^https?:\/\//.test(url);
     copier(n).then(ok => toast(!ok ? "Copie impossible dans ce navigateur" : va ? `Numéro de dossier ${n} copié : à coller dans la recherche de Cosium`
       : `Numéro de dossier ${n} copié. Adresse de Cosium à renseigner dans les réglages (Magasin › Boutique)`, null));
-    if (va){ const w = window.open(url, "cosium"); if (w) w.opener = null; }   // même onglet Cosium à chaque fois
+    // Avec l'extension : l'onglet Cosium déjà ouvert passe au premier plan (9 oct. 2026) ; sans elle, même onglet nommé à chaque fois
+    if (document.documentElement.dataset.choufExtension) postMessage({chouf:"ouvrir-cosium", url}, location.origin);
+    else if (va){ const w = window.open(url, "cosium"); if (w) w.opener = null; }
   }
   else if (e.target.closest("[data-voir-histo]")){ rendreHisto(LIGNES[ficheLi]); allerPage(1, "f-histo"); }
   else if (e.target.closest("#versRecap, [data-ouvrir-recap]")){ RC_EDIT.clear(); RC_VUE = null; rendreRecap(recapProprio(LIGNES[ficheLi].c)); allerPage(1, "f-recap"); }   // remboursements à jour
