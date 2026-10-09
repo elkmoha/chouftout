@@ -9244,7 +9244,8 @@ async function baseEnvoyer(){
   if (!rangs.length) return;
   rangs.forEach(r => { baseVu[r.cle] = r.j; });
   try { await baseAppel("donnees?on_conflict=cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
-    body:JSON.stringify(rangs.map(r => ({cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false; }
+    body:JSON.stringify(rangs.map(r => ({cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false;
+    if (parent !== window) parent.postMessage({chouf:"maj"}, "*"); }   // 9 oct. 2026 : dans le panneau de l'extension, la barre de Cosium se met à jour
   catch (e){ rangs.forEach(r => { delete baseVu[r.cle]; }); basePanne(e); }
 }
 function baseAppliquer(rangs){
@@ -15439,6 +15440,12 @@ function traiterDemandeCosium(){
   DEMANDE_COSIUM = null; ch.allerDossiers();
   const c = clientsDe().find(x => x.dossier === d.dossier || (x.autresDossiers || []).includes(d.dossier));
   if (d.quoi === "fiche"){ if (c) window.SuviAPI.ouvrirClient(cleClient(c)); else toast(`Dossier Cosium ${d.dossier} : pas encore suivi`); return; }
+  if (d.quoi === "suivre"){   // panneau de l'extension : une autre fiche s'ouvre dans Cosium, la fiche suit (sauf saisie ou fenêtre en cours)
+    const a = document.activeElement, occupe = document.querySelector(".dialogue-fond, .alerte-fond") || (ouverte && a && a.matches("input, textarea, select, [contenteditable]"));
+    if (occupe || (ouverte && LIGNES[ficheLi] && LIGNES[ficheLi].c === c)) return;
+    if (c) window.SuviAPI.ouvrirClient(cleClient(c)); else if (ouverte) fermer();
+    return;
+  }
   if (d.quoi !== "ajout") return;
   // Mutuelle de Cosium (« SWISS LIFE ») ramenée au nom connu ; réseau repris du dernier dossier avec cette mutuelle
   const der = c && LIGNES.filter(l => l.c === c && l.mut).pop();
@@ -15456,6 +15463,11 @@ const lireDemandeCosium = () => {
   traiterDemandeCosium();
 };
 lireDemandeCosium(); addEventListener("hashchange", lireDemandeCosium);
+// Dans le panneau latéral de l'extension, les demandes arrivent par message (la page de l'extension, et elle seule)
+addEventListener("message", e => {
+  if (!/^chrome-extension:\/\//.test(e.origin) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
+  DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
+});
 setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
 (() => { const q = new URLSearchParams(location.search); if (q.get("vue") === "cosium") basculerVue("cosium", clientsDe().find(x => x.dossier === q.get("dossier"))); })();
 
