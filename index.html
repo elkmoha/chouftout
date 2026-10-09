@@ -10535,10 +10535,16 @@ function bumpIdle(force){
   }, S.settings.adminTimeout * 60000);
 }
 const compteUtilisable = u => !!u && u.actif && !(u.collab && personOf(u.collab) && personOf(u.collab).archived);
-function login(userId){
+/* Session du jour (9 oct. 2026, demande de Mohamed) : une connexion par jour et par navigateur ; actualiser ne déconnecte plus.
+   Gardée jusqu'à minuit ou « Se déconnecter » (ou la fermeture automatique après inactivité). Ni mot de passe ni donnée : le compte et l'écran ouvert. */
+const SESSION_CLE = "chouftout-session";
+const sessionLire = () => { try { const v = JSON.parse(localStorage.getItem(SESSION_CLE)); return v && v.jour === keyOf(new Date()) ? v : null; } catch (_) { return null; } };
+const sessionEcrire = v => { try { v ? localStorage.setItem(SESSION_CLE, JSON.stringify(Object.assign({jour:keyOf(new Date())}, v))) : localStorage.removeItem(SESSION_CLE); } catch (_) {} };
+function login(userId, reprise){
   const u = userOf(userId);
   if (!compteUtilisable(u)) return;
   if (DANS_COSIUM) try { localStorage.setItem("chouftout-cosium-compte", userId); } catch (_) {}   // 9 oct. 2026 : reconnexion automatique dans Cosium
+  else sessionEcrire({id:userId, tab:reprise && reprise.tab});
   S.user = userId; S.role = u.role; S.armed = null; S.filter = "";
   S.suiviWho = ""; S.suiviMut = ""; S.suiviQ = ""; S.cmdPour = ""; S.cmdQ = ""; S.tarifMut = ""; S.tarifCat = ""; S.tarifQ = "";
   S.prodQ = ""; S.prodCat = ""; S.prodFourn = ""; S.prodTrait = {}; S.prodFav = false; S.prodArchives = false; S.oeil = false; clearTimeout(oeilTimer);
@@ -10551,12 +10557,17 @@ function login(userId){
   const ent = entreesDispo();
   S.tab = ent.length ? ent[0].tabs[0] : "jour";
   { const acc = prefsOf().accueil; if (acc && tabsFor().some(t => t[0] === acc)) S.tab = acc; }   // 9 oct. 2026 : Mon compte › Écran à l'ouverture
+  if (reprise && reprise.tab && tabsFor().some(t => t[0] === reprise.tab)) S.tab = reprise.tab;   // actualisation : on reste sur le même écran
   render();
   bumpIdle(true);
   scrollToToday();
   window.scrollTo(0, 0);
-  if (window.ChoufIntro) window.ChoufIntro.bienvenue(donneesAccueil(u));   /* « Bienvenue Samy dans Chouf’Tout » */
+  if (window.ChoufIntro && !reprise) window.ChoufIntro.bienvenue(donneesAccueil(u));   /* « Bienvenue Samy dans Chouf’Tout » */
 }
+/* Session du jour : reprise au chargement, sans intro ni accueil animés ; l'écran ouvert est noté en quittant la page */
+const SESSION_REPRISE = DANS_COSIUM ? null : sessionLire();
+if (SESSION_REPRISE){ window.CHOUF_REPRISE = true; setTimeout(() => { if (!S.user) login(SESSION_REPRISE.id, SESSION_REPRISE); }, 0); }   // compte retiré ou désactivé : login() refuse, l'écran de connexion reste
+if (!DANS_COSIUM) addEventListener("pagehide", () => { if (S.user && sessionLire()) sessionEcrire({id:S.user, tab:S.tab}); });
 /* 9 oct. 2026 : dans le bandeau Cosium, le dernier compte connecté revient au rechargement (jusqu'à « Se déconnecter »),
    sinon le compte équipe s'ouvre seul : aucun mot de passe au lancement (demande de Mohamed) */
 if (DANS_COSIUM) setTimeout(() => { if (S.user) return; let id = null; try { id = localStorage.getItem("chouftout-cosium-compte"); } catch (_) {}
@@ -10572,6 +10583,7 @@ function donneesAccueil(u){
 }
 function logout(){
   if (DANS_COSIUM) try { localStorage.removeItem("chouftout-cosium-compte"); } catch (_) {}   // 9 oct. 2026 : voir plus bas
+  else sessionEcrire(null);
   clearTimeout(idleTimer);
   closePopover();
   $("modal").hidden = true;
@@ -17096,6 +17108,7 @@ window.dispatchEvent(new Event("suvi-pret"));   /* le module Dossiers est prêt 
 
   /* ---------- Intro au lancement ---------- */
   async function intro(){
+    if (window.CHOUF_REPRISE) return;   /* session du jour reprise (actualisation) : pas d'intro */
     let M = null; try { M = window.ChoufAPI.marque(); } catch (_) {}
     if (!M || !M.logo) return;
     const logo = sombre() && M.logoSombre ? M.logoSombre : M.logo;
