@@ -15469,7 +15469,7 @@ const lireDemandeCosium = () => {
 lireDemandeCosium(); addEventListener("hashchange", lireDemandeCosium);
 // Dans le panneau latéral de l'extension, les demandes arrivent par message (la page de l'extension, et elle seule)
 addEventListener("message", e => {
-  if (!/^chrome-extension:\/\//.test(e.origin) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
+  if (!(/^chrome-extension:\/\//.test(e.origin) || (e.origin === location.origin && e.source !== window)) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
   if (EN_COSIUM && e.data.demande.quoi === "suivre"){ bandeauSuivre(e.data.demande); return; }
   DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
 });
