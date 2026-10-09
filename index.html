@@ -2490,6 +2490,8 @@ body{background:var(--fond); color:var(--encre); font:100%/1.47 -apple-system, B
 #zone-suivi .source i{width:7px; height:7px; border-radius:50%; background:var(--vert); flex:none}
 #zone-suivi .ld .valeur{display:inline-flex; align-items:center; gap:8px; font-weight:500; text-align:right}
 #zone-suivi .ld .valeur.vide{color:var(--tert); font-weight:400}
+#zone-suivi .ld .valeur:has(.eq-code){flex-wrap:wrap; justify-content:flex-end; row-gap:2px}   /* 9 oct. 2026 : équipement lu dans Cosium */
+#zone-suivi .ld .eq-code{flex-basis:100%; text-align:right; color:var(--second); font-size:12px; font-weight:400}
 #zone-suivi .pastille-lu{width:7px; height:7px; border-radius:50%; flex:none; background:var(--vert)}
 #zone-suivi .pastille-lu.non{background:transparent; border:1.5px solid var(--tert)}
 #zone-suivi .legende{display:flex; flex-wrap:wrap; gap:6px 16px; margin:14px 4px 0; font-size:.75rem; color:var(--second); letter-spacing:0}
@@ -13342,6 +13344,15 @@ function champMut(li, cle){
 function champ(nom, valeur, lu, extra = ""){
   return `<div class="ld"><span>${nom}</span><span class="valeur${valeur ? "" : " vide"}">${valeur || "—"}${extra}<i class="pastille-lu${lu ? "" : " non"}" title="${lu ? "Lu par l’extension" : "Pas encore lu par l’extension"}"></i></span></div>`;
 }
+/* Équipement lunettes lu dans Cosium (9 oct. 2026) : monture et verres avec leur code LPP fabricant (code de remboursement) */
+function equipCosium(l){
+  const it = [l, ...LIGNES.filter(x => x.c === l.c && x !== l && !x.archive)].flatMap(x => x.items).find(i => i.t === "lunettes" && i.cosium && i.cosium.equip);
+  if (!it) return "";
+  const prod = (nom, p) => p ? champ(nom, cp(p.libelle, nom) + `<small class="eq-code">${esc([p.code, p.marque].filter(Boolean).join(" · "))}</small>`, true)
+    + champ(`LPP ${nom.toLowerCase()}`, cp(p.lpp, `Code LPP ${nom.toLowerCase()}`) + (p.gen ? `<small class="eq-code">générique ${esc(p.gen)}</small>` : ""), true) : "";
+  return it.cosium.equip.map(e => `<p class="tl-sec">Équipement lunettes${e.panier ? ` (${esc(e.panier)})` : ""}</p>
+    <div class="bloc">${prod("Monture", e.monture)}${prod("Verre droit", e.od)}${prod("Verre gauche", e.og)}</div>`).join("");
+}
 function rendreCosium(idx){
   const l = LIGNES[idx], c = l.c, k = c.cosium;
   if (c.passage){
@@ -13389,6 +13400,7 @@ function rendreCosium(idx){
 
     <p class="tl-sec">Ordonnance (dossier lunettes)</p>
     <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${k.ordo.delivrance ? champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true) : ""}</div>
+    ${equipCosium(l)}
     ${k.ordoLen && k.ordoLen.date ? `<p class="tl-sec">Ordonnance (dossier lentilles)</p>
     <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}</div>` : ""}
     <div class="note-sante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
@@ -15628,18 +15640,29 @@ function bandeauOrdo(){
   const rep = (etat, texte) => avisCosium("ordo", {cle:d.cle, etat, texte});
   const c = clientCosium(d.dossier), nom = (TYPES[d.type] || "").toLowerCase();
   const l = c && LIGNES.filter(x => x.c === c && !x.archive && !estProgramme(x) && x.items.some(i => i.t === d.type)).sort((a, b) => a.ouvertJ - b.ouvertJ)[0];
-  if (!l || !isoFr(d.dossierLe) || !isoFr(d.ordoLe)) return rep("", "");   // rien en cours pour cet équipement : rien à inscrire
+  if (!l || !isoFr(d.dossierLe) || (!isoFr(d.ordoLe) && !(d.equip || []).length)) return rep("", "");   // rien en cours pour cet équipement : rien à inscrire
   const cree = isoMoins(l.ouvertJ);
   if (isoFr(d.dossierLe) < isoMoins(l.ouvertJ + ORDO_ECART_J))
     return rep("ancien", `Dossier ${nom} du ${d.dossierLe}, bien antérieur à la ligne de suivi (créée le ${dateCourteISO(cree)}) : ce n’est sans doute pas la bonne ordonnance. Rien n’est repris dans Chouf’Tout.`);
   const k = d.type === "lentilles" ? "ordoLen" : "ordo", avant = c.cosium[k];
-  const deliv = d.delivrance || "";   // 9 oct. 2026 : lunettes, « Première délivrance » ou « Renouvellement avec adaptation »
+  const deliv = d.delivrance || "";   // 9 oct. 2026 : lunettes, libellé de la liste « Délivrance » de Cosium
+  let maj = false;
+  // Équipement lunettes (9 oct. 2026) : paniers retenus, monture et verres (code, libellé, marque, codes LPP), rangés dans l'équipement de la ligne
+  const it = l.items.find(i => i.t === d.type), eq = d.equip || [];
+  if (it && eq.length && JSON.stringify((it.cosium || {}).equip) !== JSON.stringify(eq)){
+    const lib = p => p ? p.libelle : "—";
+    it.cosium = {equip:eq, dossierLe:d.dossierLe};
+    l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Équipement lu dans Cosium : ${eq.map(e => `monture ${lib(e.monture)}, verres ${lib(e.od)}${e.og && (!e.od || e.og.libelle !== e.od.libelle) ? ` / ${e.og.libelle}` : ""}`).join(" ; ")}`});
+    maj = true;
+  }
+  if (!isoFr(d.ordoLe)){ if (maj){ RENOUV_CACHE = null; rafraichirFiche(); } return rep("ok", "Équipement inscrit dans Chouf’Tout"); }
   if (!avant || avant.date !== d.ordoLe || avant.prescripteur !== d.prescripteur || (avant.delivrance || "") !== deliv){
     c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe, delivrance:deliv};
     l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Ordonnance ${nom} du ${d.ordoLe}${d.prescripteur ? ` (${d.prescripteur})` : ""}${deliv ? `, ${deliv.charAt(0).toLowerCase() + deliv.slice(1)}` : ""} lue dans Cosium`});
-    RENOUV_CACHE = null; rafraichirFiche();
+    maj = true;
   }
-  rep("ok", `Ordonnance du ${d.ordoLe} inscrite dans Chouf’Tout`);
+  if (maj){ RENOUV_CACHE = null; rafraichirFiche(); }
+  rep("ok", `Ordonnance du ${d.ordoLe}${eq.length ? " et équipement" : ""} inscrits dans Chouf’Tout`);
 }
 /* « Demander un duplicata » (bouton de l'extension sous la correction) : cabinet, motif, remarque ; le message au cabinet est copié, jamais enregistré */
 async function bandeauDuplicata(){
