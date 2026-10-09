@@ -2921,6 +2921,8 @@ body.selection #zone-suivi main{padding-bottom:110px}
 #zone-suivi .aj-champ:disabled{background:transparent; color:var(--second)}
 #zone-suivi .aj-champ:focus{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--bleu) 55%, transparent)}
 #zone-suivi .dialogue .bloc .ld > .aj-champ{max-width:58%}
+#zone-suivi .aj-champ.dp-message{display:block; height:auto; padding:10px 12px; text-align:left; resize:vertical; font-size:.875rem; line-height:1.45; white-space:pre-wrap}   /* 9 oct. 2026 : duplicata depuis Cosium */
+#zone-suivi .dialogue .intro.dp-sante{padding-top:8px; font-size:.8125rem}
 #zone-suivi .aj-statut{margin:10px 20px 0; padding:10px 12px; border-radius:12px; font-size:.8125rem; line-height:1.4; background:var(--groupe-2)}
 #zone-suivi .aj-statut b{display:block; font-size:.875rem; margin-bottom:2px}
 #zone-suivi .aj-statut.connu{background:color-mix(in srgb, var(--vert) 12%, var(--groupe)); color:var(--encre)}
@@ -5877,6 +5879,18 @@ window.ChoufAPI = {
   tacheVerifiee(liste){ const c = cocherSiFini(liste); if (c) render(); return c; },
   pref(k){ return prefsOf()[k]; },
   cosiumUrl(){ return S.settings.cosiumUrl || ""; },   // 9 oct. 2026 : bouton « Cosium » de la fiche client
+  /* 9 oct. 2026 : bouton « Demander un duplicata » de l'extension, sous la correction des pages Lunettes et Lentilles de Cosium.
+     Le message au cabinet (correction comprise) est composé ici mais jamais enregistré : la demande garde msg:null. */
+  dupConfig(){ return peutDup() ? {cabinets:(dupCfg().cabinets || []).map(c => ({id:c.id, nom:c.nom, contact:c.contact || ""})), motifs:(dupCfg().motifs || []).slice()} : null; },
+  dupMessage(client, m){ return dupMsgTexte({client, msg:Object.assign(dupMsgVide(), m)}); },
+  dupAjouter(v){
+    const cab = cabinetOf(v.cabinet); if (!peutDup() || !cab || !(dupCfg().motifs || []).includes(v.motif)) return null;
+    S.duplicatas.push({id:"dp" + uid(), client:String(v.client).slice(0, 50), dossier:v.cle, cabinet:cab.id, cabinetNom:cab.nom, motif:v.motif, note:String(v.note || "").trim().slice(0, 120),
+      fichier:null, fichierSupprimeLe:null, statut:"a_envoyer", par:moiLie() || S.me || currentUser().id, creeLe:TODAY_KEY,
+      envoyeeLe:null, relances:[], recueLe:null, closeLe:null, msg:null, msgSupprimeLe:null, via:"extension"});
+    S.ferme.delete("dup-aenvoyer"); render();
+    return {nom:cab.nom, contact:cab.contact || ""};
+  },
   /* Épingles : le collaborateur connecté (compte personnel), ou {equipe:true} sur le compte partagé de l'équipe */
   moi(){ const u = currentUser(); if (!u) return null; const p = u.collab ? personOf(u.collab) : null; return p && !p.archived ? {id:"p:" + p.id, nom:p.name} : {equipe:true}; },
   ouvrirDossier(cle, idx){ if (!suviOk()) return; S.drawer = null; closePopover(); if (S.tab !== "dossiers"){ S.tab = "dossiers"; render(); window.scrollTo(0, 0); } window.SuviAPI.ouvrirLigne(idx, cle); },
@@ -12883,7 +12897,8 @@ function aRenouveler(){
 // Ordonnance (lue dans Cosium) : validité selon l'âge du client à la date de l'ordonnance (règles à faire confirmer)
 const isoFr = fr => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fr || ""); return m ? `${m[3]}-${m[2]}-${m[1]}` : null; };
 function validiteOrdo(c, t){
-  const o = c.cosium && c.cosium.ordo && isoFr(c.cosium.ordo.date), ne = isoFr(c.cosium && c.cosium.ne); if (!o || !ne) return null;
+  const src = c.cosium && (t === "lentilles" && c.cosium.ordoLen && c.cosium.ordoLen.date ? c.cosium.ordoLen : c.cosium.ordo);   // 9 oct. 2026 : ordonnance lentilles lue à part
+  const o = src && isoFr(src.date), ne = isoFr(c.cosium && c.cosium.ne); if (!o || !ne) return null;
   const age = (new Date(o) - new Date(ne)) / (365.25 * 864e5), ans = age < 16 ? 1 : t === "lentilles" ? 3 : age < 42 ? 5 : 3;
   const fin = `${+o.slice(0, 4) + ans}${o.slice(4)}`;
   return {date:o, fin, ans, ok:fin >= isoJour()};
@@ -13374,6 +13389,8 @@ function rendreCosium(idx){
 
     <p class="tl-sec">Ordonnance (dossier lunettes)</p>
     <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}</div>
+    ${k.ordoLen && k.ordoLen.date ? `<p class="tl-sec">Ordonnance (dossier lentilles)</p>
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}</div>` : ""}
     <div class="note-sante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
       <span>Les corrections sont des données de santé : l’extension les lit pour le duplicata, mais elles ne sont ni affichées ni enregistrées ici.</span></div>
 
@@ -15514,6 +15531,8 @@ lireDemandeCosium(); addEventListener("hashchange", lireDemandeCosium);
 addEventListener("message", e => {
   if (!(/^chrome-extension:\/\//.test(e.origin) || (e.origin === location.origin && e.source !== window)) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
   if (EN_COSIUM && e.data.demande.quoi === "suivre"){ bandeauSuivre(e.data.demande); return; }
+  if (EN_COSIUM && e.data.demande.quoi === "ordonnance"){ ORDO_ATTENTE = e.data.demande; bandeauOrdo(); return; }
+  if (EN_COSIUM && e.data.demande.quoi === "duplicata"){ DUP_ATTENTE = e.data.demande; bandeauDuplicata(); return; }
   DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
 });
 setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
@@ -15561,6 +15580,83 @@ const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autr
 const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
 const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null; BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
+/* Ordonnance du dossier Lunettes ou Lentilles ouvert dans Cosium (9 oct. 2026, demande de Mohamed) : inscrite dans la fiche du client,
+   sauf si ce dossier Cosium est bien plus ancien que la ligne de suivi de cet équipement : ce n'est alors pas la bonne ordonnance.
+   L'avis s'affiche dans Cosium, sous la correction ({chouf:"avis"}). */
+const ORDO_ECART_J = 30;   // un dossier Cosium ouvert plus de 30 jours avant la ligne de suivi n'est pas celui du passage
+let ORDO_ATTENTE = null, DUP_ATTENTE = null;
+const choufPret = () => !!(window.ChoufAPI && window.ChoufAPI.moi() && window.ChoufAPI.basePrete());
+const avisCosium = (zone, o) => parent.postMessage(Object.assign({chouf:"avis", zone}, o), "*");
+const clientCosium = n => clientsDe().find(x => x.dossier === n || (x.autresDossiers || []).includes(n)) || null;
+function bandeauOrdo(){
+  const d = ORDO_ATTENTE; if (!d || !choufPret()) return;
+  ORDO_ATTENTE = null;
+  const rep = (etat, texte) => avisCosium("ordo", {cle:d.cle, etat, texte});
+  const c = clientCosium(d.dossier), nom = (TYPES[d.type] || "").toLowerCase();
+  const l = c && LIGNES.filter(x => x.c === c && !x.archive && !estProgramme(x) && x.items.some(i => i.t === d.type)).sort((a, b) => a.ouvertJ - b.ouvertJ)[0];
+  if (!l || !isoFr(d.dossierLe) || !isoFr(d.ordoLe)) return rep("", "");   // rien en cours pour cet équipement : rien à inscrire
+  const cree = isoMoins(l.ouvertJ);
+  if (isoFr(d.dossierLe) < isoMoins(l.ouvertJ + ORDO_ECART_J))
+    return rep("ancien", `Dossier ${nom} du ${d.dossierLe}, bien antérieur à la ligne de suivi (créée le ${dateCourteISO(cree)}) : ce n’est sans doute pas la bonne ordonnance. Rien n’est repris dans Chouf’Tout.`);
+  const k = d.type === "lentilles" ? "ordoLen" : "ordo", avant = c.cosium[k];
+  if (!avant || avant.date !== d.ordoLe || avant.prescripteur !== d.prescripteur){
+    c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe};
+    l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Ordonnance ${nom} du ${d.ordoLe}${d.prescripteur ? ` (${d.prescripteur})` : ""} lue dans Cosium`});
+    RENOUV_CACHE = null; rafraichirFiche();
+  }
+  rep("ok", `Ordonnance du ${d.ordoLe} inscrite dans Chouf’Tout`);
+}
+/* « Demander un duplicata » (bouton de l'extension sous la correction) : cabinet, motif, remarque ; le message au cabinet est copié, jamais enregistré */
+async function bandeauDuplicata(){
+  const d = DUP_ATTENTE, ch = window.ChoufAPI; if (!d) return;
+  if (!ch || !ch.moi()){ if (!BANDEAU_CONNEXION){ BANDEAU_CONNEXION = true; bandeauMaj(); } return; }   // la demande attend la connexion
+  if (!ch.basePrete() || document.querySelector(".dialogue-fond, .alerte-fond")) return;
+  DUP_ATTENTE = null;
+  const cfg = ch.dupConfig(), nom = (TYPES[d.type] || "").toLowerCase();
+  if (!cfg){ await confirmer({titre:"Duplicata d’ordonnance", message:"Ton compte ne permet pas de demander un duplicata. La direction peut l’ajouter dans Réglages, Équipe et accès.", bouton:"OK", annuler:"Fermer", doux:true}); return; }
+  const c = clientCosium(d.dossier), client = c ? nomClient(c) : `${d.prenom} ${d.nom.charAt(0)}${d.nom.slice(1).toLowerCase()}`;
+  const p = d.type === "lentilles" ? "len" : "lun";
+  const message = ch.dupMessage(client, {naissance:c && c.cosium.ne || "", [p + "On"]:"1", [p + "Date"]:d.ordoLe, [p + "OD"]:d.od, [p + "OG"]:d.og});
+  // Cabinet proposé : celui dont le nom contient le nom du prescripteur (« Dr Benali »)
+  const mots = plat(d.prescripteur || "").replace(/\b(dr|docteur|pr)\b\.?/g, " ").split(/[^a-z]+/).filter(m => m.length > 2);
+  const cab = cfg.cabinets.find(x => mots.some(m => plat(x.nom).includes(m)));
+  const fond = document.createElement("div");
+  fond.className = "dialogue-fond";
+  fond.innerHTML = `<div class="dialogue" role="dialog" aria-modal="true" aria-labelledby="dp-t">
+    <h3 id="dp-t">Demander un duplicata</h3>
+    <p class="intro">${esc(client)} · ordonnance ${esc(nom)} du ${esc(d.ordoLe || "?")}${d.prescripteur ? `, ${esc(d.prescripteur)}` : ""}. Lu dans Cosium.</p>
+    ${cfg.cabinets.length ? "" : `<div class="aj-statut doublon"><b>Aucun cabinet</b>Ajoute les cabinets dans Réglages, Duplicatas d’ordonnance.</div>`}
+    <div class="bloc">
+      <div class="ld"><span>Cabinet</span><select class="aj-champ" id="dp-cab"><option value="">Choisir…</option>${cfg.cabinets.map(x => `<option value="${esc(x.id)}"${cab && cab.id === x.id ? " selected" : ""}>${esc(x.nom)}</option>`).join("")}</select></div>
+      <div class="ld"><span>Motif</span><select class="aj-champ" id="dp-motif"><option value="">Choisir…</option>${cfg.motifs.map(m => `<option>${esc(m)}</option>`).join("")}</select></div>
+      <div class="ld"><span>Remarque</span><input class="aj-champ" id="dp-note" maxlength="120" placeholder="Facultatif" autocomplete="off"></div>
+    </div>
+    <p class="tl-sec">Message pour le cabinet</p>
+    <div class="bloc"><textarea class="aj-champ dp-message" id="dp-msg" rows="7" aria-label="Message pour le cabinet">${esc(message)}</textarea></div>
+    <p class="intro dp-sante">Données de santé : le message est copié, mais ni lui ni la correction ne sont enregistrés.</p>
+    <div class="pied"><button type="button" class="secondaire" data-r="0">Annuler</button><button type="button" class="principal" data-r="1" disabled>Enregistrer et copier</button></div>
+  </div>`;
+  ZONE_SUIVI.appendChild(fond);
+  requestAnimationFrame(() => fond.classList.add("vu"));
+  const $ = q => fond.querySelector(q), bouton = $('[data-r="1"]');
+  const maj = () => { bouton.disabled = !$("#dp-cab").value || !$("#dp-motif").value; };
+  fond.addEventListener("input", maj); maj();
+  const fin = () => { removeEventListener("keydown", clavier, true); fond.classList.remove("vu"); setTimeout(() => fond.remove(), 200); };
+  const clavier = e => { if (e.key === "Escape"){ e.stopPropagation(); fin(); } };
+  addEventListener("keydown", clavier, true);
+  fond.addEventListener("click", async e => {
+    const b = e.target.closest("[data-r]"); if (!b && e.target !== fond) return;
+    if (!b || b.dataset.r === "0"){ fin(); return; }
+    const r = ch.dupAjouter({client, cle:c ? cleClient(c) : "d" + d.dossier, cabinet:$("#dp-cab").value, motif:$("#dp-motif").value, note:$("#dp-note").value});
+    if (!r) return;
+    const t = $("#dp-msg").value;
+    let copie = false;
+    try { await navigator.clipboard.writeText(t); copie = true; } catch (_){ $("#dp-msg").select(); try { copie = document.execCommand("copy"); } catch (_){} }
+    fin();
+    avisCosium("dup", {dossier:d.dossier, etat:"ok", texte:`Duplicata demandé : à envoyer à ${r.nom}${r.contact ? ` (${r.contact})` : ""}.${copie ? " Message copié." : ""}`});
+  });
+  $(cab ? "#dp-motif" : "#dp-cab").focus();
+}
 let bandeauDernier = "";
 function bandeauMaj(forcer){
   const R = document.documentElement, connecte = !!(window.ChoufAPI && window.ChoufAPI.moi());
@@ -15620,7 +15716,7 @@ if (EN_COSIUM){
     DEMANDE_COSIUM = b.dataset.bc === "fiche" ? {quoi:"fiche", dossier:BANDEAU.dossier} : Object.assign({}, BANDEAU, {quoi:"ajout"}); traiterDemandeCosium();
   });
   addEventListener("keydown", e => { if (e.key === "Escape" && BANDEAU_CONNEXION){ BANDEAU_CONNEXION = false; bandeauMaj(); } });   // renoncer à se connecter
-  setInterval(bandeauMaj, 250);
+  setInterval(() => { bandeauMaj(); if (ORDO_ATTENTE) bandeauOrdo(); if (DUP_ATTENTE) bandeauDuplicata(); }, 250);
 }
 (() => { const q = new URLSearchParams(location.search); if (q.get("vue") === "cosium") basculerVue("cosium", clientsDe().find(x => x.dossier === q.get("dossier"))); })();
 
