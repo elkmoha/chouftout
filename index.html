@@ -13217,7 +13217,7 @@ function rendre(){ basculerRenouv(); rendreFiltres(); rendreLignes(); if (VUE ==
 
 /* ---------- Ressort critique (amortissement 1,0) : part toujours de la valeur affichée et garde la vitesse ---------- */
 function ressort({de, vers, vitesse = 0, reponse = 0.38, amorti = 1, maj, fin}){
-  const w = 2 * Math.PI / reponse;
+  const w = 2 * Math.PI / (reponse * (EN_COSIUM ? .6 : 1));   // 9 oct. 2026 : plus vif dans le bandeau Cosium
   let x = de, v = vitesse, t0 = performance.now(), id;
   const pas = () => {
     // une seule horloge (performance.now) : l'heure d'image du navigateur peut précéder t0 et donner un pas négatif
