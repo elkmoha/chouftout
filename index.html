@@ -15503,7 +15503,7 @@ function bandeauMaj(forcer){
   if (z.dataset.html !== html){ z.dataset.html = html; z.innerHTML = html; }
   // Hauteur du bandeau : la ligne d'appoint, ou les lignes du client
   const bas = el => el && el.offsetParent !== null ? el.getBoundingClientRect().bottom : 0;
-  const h = Math.ceil(Math.max(bas(z), ...[...document.querySelectorAll("#zone-suivi .tableau tbody tr, #zone-suivi .liste > li")].map(bas)) + 10);
+  const h = Math.ceil(bas(document.querySelector("#zone-suivi main")));   // le bandeau en verre, d'un bord à l'autre
   const msg = JSON.stringify({chouf:"cadre", h, plein});
   if (forcer || msg !== bandeauDernier){ bandeauDernier = msg; parent.postMessage(JSON.parse(msg), "*"); }
 }
@@ -19327,11 +19327,18 @@ html.mode-cosium #zone-suivi .groupe{margin:0 !important}
 html.mode-cosium.cosium-vide #zone-suivi .groupe, html.mode-cosium:not(.cosium-connecte) #zone-suivi .groupe{display:none !important}
 html.mode-cosium:not(.cosium-connecte) #zone-suivi{display:block !important}
 html.mode-cosium #zone-suivi .toast{top:10px; bottom:auto}
+/* Bandeau plat sur toute la largeur, en verre comme la barre du Suivi (9 oct. 2026, demande de Mohamed) : ni carte ni arrondi */
+html.mode-cosium #zone-suivi main{padding:0 !important; background:color-mix(in srgb, var(--groupe) 82%, transparent);
+  -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); box-shadow:inset 0 -1px 0 var(--separateur)}
+html.mode-cosium #zone-suivi :is(.groupe, .tableau, .tableau-cadre){margin:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important;
+  background:transparent !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important}
+html.mode-cosium #zone-suivi .tableau tbody tr{margin:0 !important; padding:12px 28px !important; border:0 !important; border-radius:0 !important;
+  background:transparent !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; transform:none !important}
+html.mode-cosium #zone-suivi .tableau tbody tr + tr{box-shadow:inset 0 1px 0 var(--separateur) !important}
+html.mode-cosium #zone-suivi .tableau tbody tr:hover{background:color-mix(in srgb, var(--primaire) 4%, transparent) !important}
 /* Ligne d'appoint : non connecté, aucun client, ou client pas encore suivi */
 .bandeau-cosium{display:none}
-html.mode-cosium .bandeau-cosium:not(:empty){display:flex; align-items:center; gap:14px; min-height:64px; padding:12px 24px; border-radius:var(--r-card, 16px);
-  background:var(--carte); border:1px solid var(--carte-ligne); box-shadow:var(--ombre-2); backdrop-filter:var(--verre-flou); -webkit-backdrop-filter:var(--verre-flou);
-  font-family:var(--font); color:var(--encre)}
+html.mode-cosium .bandeau-cosium:not(:empty){display:flex; align-items:center; gap:14px; min-height:56px; padding:10px 28px; font-family:var(--font); color:var(--encre)}
 html.mode-cosium .bandeau-cosium .bc-marque{font-weight:600; color:var(--primaire)}
 html.mode-cosium .bandeau-cosium .bc-nom{font-size:1.25rem; font-weight:300; letter-spacing:-.2px}
 html.mode-cosium .bandeau-cosium .bc-txt{color:var(--second); flex:0 1 auto}
