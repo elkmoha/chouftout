@@ -3400,9 +3400,6 @@ body.mode-dossiers #app{min-height:0; position:sticky; top:0; z-index:12}
     <span class="cz-mag">Chouf’ticien</span></div>
   <div class="cz-corps"><aside class="cz-recents"><div class="cz-titre-bloc">Clients récents</div><div id="czRecents"></div></aside><section class="cz-fiche" id="czFiche"></section></div>
 </div>
-<div class="maquette-vue" role="group" aria-label="Maquette : choisir l’écran">
-  <span>Maquette</span><button type="button" data-vue="suivi" aria-pressed="true">Suvi</button><button type="button" data-vue="cosium" aria-pressed="false">Cosium</button>
-</div>
 <main>
   <p class="resume" id="resume"></p>
   <p class="resume-ailleurs" id="ailleurs" hidden></p>
@@ -8413,12 +8410,12 @@ function formProduit(gerer, cats){
 function formFournProduits(){   // 9 oct. 2026
   const fl = fournProduits();
   return `<details ${openAttr("prod-fourn-gerer")} class="suivi-block"><summary><span class="sum-label">Fournisseurs de verres et lentilles</span></summary>
-    <p class="sub" style="margin:4px 0 12px">Propres au catalogue. Les fournisseurs de montures se gèrent dans Réglages, section Commandes. Renommer un fournisseur met à jour ses références et ses traitements ; on ne supprime qu’un fournisseur sans référence.</p>
+    <p class="sub" style="margin:4px 0 12px">Propres au catalogue. Les fournisseurs de montures se gèrent dans Réglages, section Commandes. Renommer un fournisseur met à jour ses références et ses traitements ; le supprimer retire aussi ses références, après confirmation.</p>
     <ul class="list-plain">${fl.map((f, i) => { const n = nbRefsFourn(f);
       return `<li class="row"><input class="inp" style="flex:1 1 200px" maxlength="40" value="${esc(f)}" data-edit="prodfourn-nom" data-val="${esc(f)}" data-key="pf-${i}" aria-label="Nom du fournisseur ${esc(f)}">
         <select class="inp" data-edit="prodfourn-type" data-val="${esc(f)}" data-key="pft-${i}" aria-label="Type de ${esc(f)}">${["Verres", "Lentilles"].map(t => `<option ${typeProd(f) === t ? "selected" : ""}>${t}</option>`).join("")}</select>
         <span class="sub" style="min-width:110px">${n ? pluralSv(n, "référence", "références") : "Aucune référence"}</span>
-        <button type="button" class="btn small" data-action="prodfourn-suppr" data-val="${esc(f)}" ${n ? `disabled title="Encore ${pluralSv(n, "référence", "références")} : change d’abord leur fournisseur"` : ""}>Supprimer</button></li>`; }).join("") || `<li class="sub">Aucun fournisseur</li>`}</ul>
+        <button type="button" class="btn small" data-action="prodfourn-suppr" data-val="${esc(f)}">Supprimer</button></li>`; }).join("") || `<li class="sub">Aucun fournisseur</li>`}</ul>
     <form class="row" data-form="prodfourn-add" style="margin-top:8px"><span class="lbl">Ajouter</span>
       <input class="inp" name="nom" maxlength="40" placeholder="Nom du fournisseur" required style="flex:1 1 200px">
       <select class="inp" name="ftype" aria-label="Type de fournisseur"><option>Verres</option><option>Lentilles</option></select>
@@ -11392,12 +11389,17 @@ document.addEventListener("click", async e => {
     }
     case "prodfourn-suppr": {   // 9 oct. 2026
       const v = el.dataset.val, n = nbRefsFourn(v);
-      if (n){ toast(`${v} a encore ${pluralSv(n, "référence", "références")} : change d’abord leur fournisseur.`); return; }
+      if (n){   // 9 oct. 2026 : ses références partent avec lui, après confirmation
+        const ok = await modal(`Supprimer ${v} ?`, `<p>${esc(v)} a encore ${pluralSv(n, "référence", "références")} dans le catalogue : ${n > 1 ? "elles seront supprimées" : "elle sera supprimée"} avec lui, ainsi que ses traitements.</p>
+          <p class="sub">Tu pourras tout remettre depuis l’Activité récente, avec « Rétablir ».</p>`, "Tout supprimer");
+        if (!ok) return;
+        S.produits = S.produits.filter(p => p.fournisseur !== v);
+      }
       S.settings.commandes.fournisseurs = S.settings.commandes.fournisseurs.filter(x => x !== v);
       if (S.settings.fournisseurTypes) delete S.settings.fournisseurTypes[v];
       S.settings.produits.traitements = traitements().filter(t => t.fournisseur !== v);
       if (S.prodFourn === v) S.prodFourn = "";
-      render(); toast(`${v} est retiré des fournisseurs.`); return;
+      render(); toast(`${v} est retiré des fournisseurs${n ? ", avec " + pluralSv(n, "sa référence", "ses références") : ""}.`); return;
     }
     case "del-fournisseur": {
       const type = el.dataset.type;
@@ -15410,7 +15412,8 @@ function basculerVue(v, client){
     rendreCosiumPage(); scrollTo(0, 0);
   } else rendre();
 }
-document.querySelector(".maquette-vue").addEventListener("click", e => { const b = e.target.closest("[data-vue]"); if (b && b.dataset.vue !== VUE) basculerVue(b.dataset.vue); });
+document.querySelector(".maquette-vue")?.addEventListener("click",   // 9 oct. 2026 : bascule retirée de la version en ligne
+ e => { const b = e.target.closest("[data-vue]"); if (b && b.dataset.vue !== VUE) basculerVue(b.dataset.vue); });
 document.getElementById("cosium").addEventListener("click", async e => {
   const cz = e.target.closest("[data-cz-client]");
   if (cz){ COSIUM_C = clientsDe().find(x => x.dossier === cz.dataset.czClient); if (ouverte) fermer(); rendreCosiumPage(); return; }   // une autre fiche Cosium s'ouvre : la barre suit
