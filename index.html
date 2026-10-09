@@ -3459,6 +3459,7 @@ body.mode-dossiers #app{min-height:0; position:sticky; top:0; z-index:12}
   <div class="pages">
     <div class="contenu page" id="f-contenu"></div>
     <div class="contenu page page-2" id="f-cosium" inert></div>
+    <div class="contenu page page-2" id="f-donnees" inert></div>
     <div class="contenu page page-2" id="f-recap" inert></div>
     <div class="contenu page page-2" id="f-histo" inert></div>
   </div>
@@ -13398,16 +13399,26 @@ function rendreCosium(idx){
       ${champ("E-mail", copiable(k.email, "Adresse e-mail"), false)}${champ("Adresse", cp(k.adresse, "Adresse"), false)}
     </div>
 
+    <div class="legende"><span><i class="pastille-lu"></i>Lu par l’extension aujourd’hui</span><span><i class="pastille-lu non"></i>À ajouter à l’extension</span></div>
+    <button class="maj" type="button" id="majCosium">Mettre à jour depuis Cosium</button>`;
+  rendreDonnees(l);
+}
+/* Onglet « Données » (9 oct. 2026, demande de Mohamed) : ce que l'extension lit dans les dossiers Cosium (ordonnance, délivrance, équipement,
+   codes LPP), à part de « Détail client » pour ne pas encombrer la gestion du dossier */
+function rendreDonnees(l){
+  const k = l.c.cosium, retour = `<button class="retour" type="button"><svg viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2 2 10l8 8"/></svg>Suivi du dossier</button>`;
+  document.getElementById("f-donnees").innerHTML = `${retour}
+    <h3 class="titre-page">Données</h3>
+    <div class="source"><i></i>Lues dans les dossiers Cosium par l’extension</div>
+
     <p class="tl-sec">Ordonnance (dossier lunettes)</p>
-    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${k.ordo.delivrance ? champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true) : ""}</div>
-    ${equipCosium(l)}
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true)}</div>
+    ${equipCosium(l) || `<p class="tl-sec">Équipement lunettes</p><div class="bloc">${champ("Monture et verres", "", true)}</div>`}
     ${k.ordoLen && k.ordoLen.date ? `<p class="tl-sec">Ordonnance (dossier lentilles)</p>
     <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}</div>` : ""}
     <div class="note-sante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
       <span>Les corrections sont des données de santé : l’extension les lit pour le duplicata, mais elles ne sont ni affichées ni enregistrées ici.</span></div>
-
-    <div class="legende"><span><i class="pastille-lu"></i>Lu par l’extension aujourd’hui</span><span><i class="pastille-lu non"></i>À ajouter à l’extension</span></div>
-    <button class="maj" type="button" id="majCosium">Mettre à jour depuis Cosium</button>`;
+    <p class="passage-note">Ouvre un dossier Lunettes dans Cosium : l’extension met ces données à jour toute seule.</p>`;
 }
 // Navigation entre les deux pages de la feuille (ressort, interruptible)
 let pageP = 0, pageAnim = null;
@@ -13429,7 +13440,7 @@ function allerPage(cible, quelle){
   pageAnim && pageAnim.stop();
   if (reduit.matches){ poserPage(cible); }
   else pageAnim = ressort({de:pageP * 100, vers:cible * 100, reponse:0.38, maj:x => poserPage(x / 100)});
-  (cible ? p2.querySelector(".retour") : feuille.querySelector(PAGE2 === "f-recap" ? ".racc[data-ouvrir-recap]" : "#versCosium"))?.focus({preventScroll:true});
+  (cible ? p2.querySelector(".retour") : feuille.querySelector(PAGE2 === "f-recap" ? ".racc[data-ouvrir-recap]" : PAGE2 === "f-donnees" ? "#versDonnees" : "#versCosium"))?.focus({preventScroll:true});
 }
 
 // Familles dépliées pendant la session (repliées par défaut à chaque ouverture de fiche)
@@ -14200,6 +14211,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
   // Raccourcis toujours visibles : détail client, récap, renouvellement, et ce qui reste à régler ou l'avoir
   document.getElementById("f-raccourcis").innerHTML = `
     <button class="racc client" type="button" id="versCosium" aria-label="Détail client" title="Détail client${c.passage ? " (client de passage)" : ` · né(e) le ${c.cosium.ne}`} · ${esc(c.cosium.tel)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="lib">Détail client</span></button>
+    ${c.passage ? "" : `<button class="racc" type="button" id="versDonnees" aria-label="Données Cosium" title="Données lues dans Cosium : ordonnance, délivrance, équipement, codes LPP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg><span class="lib">Données</span></button>`}
     <button class="racc" type="button" data-ouvrir-recap aria-label="Récapitulatif" title="Récapitulatif : équipements, remboursements, reste à charge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8l3 3v13H5V4z"/><path d="M9 10h6M9 14h6M9 18h3"/></svg><span class="lib">Récapitulatif</span></button>
     ${l.mut && !estProgramme(l) ? `<button class="racc" type="button" data-programmer="${idx}" aria-label="Reporter une dette" title="Reporter une dette (reste à charge avancé) sur le forfait renouvelé">${CAL_ICO}<span class="lib">Dette</span></button>` : ""}
     ${estAdmin() ? `<button class="racc" type="button" data-voir-histo aria-label="Historique des modifications" title="Historique des modifications (administrateur)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span class="lib">Historique</span></button>` : ""}
@@ -14288,7 +14300,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
   rendreRecap(recapProprio(c));
   if (rafraichir){ contenu.scrollTop = haut; return; }
   pageAnim && pageAnim.stop();
-  ["f-cosium", "f-recap", "f-histo"].forEach(id => { const e = document.getElementById(id); e.inert = true; e.scrollTop = 0; e.style.transform = "translateX(100%)"; });
+  ["f-cosium", "f-donnees", "f-recap", "f-histo"].forEach(id => { const e = document.getElementById(id); e.inert = true; e.scrollTop = 0; e.style.transform = "translateX(100%)"; });
   PAGE2 = "f-cosium"; poserPage(0); contenu.inert = false;
   contenu.scrollTop = 0;
   dernierFocus = document.activeElement;
@@ -16698,6 +16710,7 @@ document.getElementById("f-contenu").addEventListener("click", async ev => {
 addEventListener("keydown", e => { if (e.key !== "Escape") return; if (ouverte && pageP > .5) allerPage(0); else if (ouverte) fermer(); else if (SEL.actif) sortirSelection(); });
 feuille.addEventListener("click", e => {
   if (e.target.closest("#versCosium")) allerPage(1, "f-cosium");
+  else if (e.target.closest("#versDonnees")) allerPage(1, "f-donnees");
   else if (e.target.closest("[data-ouvrir-cosium]")){   // 9 oct. 2026 : l'adresse de Cosium ne change pas d'un client à l'autre → on copie le n° de dossier, puis on ouvre Cosium
     const c = LIGNES[ficheLi].c, n = c.dossier, url = window.ChoufAPI?.cosiumUrl() || "", va = /^https?:\/\//.test(url);
     copier(n).then(ok => toast(!ok ? "Copie impossible dans ce navigateur" : va ? `Numéro de dossier ${n} copié : à coller dans la recherche de Cosium`
