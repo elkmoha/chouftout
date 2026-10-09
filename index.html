@@ -9226,6 +9226,64 @@ async function restaurerSauvegarde(texte){
   toast(dossiers ? "Sauvegarde du " + quand + " rechargée." : "Sauvegarde rechargée, sauf les dossiers des clients.");
 }
 
+/* ---------- Base partagée (9 oct. 2026) : Supabase, version de test aux données fictives ----------
+   Une ligne par ensemble de la sauvegarde (commandes, chèques, équipe, réglages, dossiers…), jamais les mots de passe.
+   Après chaque geste, on envoie les ensembles changés ; toutes les 8 s, on relève ceux changés par les collègues. */
+const BASE = {url:"https://anhtbkrhzmxztrugmngb.supabase.co/rest/v1/", cle:"sb_publishable_AtT8PcUKhM5PVVOOuht2KQ_L0x9xpkY", session:Math.random().toString(36).slice(2)};
+let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMinuterie = null;
+const baseAppel = (chemin, o = {}) => fetch(BASE.url + chemin, Object.assign({}, o, {headers:Object.assign({apikey:BASE.cle, "Content-Type":"application/json"}, o.headers || {})}))
+  .then(r => { if (!r.ok) throw new Error("base " + r.status); return r.text(); }).then(t => t ? JSON.parse(t) : null);
+const baseLocal = () => { const d = sauvegardeData(); delete d.application; delete d.version; delete d.exportLe; delete d.magasin; return d; };
+const baseOccupe = () => { const a = document.activeElement;
+  return !!(a && a.matches && a.matches("input:not([type=search]), textarea, select, [contenteditable]")) || !$("modal").hidden || !!(window.SuviAPI && window.SuviAPI.occupe()); };
+const basePanne = e => { console.warn("Base partagée :", e); if (!baseEnPanne){ baseEnPanne = true; toast("Pas de connexion à la base : les changements restent sur cet appareil pour l’instant."); } };
+async function baseEnvoyer(){
+  if (!basePret) return;
+  const par = (currentUser() || {}).name || null;
+  const rangs = Object.entries(baseLocal()).map(([cle, v]) => ({cle, valeur:v, j:JSON.stringify(v)})).filter(r => r.valeur !== undefined && baseVu[r.cle] !== r.j);
+  if (!rangs.length) return;
+  rangs.forEach(r => { baseVu[r.cle] = r.j; });
+  try { await baseAppel("donnees?on_conflict=cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+    body:JSON.stringify(rangs.map(r => ({cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false; }
+  catch (e){ rangs.forEach(r => { delete baseVu[r.cle]; }); basePanne(e); }
+}
+function baseAppliquer(rangs){
+  const data = {};
+  rangs.forEach(r => { data[r.cle] = r.valeur; baseVu[r.cle] = JSON.stringify(r.valeur); });
+  actMuet = true;   // les changements des collègues ne sont pas les miens : pas d’activité notée
+  try {
+    Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; });
+    if (Array.isArray(data.comptes)) S.users = data.comptes.map(c => Object.assign({pw:"", pwTemp:true}, userOf(c.id) || {}, Object.fromEntries(SAUVE_COMPTE.filter(k => k in c).map(k => [k, c[k]]))));
+    if (data.dossiers && window.SuviAPI) try { window.SuviAPI.restaurer(data.dossiers, true); } catch (e){ console.warn("Base partagée, dossiers :", e); }
+    render();
+  } finally { actMuet = false; }
+  // l’ordre des clés revient trié par la base : on note ce qu’on a maintenant pour ne pas le renvoyer
+  Object.entries(baseLocal()).forEach(([cle, v]) => { if (cle in data) baseVu[cle] = JSON.stringify(v); });
+}
+async function baseRelever(){
+  if (!basePret || baseOccupe()) return;
+  try {
+    const rangs = await baseAppel("donnees?select=cle,valeur,version,session&order=version&version=gt." + baseVersion);
+    if (!rangs.length) return;
+    baseVersion = Math.max(baseVersion, ...rangs.map(r => r.version));
+    const autres = rangs.filter(r => r.session !== BASE.session);
+    if (autres.length) baseAppliquer(autres);
+    baseEnPanne = false;
+  } catch (e){ basePanne(e); }
+}
+async function baseDemarrer(){
+  try {
+    const rangs = await baseAppel("donnees?select=cle,valeur,version");
+    baseVersion = rangs.reduce((m, r) => Math.max(m, r.version), 0);
+    if (rangs.length) baseAppliquer(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
+    basePret = true;
+    await baseEnvoyer();
+  } catch (e){ basePanne(e); setTimeout(baseDemarrer, 30e3); return; }
+  setInterval(() => { baseEnvoyer().then(baseRelever); }, 8e3);
+  ["pointerup", "keyup", "change", "drop"].forEach(t => document.addEventListener(t, () => { clearTimeout(baseMinuterie); baseMinuterie = setTimeout(baseEnvoyer, 1e3); }, true));
+  addEventListener("pagehide", () => { baseEnvoyer(); });
+}
+
 /* ---------- Retards (admin) ---------- */
 function renderLates(){
   const admin = can("retards.noter");
@@ -12423,6 +12481,7 @@ document.addEventListener("dragend", endDrag);
 
 seed();
 render();
+setTimeout(baseDemarrer, 0);   // 9 oct. 2026 : après le chargement du Suivi
 })();
 
 </script>
@@ -16448,21 +16507,23 @@ const depuisGraphe = racine => {
 
 window.SuviAPI = {
   estAdmin(){ return estAdmin(); },
+  occupe(){ return ouverte; },   // 9 oct. 2026 : fiche client ouverte, la base attend avant d'y toucher
   /* Sauvegarde et rechargement des dossiers, depuis Réglages › Données de Chouf'Tout */
   /* Export des dossiers depuis Réglages › Données : équipements facturés entre deux dates (toutes les lignes si b est vide) */
   rangsFactures(b){ const g = b ? i => i.factureLe && i.factureLe >= b[0] && i.factureLe <= b[1] : () => true; return rangsCSV(LIGNES.filter(l => l.items.some(g)), g); },
   sauvegarde(){ return versGraphe({lignes:LIGNES, familles:FAMS, famSeq, recapsSolo:[...RECAPS_SOLO], reglages:REGLAGES, journal:JOURNAL}); },
-  restaurer(g){
+  restaurer(g, discret){   // 9 oct. 2026 : discret = changement d'un collègue reçu de la base (ni journal, ni fermeture)
     const d = depuisGraphe(g);
     if (!d || !Array.isArray(d.lignes)) throw new Error("dossiers absents");
-    try { fermer(); } catch (_) {}
+    if (!discret) try { fermer(); } catch (_) {}
     LIGNES.splice(0, LIGNES.length, ...d.lignes);
     FAMS = Array.isArray(d.familles) ? d.familles : []; famSeq = d.famSeq || FAMS.reduce((m, f) => Math.max(m, f.id || 0), 0) + 1;
     RECAPS_SOLO.clear(); (d.recapsSolo || []).forEach(([c, r]) => RECAPS_SOLO.set(c, r));
     if (d.reglages) Object.assign(REGLAGES, d.reglages);
     JOURNAL.splice(0, JOURNAL.length, ...(d.journal || []));
-    ACTIVITE.splice(0, ACTIVITE.length);   // les « Rétablir » visaient les anciennes données
-    noterJournal("Sauvegarde rechargée", "reglage");
+    if (discret){ for (let i = ACTIVITE.length - 1; i >= 0; i--) if (!ACTIVITE[i].cle) ACTIVITE.splice(i, 1); }   // ceux de Chouf’Tout retrouvent leur fiche par son id
+    else { ACTIVITE.splice(0, ACTIVITE.length);   // les « Rétablir » visaient les anciennes données
+      noterJournal("Sauvegarde rechargée", "reglage"); }
     try { majActivite(); } catch (_) {}
     try { rendre(); } catch (_) {}
   },
