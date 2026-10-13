@@ -9253,6 +9253,7 @@ async function restaurerSauvegarde(texte){
    Une ligne par ensemble de la sauvegarde (commandes, chèques, équipe, réglages, dossiers…), jamais les mots de passe.
    Après chaque geste, on envoie les ensembles changés ; toutes les 8 s, on relève ceux changés par les collègues. */
 const BASE = {url:"https://anhtbkrhzmxztrugmngb.supabase.co/rest/v1/", cle:"sb_publishable_AtT8PcUKhM5PVVOOuht2KQ_L0x9xpkY", session:Math.random().toString(36).slice(2)};
+let baseDelai = 15e3;
 let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMinuterie = null, baseRefus = new Set();   // baseRefus : ensembles illisibles, jamais renvoyés
 const baseAppel = (chemin, o = {}) => fetch(BASE.url + chemin, Object.assign({}, o, {headers:Object.assign({apikey:BASE.cle, "Content-Type":"application/json"}, o.headers || {})}))
   .then(r => { if (!r.ok) throw new Error("base " + r.status); return r.text(); }).then(t => t ? JSON.parse(t) : null);
@@ -9297,14 +9298,20 @@ async function baseRelever(){
   } catch (e){ basePanne(e); }
 }
 async function baseDemarrer(){
+  /* 14 oct. 2026 (garde-fou, après 138 000 lectures complètes en 24 h par une vue web cachée) : la base n'est lue que depuis un onglet affiché,
+     et plus du tout si la page redémarre en rafale dans ce navigateur (plus de 5 démarrages en une minute). */
+  if (document.visibilityState !== "visible"){ document.addEventListener("visibilitychange", baseDemarrer, {once:true}); return; }
+  try { const t = Date.now(), d = JSON.parse(localStorage.getItem("chouftout-demarrages") || "[]").filter(x => t - x < 60e3); d.push(t);
+    localStorage.setItem("chouftout-demarrages", JSON.stringify(d.slice(-20)));
+    if (d.length > 5){ console.warn("Base partagée : trop de démarrages en une minute, lecture suspendue."); setTimeout(baseDemarrer, 60e3); return; } } catch (_) {}
   try {
     const rangs = await baseAppel("donnees?select=cle,valeur,version");
     baseVersion = rangs.reduce((m, r) => Math.max(m, r.version), 0);
     if (rangs.length) baseAppliquer(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
     basePret = true;
     await baseEnvoyer();
-  } catch (e){ basePanne(e); setTimeout(baseDemarrer, 30e3); return; }
-  setInterval(() => { baseEnvoyer().then(baseRelever); }, 8e3);
+  } catch (e){ basePanne(e); baseDelai = Math.min(baseDelai * 2, 10 * 60e3); setTimeout(baseDemarrer, baseDelai); return; }   // relance de plus en plus espacée : 30 s, 1 min… jusqu'à 10 min
+  setInterval(() => { if (!document.hidden) baseEnvoyer().then(baseRelever); }, 8e3);   // en pause quand l'onglet est caché
   ["pointerup", "keyup", "change", "drop"].forEach(t => document.addEventListener(t, () => { clearTimeout(baseMinuterie); baseMinuterie = setTimeout(baseEnvoyer, 1e3); }, true));
   addEventListener("pagehide", () => { baseEnvoyer(); });
 }
