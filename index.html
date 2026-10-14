@@ -4306,7 +4306,7 @@ const moisLabel = mois => { const [y, m] = mois.split("-").map(Number); return c
 const sansAccent = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const enCours = () => S.suivi.dossiers.filter(d => !LISTS.filter(l => l.id !== "nv").some(l => l.match(d)));
 /* Actions de simple navigation, permises à tout compte connecté. Toute autre action doit avoir un droit dans ACTION_PERM, sinon elle est refusée. */
-const ACTIONS_LIBRES = new Set(["voir-confies", "login-ident", "login-autre", "mag-verrou", "mag-appareil-retour", "mag-menu", "mag-aller", "mag-appareil", "mag-rentrer", "search-autre", "open-paie", "fiche-edit", "open-tarif", "tarif-grille", "tarif-grilles", "bascule", "open-personne", "open-tachecat", "open-ajout", "login", "logout", "tab", "plus", "print", "close-pop", "search-open", "search-go", "accent-perso",
+const ACTIONS_LIBRES = new Set(["mdp-oublie", "mdp-changer", "voir-confies", "login-ident", "login-autre", "mag-verrou", "mag-appareil-retour", "mag-menu", "mag-aller", "mag-appareil", "mag-rentrer", "search-autre", "open-paie", "fiche-edit", "open-tarif", "tarif-grille", "tarif-grilles", "bascule", "open-personne", "open-tachecat", "open-ajout", "login", "logout", "tab", "plus", "print", "close-pop", "search-open", "search-go", "accent-perso",
   "goto-cmd", "goto-fiche", "goto-hours", "goto-suivi", "goto-tarifs", "jour-more", "jour-next", "jour-prev", "jour-today",
   "month-next", "month-prev", "stat-next", "stat-prev", "week-next", "week-prev", "week-today", "pick-me",
   "suivi-reset", "tarif-reset", "tarif-mutuelle-dossier", "reg-aller", "jour-voir", "retour", "open-notifs", "open-notif", "notifs-tout-lu", "open-nouv", "open-activite", "open-tdb", "act-retablir", "act-ouvrir", "racc-basculer", "racc-fermer", "racc-go", "drawer-agrandir", "vue-ecran", "vues-plus", "filtre-gen-choix", "copier", "annuler", "drawer-close", "flotte-fermer", "flotte-panneau", "reg-section", "compte-menu", "compte-affichage", "export-ecran"]);
@@ -4817,7 +4817,8 @@ function render(){
         <label for="loginEmail">Adresse e-mail</label><input id="loginEmail" name="email" class="inp" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         <label for="loginMdp">Mot de passe</label><input id="loginMdp" name="mdp" class="inp" type="password" autocomplete="current-password" required>
         <button type="submit" class="btn primary">Se connecter</button>
-        <p class="li-aide">Compte créé par la direction. Mot de passe oublié : demande à la direction de le réinitialiser.</p></form>`;   // 14 oct. 2026 : connexion vérifiée par Supabase
+        <button type="button" class="login-lien" data-action="mdp-oublie">Mot de passe oublié ?</button>
+        <p class="li-aide">Compte créé par la direction.</p></form>`;   // 14 oct. 2026 : connexion vérifiée par Supabase
       else if (!MULTI || !S.magasin) $("loginList").innerHTML = comptes.map(carte).join("");
       else {
         /* 14 oct. 2026 (validé par Mohamed) : plus de liste de tous les comptes. Ordinateur du magasin : compte équipe et présents du jour.
@@ -9654,6 +9655,36 @@ async function authJeton(){
     .catch(e => { if (e.statut === 400 || e.statut === 401) authEcrire(null); throw e; }).finally(() => { authRenouv = null; });
   return authRenouv;
 }
+/* 14 oct. 2026 : mot de passe oublié (lien envoyé par Supabase, qui revient sur cette page) et changement de mot de passe */
+const authMdpOublie = email => authAppel("recover?redirect_to=" + encodeURIComponent(location.origin + location.pathname), {email});
+async function authNouveauMdp(jeton, mdp){
+  const r = await fetch(BASE.auth + "user", {method:"PUT", headers:{apikey:BASE.cle, Authorization:"Bearer " + jeton, "Content-Type":"application/json"}, body:JSON.stringify({password:mdp})});
+  const t = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(t.msg || t.error_description || ("auth " + r.status)), {statut:r.status, code:t.error_code || t.code});
+  return t;
+}
+const mdpErreur = e => e.code === "same_password" ? "C’est déjà ton mot de passe actuel : choisis-en un autre."
+  : e.code === "weak_password" ? "Mot de passe trop faible : allonge-le ou mélange lettres et chiffres." : "Impossible de changer le mot de passe pour le moment.";
+async function mdpDemander(titre, intro){
+  const ok = await modal(titre, `${intro ? `<p class="sub">${intro}</p>` : ""}<label class="dp-champ"><span>Nouveau mot de passe, 8 caractères au moins</span><input class="inp" type="password" id="mdpNouveau" autocomplete="new-password" minlength="8"></label>`, "Enregistrer");
+  const v = (document.getElementById("mdpNouveau") || {}).value || "";
+  if (!ok) return null; if (v.length < 8){ toast("8 caractères au moins."); return mdpDemander(titre, intro); }
+  return v;
+}
+/* retour du lien reçu par e-mail : #access_token=…&type=recovery (ou #error=… si le lien a expiré) */
+const AUTH_RETOUR = (() => { const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("type") === "recovery" && h.get("access_token")) return {jeton:h.get("access_token"), refresh:h.get("refresh_token"), exp:Number(h.get("expires_in")) || 3600};
+  return h.get("error_code") ? {erreur:h.get("error_code")} : null; })();
+if (AUTH_RETOUR) try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+async function authRecuperer(){
+  const r = AUTH_RETOUR; if (!r) return;
+  if (r.erreur){ toast("Ce lien de réinitialisation a expiré ou a déjà servi. Redemande-le avec « Mot de passe oublié ? »."); return; }
+  const v = await mdpDemander("Choisis ton nouveau mot de passe", "Tu arrives depuis le lien de réinitialisation reçu par e-mail."); if (!v) return;
+  try { const u = await authNouveauMdp(r.jeton, v); authEcrire(authDepuis({access_token:r.jeton, refresh_token:r.refresh, expires_in:r.exp, user:u}));
+    toast("Mot de passe changé, tu es connecté."); baseDemarrer(); }
+  catch (e){ toast(mdpErreur(e)); }
+}
+if (AUTH_RETOUR) setTimeout(authRecuperer, 600);
 const authSortir = () => { const a = authLire(); authEcrire(null);
   if (a) fetch(BASE.auth + "logout", {method:"POST", headers:{apikey:BASE.cle, Authorization:"Bearer " + a.jeton}}).catch(() => {}); };
 let baseDelai = 15e3;
@@ -10186,7 +10217,10 @@ function secPrefs(){
   const nbEpi = (() => { try { const m = window.ChoufAPI.moi(); const k = m && m.id ? "chouftout-epingles:" + m.id : null; return k ? JSON.parse(localStorage.getItem(k) || "[]").length : 0; } catch (_) { return 0; } })();
   const mag = accentDe(accentVoulu(""));
   const ecrans = tabsFor().filter(t => t[0] !== "reglages");
-  return `<section class="panel settings-list">
+  return `${!DEMO && authLire() ? `<section class="panel settings-list"><h3>Mot de passe</h3>
+    <div class="row"><span class="sub" style="flex:1">Ton mot de passe de connexion, vérifié par Supabase. Personne d’autre ne le voit, pas même la direction.</span>
+    <button type="button" class="btn" data-action="mdp-changer">Changer mon mot de passe</button></div></section>` : ""}
+  <section class="panel settings-list">
     <h3>Apparence</h3>
     <p class="sub" style="margin:0">Valable pour le compte ${esc(u.name)} seulement : rien ne change pour tes collègues. L’effet est immédiat.</p>
     ${sel("theme", "Thème", [["auto", "Automatique, selon l’appareil"], ["light", "Clair"], ["dark", "Sombre"]])}
@@ -11839,6 +11873,16 @@ document.addEventListener("click", async e => {
     case "mag-aller": closePopover(); magOuvrir(el.dataset.mag); return;
     case "mag-appareil": try { localStorage.setItem(MAG_APPAREIL, el.dataset.mag); } catch (_) {} S.magAppareil = el.dataset.mag; S.magEtape = true; render(); return;
     case "mag-appareil-retour": S.magEtape = false; S.loginAutre = false; render(); return;
+    case "mdp-oublie": {   // 14 oct. 2026 : lien de réinitialisation envoyé par Supabase
+      const email = (($("loginEmail") || {}).value || "").trim();
+      if (!email){ toast("Écris d’abord ton adresse e-mail au-dessus."); $("loginEmail") && $("loginEmail").focus(); return; }
+      authMdpOublie(email).then(() => toast("Si cette adresse a un compte, un e-mail avec un lien vient de partir. Regarde aussi les courriers indésirables."))
+        .catch(e => toast(e.statut === 429 ? "Trop de demandes : réessaie dans une heure." : "Envoi impossible pour le moment. Réessaie dans un instant."));
+      return; }
+    case "mdp-changer": {   // 14 oct. 2026 : depuis Mon compte, avec la session en cours
+      mdpDemander("Changer mon mot de passe").then(async v => { if (!v) return;
+        try { await authNouveauMdp(await authJeton(), v); toast("Mot de passe changé."); } catch (e){ toast(mdpErreur(e)); } });
+      return; }
     case "login-autre": S.loginAutre = true; render(); { const i = $("loginIdent"); if (i) i.focus(); } return;
     case "login-ident": { const v = sansAccent(($("loginIdent") || {}).value || "").trim(), u = v && S.users.find(x => x.login === v && compteUtilisable(x));
       if (u) login(u.id); else toast(v ? "Identifiant inconnu. Vérifie l’orthographe, ou demande-le à la direction." : "Écris ton identifiant."); return; }
