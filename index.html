@@ -4332,7 +4332,7 @@ const ACTION_PERM = {
   "skill-up":"equipe.gerer", "skill-down":"equipe.gerer", "archive-skill":"equipe.gerer", "restore-skill":"equipe.gerer",
   "task-day":"equipe.gerer", "del-req":"equipe.gerer", "archive-task":"equipe.gerer", "restore-task":"equipe.gerer",
   "open-day":"reglages.gerer", "logo-del":"reglages.gerer", "logo-sombre-del":"reglages.gerer", "open-tache":"planning.voir", "open-process":"planning.voir", "proc-rub":"planning.voir", "proc-imprimer":"planning.voir", "proc-nouveau":"process.ecrire", "proc-modifier":"process.ecrire", "proc-retirer":"process.ecrire", "pe-plus":"process.ecrire", "pe-moins":"process.ecrire", "rub-up":"reglages.gerer", "rub-down":"reglages.gerer", "rub-del":"reglages.gerer", "open-annonces":"planning.voir", "annonce-lu":"planning.voir", "annonce-publier":"annonces.publier", "annonce-modifier":"annonces.publier", "annonce-retirer":"annonces.publier", "tache-aide":"planning.voir", "task-aide":"process.ecrire", "chq-bulk":"cheques.gerer", "suivi-bulk":"suivi.cocher", "export-csv":"paie.voir", "del-ferie":"reglages.gerer", "accent-magasin":"reglages.gerer", "tab-up":"reglages.gerer", "tab-down":"reglages.gerer", "entree-up":"reglages.gerer", "entree-down":"reglages.gerer", "reset-pw":"reglages.gerer", "del-user":"reglages.gerer",
-  "dup-role":"reglages.gerer", "del-role":"reglages.gerer", "export":"reglages.gerer", "reset-demo":"reglages.gerer",
+  "dup-role":"reglages.gerer", "del-role":"reglages.gerer", "export":"reglages.gerer", "import-feuille":"reglages.gerer", "reset-demo":"reglages.gerer",
   "open-produit":"tarifs.voir", "oeil":"tarifs.voir", "prod-cat":"tarifs.voir", "prod-reset":"tarifs.voir",
   "prod-archives":"tarifs.gerer", "prod-valider":"tarifs.gerer", "prod-refuser":"tarifs.gerer", "prod-archiver":"tarifs.gerer", "prod-restaurer":"tarifs.gerer",
   "prod-modifier":"tarifs.gerer", "prod-conseil":"tarifs.gerer", "prod-trait":"tarifs.voir", "prod-trait-vider":"tarifs.voir", "prod-fourn-choix":"tarifs.voir", "filtre-prod":"tarifs.voir", "prod-fav":"tarifs.voir", "prod-favori":"tarifs.gerer", "prod-ajouter":"tarifs.gerer",
@@ -10931,6 +10931,11 @@ function secDonnees(){
     <p class="sub" style="margin:0">Les documents qui décomptent le temps de travail doivent être gardés au moins un an. Durées à confirmer avec votre comptable.</p>
   </section>
   <section class="panel">
+    <h3>Importer le suivi Google Sheets</h3>
+    <p class="sub" style="margin:4px 0 12px;max-width:70ch">Un onglet du mois du fichier « SUIVI CLIENTS » (CSV ou cellules collées) devient des dossiers : états répartis entre administratif, équipement et BL, observation en action à faire. Aperçu avant de valider ; un client déjà suivi n’est pas recréé.</p>
+    <div class="row"><button type="button" class="btn" data-action="import-feuille">Importer un mois…</button></div>
+  </section>
+  <section class="panel">
     <h3>Sauvegarde</h3>
     <p class="sub" style="margin:4px 0 12px;max-width:70ch">Un fichier avec toutes les données du magasin : dossiers des clients, planning, horaires, équipe, commandes, chèques, catalogue et réglages. Garde-le sur ton ordinateur ; « Recharger » remet les données telles qu’elles étaient ce jour-là. Les mots de passe n’y sont jamais.</p>
     <div class="row"><button type="button" class="btn" data-action="export">Exporter une sauvegarde</button>
@@ -12635,6 +12640,10 @@ document.addEventListener("click", async e => {
       if (!(await confirmBox("Supprimer le rôle « " + r.name + " » ?", "Aucun compte ne l’utilise.", "Supprimer"))) break;
       S.roles = S.roles.filter(x => x.id !== r.id);
       render(); break;
+    }
+    case "import-feuille": {   // 15 oct. 2026 : la fenêtre d'import s'ouvre sur Dossiers
+      window.ChoufAPI.allerDossiers(); setTimeout(() => window.SuviAPI && window.SuviAPI.importerFeuille(), 60);
+      break;
     }
     case "export": {   // 9 oct. 2026 : un vrai fichier, dossiers des clients compris, qu'on peut recharger
       await telechargerFichier(`sauvegarde-chouftout-${TODAY_KEY}.json`, new Blob([JSON.stringify(sauvegardeData(), null, 1)], {type:"application/json"}), "Sauvegarde téléchargée. Garde-la sur ton ordinateur.");
@@ -15276,6 +15285,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
   // Le prénom du conseiller se change d'un clic, sans changer d'apparence (menu natif invisible posé dessus)
   const mg = window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufAPI.magasin() : null;   // 14 oct. 2026 : le magasin du dossier, en tête
   document.getElementById("f-sous").innerHTML = (mg ? `<span class="f-mag${mg.visite ? " visite" : ""}" style="--mag:${mg.c}" title="Dossier de ${esc(mg.nom)} (${esc(mg.lieu)})${mg.lecture ? ", en lecture seule" : ""}">${mg.dome}${esc(mg.nom)}${mg.lecture ? " · lecture seule" : ""}</span> · ` : "") + (c.passage ? `Client de passage · <button class="copie-discrete" type="button" data-copie="${esc(c.cosium.tel)}" data-quoi="Téléphone" title="Copier le téléphone">${esc(c.cosium.tel)}</button>`
+    : !c.dossier ? `<span class="copie-discrete" title="Importé du suivi sans n° Cosium : il se reliera en ouvrant la fiche du client dans Cosium">Dossier Cosium à relier</span>`   // 15 oct. 2026
     : `<button class="copie-discrete" type="button" data-copie="${c.dossier}" data-quoi="Numéro de dossier" title="Copier le numéro de dossier">Dossier ${c.dossier}</button>`) + ` · <span class="conseiller-choix">${c.conseiller}<select data-conseiller="${idx}" aria-label="Changer le conseiller de ${c.prenom} ${nomCasse(c)}">
       ${[...new Set([...EQUIPE, c.conseiller])].map(n => `<option${n === c.conseiller ? " selected" : ""}>${n}</option>`).join("")}</select></span> · ` +
     esc(l.mut ? `${l.mut.nom}${l.rang ? (l.rang === 1 ? ", 1re mutuelle" : `, ${l.rang}e mutuelle`) : ""}` : "Sans tiers payant");
@@ -15460,7 +15470,7 @@ const FL_AGRANDIR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const FL_CROIX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 function flHTML(l){
   const c = l.c, prog = estProgramme(l), a = prog ? null : ordre(l)[0];
-  return `<header class="ff-tete"><div><p class="surtitre">${c.passage ? "Client de passage" : `Dossier ${esc(c.dossier)}`}</p><h2>${esc(c.prenom)} ${esc(nomCasse(c))}</h2></div>
+  return `<header class="ff-tete"><div><p class="surtitre">${c.passage ? "Client de passage" : c.dossier ? `Dossier ${esc(c.dossier)}` : "Dossier Cosium à relier"}</p><h2>${esc(c.prenom)} ${esc(nomCasse(c))}</h2></div>
       <div class="ff-boutons"><button type="button" class="rond rond-petit" data-ff-panneau aria-label="Rouvrir en panneau" title="Rouvrir en panneau">${FL_AGRANDIR}</button>
         <button type="button" class="rond rond-petit" data-ff-fermer aria-label="Fermer">${FL_CROIX}</button></div></header>
     <div class="ff-corps"><p class="ff-mut">${esc(l.mut ? `${l.mut.nom} · ${l.mut.reseau}` : "Sans tiers payant")}</p>
@@ -16402,7 +16412,7 @@ let SG = null;   // {champ, debut, items, k}
 const chercherClients = (q, exclure) => { const n = plat(q.trim());
   return clientsDe().filter(c => c !== exclure && (!n || plat(`${c.prenom} ${c.nom} ${c.nom} ${c.prenom} ${c.dossier}`).includes(n)))
     .sort((a, b) => nomClient(a).localeCompare(nomClient(b), "fr")).slice(0, 6); };
-const infoClient = c => { const l = ligneDe(c); return `Dossier ${c.dossier}${l && l.mut ? " · " + esc(l.mut.nom) : ""}${avoirClient(c) > 0 ? ` · avoir ${euros(avoirClient(c))}` : ""}`; };
+const infoClient = c => { const l = ligneDe(c); return `${c.dossier ? "Dossier " + c.dossier : "Dossier Cosium à relier"}${l && l.mut ? " · " + esc(l.mut.nom) : ""}${avoirClient(c) > 0 ? ` · avoir ${euros(avoirClient(c))}` : ""}`; };
 const itemClient = (c, actif, attr) => `<button type="button" class="sg-item${actif ? " actif" : ""}" role="option" aria-selected="${actif}" ${attr}="${c.dossier}">
   <span class="ini">${esc(c.prenom.charAt(0) + c.nom.charAt(0))}</span><span><b>${esc(nomClient(c))}</b><span class="petit">${infoClient(c)}</span></span></button>`;
 function fermerSuggest(){ SG = null; suggest.classList.remove("vu"); suggest.hidden = true; }
@@ -16899,6 +16909,14 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
   const rc = d.complet && d.mut && reseauCosium(d.reseau), cr = rc && rc !== "Hors réseau" && clientCosium(d.dossier);
   const aRegler = cr ? LIGNES.filter(l => l.c === cr && !l.archive && l.mut && plat(l.mut.nom) === plat(d.mut) && l.mut.reseau === "Hors réseau") : [];
   aRegler.forEach(l => { l.mut.reseau = rc; histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Réseau ${rc} lu dans Cosium (gestionnaire de la complémentaire)`}); });
+  // 15 oct. 2026 : client importé du Google Sheets sans n° de dossier, reconnu par son nom (un seul) : il reçoit le n° Cosium ; sa mutuelle « à préciser » est complétée
+  let ci = d.complet && clientCosium(d.dossier);
+  if (d.complet && !ci){ const hs = clientsDe().filter(x => !x.dossier && !x.passage && plat(x.nom.trim()) === plat(d.nom || "") && plat(x.prenom.trim()) === plat(d.prenom || ""));
+    if (hs.length === 1){ ci = hs[0]; ci.dossier = d.dossier; LIGNES.filter(l => l.c === ci).forEach(l => histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Dossier Cosium ${d.dossier} relié (client importé du suivi)`})); } }
+  const aPreciser = ci && d.mut ? LIGNES.filter(l => l.c === ci && !l.archive && l.mut && l.mut.aPreciser) : [];
+  aPreciser.forEach(l => { l.mut.nom = d.mut; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
+    histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${d.mut} lue dans Cosium${rc && rc !== "Hors réseau" ? `, réseau ${rc}` : ""}`}); });
+  if (aPreciser.length && ouverte) rafraichirFiche();
   if (aRegler.length && ouverte) rafraichirFiche(); BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
 /* Ordonnance du dossier Lunettes ou Lentilles ouvert dans Cosium (9 oct. 2026, demande de Mohamed) : inscrite dans la fiche du client,
    sauf si ce dossier Cosium est bien plus ancien que la ligne de suivi de cet équipement : ce n'est alors pas la bonne ordonnance.
@@ -18224,7 +18242,218 @@ const depuisGraphe = racine => {
   reperer(racine); return dec(racine);
 };
 
+/* 15 oct. 2026 (demande de Mohamed) : import d'un onglet du Google Sheets « SUIVI CLIENTS » (un mois, CSV ou copier-coller).
+   La colonne d'état de la feuille mêle administratif, équipement et paiement : chaque valeur est répartie sur les axes du site.
+   La colonne « Mutuelle » est le réseau ; la mutuelle reste « à préciser » jusqu'au passage de l'extension Cosium.
+   Aperçu ligne par ligne avec les doutes en orange ; rien n'est créé avant « Importer ». */
+const MUT_A_PRECISER = "Mutuelle à préciser";
+const IMP_CONSEILLERS = {cho:"Choeyang", kha:"Khadidja", niz:"Nizar"};
+const IMP_ANCIENS = ["Hajar"];   // ne fait plus partie de l'équipe : son nom reste sur ses dossiers
+const IMP_RESEAUX = {spsante:"SP Santé", tpplus:"TP Plus", tp:"TP Plus", almerys:"Almerys", viamedis:"Viamedis", vm:"Viamedis", oxantis:"Oxantis", isante:"iSanté",
+  carteblanche:"Carte Blanche", cmu:"C2S (CMU)", c2s:"C2S (CMU)", henner:"Henner", mercer:"Mercer", generation:"Génération", korelio:"Korelio", ociane:"Ociane",
+  groupama:"Groupama", swisslife:"Swiss Life", wemind:"Wemind", hcr:"HCR", kalixia:"Kalixia", santeclair:"Santéclair", itelis:"Itelis", seveane:"Sévéane", optistya:"Optistya"};
+const IMP_SANS_TP = ["", "horstp", "sanstp", "espece", "especes", "cb", "cheque", "comptant", "aucune"];
+// Valeur d'état de la feuille → {a : état administratif (tiers payant), equip, stp : sans tiers payant, paiement : mode du reste à charge}
+const IMP_ETATS = {aucuntraitement:null, devis:{a:"devis"}, instance:{a:"instance"}, controle:{a:"instance", note:"contrôle de la mutuelle"}, pecok:{a:"pec_ok"},
+  refus:{a:"refuse"}, factureok:{a:"facture", equip:"livre"}, equipementlivre:{a:"pec_ok", equip:"livre"}, enattentedelivraison:{a:"pec_ok", equip:"pret"},
+  sanstp:{stp:true}, paiementcb:{paiement:"CB"}, paiementespece:{paiement:"espèces"}, paiementcomptant:{paiement:"comptant"}};
+const IMP_BL = {aucunecommande:"non", commandeencours:"cours", blrecu:"recu"};
+const impCle = s => plat(String(s || "")).replace(/[^a-z0-9]/g, "");
+const impNet = s => String(s || "").replace(/\s+/g, " ").trim();
+const impCasse = s => impNet(s).toLowerCase().replace(/(^|[\s'-])\p{L}/gu, x => x.toUpperCase());
+const impJours = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
+const impPlus = (iso, j) => fmtISO(new Date(new Date(iso + "T12:00").getTime() + j * 864e5));
+function impLire(t){   // CSV (virgule ou point-virgule) ou cellules collées depuis Sheets (tabulations), guillemets et retours à la ligne compris
+  t = String(t || "").replace(/^﻿/, ""); const l1 = t.split(/\r?\n/)[0] || "";
+  const sep = l1.includes("\t") ? "\t" : l1.split(";").length > l1.split(",").length ? ";" : ",";
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < t.length; i++){ const ch = t[i];
+    if (q){ if (ch === '"'){ if (t[i + 1] === '"'){ f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"' && f === "") q = true;
+    else if (ch === sep){ row.push(f); f = ""; }
+    else if (ch === "\n" || ch === "\r"){ if (ch === "\r" && t[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += ch; }
+  if (f || row.length){ row.push(f); rows.push(row); }
+  return rows;
+}
+// Dates écrites dans un texte : 21/10/2026, 21/10/26, 21/10 (année du mois importé), 15 oct.
+const IMP_MOIS = ["janv", "fev", "mars", "avr", "mai", "juin", "juil", "aout", "sept", "oct", "nov", "dec"];
+function impDates(t, an){
+  const out = [], ok = (j, m, a) => { if (a < 100) a += 2000; if (a < 2000 || a > 2100 || m < 1 || m > 12 || j < 1 || j > 31) return; out.push(`${a}-${String(m).padStart(2, "0")}-${String(j).padStart(2, "0")}`); };
+  String(t || "").replace(/(\d{1,2})\/(\d{1,2})(?:\/(\d+))?/g, (_, j, m, a) => { ok(+j, +m, a ? +a : an); return _; });
+  plat(String(t || "")).replace(/\b(\d{1,2})\s+(janv|fev|mars|avr|mai|juin|juil|aout|sept|oct|nov|dec)[a-z]*/g, (_, j, m) => { ok(+j, IMP_MOIS.indexOf(m) + 1, an); return _; });
+  return out;
+}
+function impColonnes(rows){   // repère la ligne des en-têtes et la place de chaque colonne
+  for (let r = 0; r < Math.min(rows.length, 15); r++){
+    const h = rows[r].map(impCle);
+    if (!h.includes("nom") || !h.includes("prenom")) continue;
+    const ou = test => h.findIndex(test);
+    return {deb:r + 1, obs:ou(x => x === "observation" || x === "observations"), cons:ou(x => x.startsWith("chouf") || x === "conseiller"), infl:ou(x => x.startsWith("influen")),
+      lun:ou(x => x === "lunette" || x === "lunettes"), len:ou(x => x === "lentille" || x === "lentilles"), aud:ou(x => x === "audio"),
+      blLun:ou(x => x === "bllunette" || x === "bllunettes"), blLen:ou(x => x === "bllentille" || x === "bllentilles"), nom:h.indexOf("nom"), prenom:h.indexOf("prenom"),
+      creee:ou(x => x.startsWith("datedecreation")), ordo:ou(x => x === "ordonnance"), mut:ou(x => x === "mutuelleoptique" || x === "mutuelle")};
+  }
+  return null;
+}
+function impAnalyser(texte, mois){
+  const rows = impLire(texte), k = impColonnes(rows);
+  if (!k || k.lun < 0) return {erreur:"Je ne trouve pas les en-têtes du suivi (NOM, PRENOM, LUNETTE…). Exporte l’onglet du mois en entier, ligne des titres comprise."};
+  const an = +mois.slice(0, 4), debutMois = mois + "-01", auj = isoJour(), res = [], vus = new Map(), existants = clientsDe();
+  const v = (r, i) => i >= 0 ? impNet(r[i]) : "";
+  rows.slice(k.deb).forEach((r, x) => {
+    const nom = v(r, k.nom).toUpperCase(), prenom = impCasse(v(r, k.prenom)), n = impNet(r[0]) || String(x + 1);
+    if (!nom && !prenom) return;
+    const al = [], obs = String(k.obs >= 0 ? r[k.obs] || "" : "").replace(/\s*[\r\n]+\s*/g, " · ").replace(/\s+/g, " ").trim(), obsCle = plat(obs);
+    // Conseiller : premier nom écrit (« MARAM/CHO » → Maram), abréviations de l'équipe
+    const tok = v(r, k.cons).split(/[\/,&+]/)[0].trim(), cons = IMP_CONSEILLERS[impCle(tok)] || impCasse(tok) || "";
+    if (!cons) al.push("Conseiller absent");
+    else if (IMP_ANCIENS.includes(cons)) al.push(`${cons} ne fait plus partie de l’équipe`);
+    else if (EQUIPE.length && !EQUIPE.includes(cons)) al.push(`${cons} n’est pas dans l’équipe`);
+    // Colonne « influenceuse » : n° de dossier Cosium, sinon origine du client
+    const infl = v(r, k.infl), dossier = /^\d{6,}$/.test(infl.replace(/\s/g, "")) ? infl.replace(/\s/g, "") : "", origine = dossier ? "" : infl;
+    const passage = impCle(nom) === "client" && impCle(prenom) === "passage";
+    if (nom.split(" ").length > 3) al.push("Nom à vérifier");
+    // Réseau (colonne « Mutuelle »)
+    const mk = impCle(v(r, k.mut)), reseau = IMP_SANS_TP.includes(mk) ? null : IMP_RESEAUX[mk] || impCasse(v(r, k.mut));
+    if (reseau && !IMP_RESEAUX[mk]) al.push(`Réseau inconnu : « ${v(r, k.mut)} »`);
+    // Fiche Cosium : date de création (une date absurde est ignorée)
+    const dc = impDates(v(r, k.creee), an)[0] || "", creee = dc && dc <= auj && dc >= "1990-01-01" ? dc : "";
+    if (v(r, k.creee) && !creee) al.push(`Date de fiche ignorée : « ${v(r, k.creee)} »`);
+    // Équipements : une colonne remplie = un équipement
+    const items = [], notes = [];
+    [["lunettes", k.lun, k.blLun], ["lentilles", k.len, k.blLen], ["audio", k.aud, -1]].forEach(([t, ci, bi]) => {
+      const brut = v(r, ci), e = IMP_ETATS[impCle(brut)];
+      if (!brut || e === null) return;
+      if (e === undefined){ al.push(`État inconnu (${TYPES[t].toLowerCase()}) : « ${brut} »`); return; }
+      const bl = IMP_BL[impCle(v(r, bi))] || "non", tp = !!reseau && !e.stp && !(e.paiement && !reseau);
+      let a = e.a || "pec_ok", equip = e.equip || "prep";
+      if (e.stp || (e.paiement && !reseau)) a = passage && e.paiement ? "s_paye" : bl === "non" && !e.paiement ? "s_traiter" : "accord";
+      if (passage && e.paiement) equip = "livre";
+      if (!reseau && !e.stp && !e.paiement){ al.push(`${TYPES[t]} « ${brut} » sans mutuelle`); a = VERS_STP[a] || "s_traiter"; }
+      if (e.paiement) notes.push(`Reste à charge ${TYPES[t].toLowerCase()} : paiement ${e.paiement}`);
+      if (e.note) notes.push(`${TYPES[t]} : ${e.note}`);
+      items.push({t, tp, a, bl:t === "audio" ? "non" : bl, devis:null, pec:null, equip, brut, blBrut:v(r, bi)});
+    });
+    // Rien encore (« AUCUN TRAITEMENT » partout) : l'équipement de l'ordonnance, à traiter
+    const ok = impCle(v(r, k.ordo)), futur = impDates(obs, an).filter(d => d > auj).sort()[0] || "";
+    let prog = "";
+    if (!items.length){
+      const ts = [ok.includes("lun") && "lunettes", ok.includes("len") && "lentilles", ok.includes("audio") && "audio"].filter(Boolean);
+      (ts.length ? ts : ["lunettes"]).forEach(t => items.push({t, tp:!!reseau, a:reseau ? "a_traiter" : "s_traiter", bl:"non", devis:null, pec:null, equip:"prep", brut:"", blBrut:""}));
+      if (futur) prog = futur;   // « à partir du 21/10 » : renouvellement programmé à cette date
+    }
+    // Actions : l'observation (échéance = première date à venir), ordonnance manquante
+    const actions = [];
+    if (obs) actions.push(nouvelleAction(obs, cons || null, auj, prog ? null : futur || null));
+    if (k.ordo >= 0 && !/ordo/.test(obsCle)) items.forEach(i => { if (["a_traiter", "devis", "instance", "s_traiter"].includes(i.a) && !ok.includes(i.t === "lunettes" ? "lun" : i.t === "lentilles" ? "len" : "audio"))
+      actions.push(nouvelleAction(`Obtenir l’ordonnance ${TYPES[i.t].toLowerCase()}`, cons || null)); });
+    // Refus parce que le forfait est déjà pris : droits rouverts un an et un jour après le dernier équipement
+    let droits = "";
+    if (items.some(i => i.a === "refuse") && /dernier|deja conso/.test(obsCle)){ const d = impDates(obs, an).filter(x => x <= auj).sort().pop(); if (d) droits = impPlus(fmtISO(new Date(new Date(d + "T12:00").setFullYear(+d.slice(0, 4) + 1))), 1); }
+    if (/\b5\s?e(me)?\b|chouf\s?5/.test(obsCle)) al.push("Fait sur Chouf 5 : à rattacher depuis la fiche");
+    if (/forfait/.test(obsCle)) al.push("Forfait partagé : relier en famille");
+    // Client : un même nom dans la feuille = un même client ; déjà suivi = décoché
+    const cle = passage ? "passage" + n : dossier ? "d" + dossier : "p:" + plat(prenom + " " + nom);
+    const dejaLigne = LIGNES.find(l => l.importe && l.importe.mois === mois && l.importe.ligne === n && plat(l.c.nom.trim()) === plat(nom));   // même ligne déjà importée (client de passage compris)
+    const deja = (dejaLigne && dejaLigne.c) || existants.find(c => (dossier && (c.dossier === dossier || (c.autresDossiers || []).includes(dossier))) || (!passage && plat(c.nom.trim()) === plat(nom) && plat(c.prenom.trim()) === plat(prenom)));
+    const avant = vus.get(cle); if (avant) al.push(`Même client que la ligne ${avant}`); else vus.set(cle, n);
+    if (deja) al.push("Déjà suivi dans le site");
+    const ouvertJ = prog ? -impJours(auj, prog) : Math.max(0, impJours(creee && creee.slice(0, 7) === mois ? creee : debutMois < auj ? debutMois : auj, auj));
+    res.push({n, nom, prenom, cons, dossier, origine, passage, reseau, creee, items, actions, notes, prog, droits, ouvertJ, obs, al, deja:!!deja, cle, coche:!deja});
+  });
+  return {lignes:res, mois};
+}
+// Création des dossiers : une ligne par état d'équipement (lunettes livrées, lentilles en cours : deux lignes)
+function impCreer(a){
+  const par = auteur() || "Import du suivi", auj = isoJour(), clients = new Map(), nouv = [], moisLib = dateISO(a.mois + "-15").replace(/^\d+\s/, "");
+  a.lignes.filter(x => x.coche).forEach(x => {
+    let c = clients.get(x.cle);
+    if (!c){ c = x.deja ? clientsDe().find(y => (x.dossier && y.dossier === x.dossier) || (plat(y.nom.trim()) === plat(x.nom) && plat(y.prenom.trim()) === plat(x.prenom))) : null;
+      if (!c){ c = C(x.nom, x.prenom, x.passage ? "P" + String(passageSeq++).padStart(3, "0") : x.dossier, x.cons || "Non renseigné"); if (x.passage) c.passage = true;
+        c.cosium = {tel:"", email:"", ne:"", lu:"", secu:"", creee:x.creee ? dateISO(x.creee, "short") : "", ordo:{date:"", prescripteur:""}}; }
+      clients.set(x.cle, c); }
+    const groupes = [...new Set(x.items.map(i => i.equip))];
+    groupes.forEach((eq, g) => {
+      const items = x.items.filter(i => i.equip === eq).map(({t, tp, a, bl, devis, pec}) => ({t, tp, a, bl, devis, pec}));
+      const tp = items.some(i => i.tp), l = {c, mut:tp ? {nom:MUT_A_PRECISER, reseau:x.reseau || "Hors réseau", aPreciser:true} : null, equip:eq, depuis:0, ouvertJ:x.ouvertJ,
+        items, actions:g ? [] : x.actions.map(y => Object.assign({}, y, {id:actSeq++})), histo:[], importe:{mois:a.mois, ligne:x.n}};
+      if (!tp){ l.mode = /cheque/.test(plat(x.obs)) ? "cheque" : "comptant"; l.condition = false; }
+      if (x.prog){ l.debut = x.prog; }
+      const etats = x.items.filter(i => i.equip === eq).map(i => `${TYPES[i.t].toLowerCase()} ${i.brut ? `« ${i.brut.trim()} »` : "sans état"}${i.blBrut ? `, BL « ${i.blBrut.trim()} »` : ""}`).join(" ; ");
+      histo(l).push({d:auj, par, fait:false, texte:`Importé du suivi Google Sheets (${moisLib}, ligne ${x.n}) : ${etats}${x.reseau ? ` · réseau ${x.reseau}` : ""}`});
+      if (x.origine) histo(l).unshift({d:auj, par, fait:false, texte:`Origine du client (feuille) : ${x.origine}`});
+      x.notes.forEach(t => histo(l).unshift({d:auj, par, fait:false, texte:t}));
+      if (groupes.length > 1) histo(l).unshift({d:auj, par, fait:false, texte:"Ligne séparée à l’import : les équipements n’en sont pas au même point"});
+      nouv.push(l);
+    });
+    if (x.droits){
+      const fut = x.droits > auj, base = nouv[nouv.length - 1];
+      if (fut) nouv.push({c, mut:base.mut ? {...base.mut} : null, mode:base.mode, condition:false, debut:x.droits, equip:"prep", depuis:0, ouvertJ:-impJours(auj, x.droits),
+        items:base.items.map(i => ({t:i.t, tp:i.tp, a:i.tp ? "a_traiter" : "s_traiter", bl:"non", devis:null, pec:null})),
+        actions:[nouvelleAction(`Droits rouverts le ${dateISO(x.droits)} : refaire la demande de prise en charge`, x.cons || null)], histo:[{d:auj, par, fait:false, texte:`Programmé à l’import : refus de la feuille, droits rouverts un an et un jour après le dernier équipement`}]});
+      else base.actions.push(nouvelleAction(`Droits rouverts depuis le ${dateISO(x.droits)} : refaire la demande de prise en charge`, x.cons || null, auj, auj));
+    }
+  });
+  LIGNES.push(...nouv); RENOUV_CACHE = null; rendre();
+  toast(`${nouv.length} dossier${nouv.length > 1 ? "s" : ""} importé${nouv.length > 1 ? "s" : ""} du suivi`, () => { nouv.forEach(l => { const i = LIGNES.indexOf(l); if (i >= 0) LIGNES.splice(i, 1); }); RENOUV_CACHE = null; rendre(); });
+  return nouv.length;
+}
+const impPastille = i => { const e = ETAT(i.a); return `<span class="imp-eq"><b>${TYPES[i.t]}</b> <span class="etat" style="--c:var(${e.c})">${esc(e.court || e.lib)}</span>${i.t !== "audio" ? ` <span class="petit">${esc(BL[i.bl].court)}</span>` : ""}</span>`; };
+function dialogueImport(){
+  const fond = document.createElement("div"), mois0 = isoJour().slice(0, 7);
+  fond.className = "dialogue-fond";
+  fond.innerHTML = `<div class="dialogue imp" role="dialog" aria-modal="true" aria-labelledby="imp-t">
+    <h3 id="imp-t">Importer le suivi Google Sheets</h3>
+    <div class="imp-corps">
+      <p class="intro">Dans le Google Sheets, ouvre l’onglet du mois, puis Fichier › Télécharger › CSV. Ou sélectionne tout l’onglet (Ctrl A), copie et colle ici. Rien n’est créé avant ta validation.</p>
+      <div class="imp-source">
+        <label class="ld"><span>Mois de l’onglet</span><input class="aj-champ" type="month" id="imp-mois" value="${mois0}"></label>
+        <label class="btn secondaire imp-fichier">Choisir le fichier CSV<input type="file" id="imp-fichier" accept=".csv,.tsv,.txt,text/csv" hidden></label>
+      </div>
+      <textarea class="champ-nom imp-texte" id="imp-texte" rows="4" placeholder="… ou colle ici les cellules copiées depuis Google Sheets"></textarea>
+      <div id="imp-apercu"></div>
+    </div>
+    <div class="pied"><button type="button" class="secondaire" data-r="0">Annuler</button><button type="button" class="principal" data-r="lire">Lire</button></div>
+  </div>`;
+  ZONE_SUIVI.appendChild(fond);
+  requestAnimationFrame(() => fond.classList.add("vu"));
+  const $ = q => fond.querySelector(q), bouton = $('[data-r="lire"]');
+  let an = null;
+  const fin = () => { removeEventListener("keydown", clavier, true); fond.classList.remove("vu"); setTimeout(() => fond.remove(), 200); };
+  const clavier = e => { if (e.key === "Escape"){ e.stopPropagation(); fin(); } };
+  addEventListener("keydown", clavier, true);
+  const compte = () => an ? an.lignes.filter(x => x.coche).length : 0;
+  const majBouton = () => { if (!an){ bouton.textContent = "Lire"; bouton.dataset.r = "lire"; bouton.disabled = false; return; }
+    const n = compte(); bouton.textContent = n ? `Importer ${n} client${n > 1 ? "s" : ""}` : "Rien à importer"; bouton.dataset.r = "importer"; bouton.disabled = !n; };
+  const apercu = () => {
+    if (an.erreur){ $("#imp-apercu").innerHTML = `<p class="imp-erreur">${esc(an.erreur)}</p>`; an = null; majBouton(); return; }
+    const ls = an.lignes, nAl = ls.filter(x => x.al.length).length, it = ls.flatMap(x => x.items), par = {};
+    it.forEach(i => { const k = ETAT(i.a).lib; par[k] = (par[k] || 0) + 1; });
+    $("#imp-apercu").innerHTML = `<p class="imp-bilan"><b>${ls.length} client${ls.length > 1 ? "s" : ""}</b> · ${it.length} équipement${it.length > 1 ? "s" : ""} · ${Object.entries(par).map(([k, n]) => `${n} ${esc(k.toLowerCase())}`).join(" · ")}${nAl ? ` · <span class="imp-doute">${nAl} à vérifier</span>` : ""}</p>
+      <div class="imp-table" role="table">${ls.map((x, k) => `<label class="imp-ligne${x.al.length ? " doute" : ""}" role="row">
+        <input type="checkbox" data-imp="${k}" ${x.coche ? "checked" : ""} aria-label="Importer ${esc(x.prenom + " " + x.nom)}">
+        <span class="imp-n">${esc(x.n)}</span>
+        <span class="imp-client"><b>${esc(x.nom)} ${esc(x.prenom)}</b><span class="petit">${esc(x.cons || "—")}${x.reseau ? ` · ${esc(x.reseau)}` : " · sans tiers payant"}${x.dossier ? ` · dossier ${esc(x.dossier)}` : ""}</span></span>
+        <span class="imp-etats">${x.items.map(impPastille).join("")}<span class="petit">${(g => g.length > 1 ? `${g.length} lignes : ${g.map(e => EQUIP[e].lib.toLowerCase()).join(" / ")}` : esc(EQUIP[g[0]].lib))([...new Set(x.items.map(i => i.equip))])}${x.prog ? ` · programmé le ${dateISO(x.prog, "short")}` : ""}${x.droits ? ` · droits rouverts le ${dateISO(x.droits, "short")}` : ""}</span></span>
+        <span class="imp-obs">${x.obs ? esc(x.obs) : '<span class="petit">Sans observation</span>'}${x.al.map(t => `<span class="imp-al">${esc(t)}</span>`).join("")}</span>
+      </label>`).join("")}</div>`;
+    majBouton();
+  };
+  const lire = t => { an = impAnalyser(t, $("#imp-mois").value || mois0); apercu(); };
+  $("#imp-fichier").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $("#imp-texte").value = ""; lire(rd.result); }; rd.readAsText(f); });
+  fond.addEventListener("input", e => { if (e.target.id === "imp-texte" && an){ an = null; $("#imp-apercu").innerHTML = ""; majBouton(); } });
+  fond.addEventListener("change", e => { const k = e.target.dataset.imp; if (k == null || !an) return; an.lignes[+k].coche = e.target.checked; majBouton(); });
+  fond.addEventListener("click", async e => {
+    const b = e.target.closest("[data-r]");
+    if (e.target === fond || (b && b.dataset.r === "0")) return fin();
+    if (!b || b.disabled) return;
+    if (b.dataset.r === "lire"){ const t = $("#imp-texte").value; if (!t.trim()){ toast("Choisis le fichier CSV ou colle les cellules de l’onglet"); return; } lire(t); return; }
+    if (b.dataset.r === "importer"){ fin(); impCreer(an); }
+  });
+}
 window.SuviAPI = {
+  importerFeuille(){ dialogueImport(); },   // 15 oct. 2026 : import du Google Sheets, depuis Réglages › Données
   estAdmin(){ return estAdmin(); },
   occupe(){ return ouverte; },   // 9 oct. 2026 : fiche client ouverte, la base attend avant d'y toucher
   /* Sauvegarde et rechargement des dossiers, depuis Réglages › Données de Chouf'Tout */
@@ -22173,6 +22402,30 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root #login .login-mdp label{font-size:.875rem; font-weight:500; margin-top:6px}
 :root #login .login-mdp .btn{margin-top:12px; min-height:44px}
 /* ================= deux magasins (fin) ================= */
+/* 15 oct. 2026 : import du suivi Google Sheets (fenêtre large, aperçu ligne par ligne) */
+:root #zone-suivi .dialogue.imp{width:min(1180px, 100%); max-height:calc(92vh / var(--zm, 1)); display:flex; flex-direction:column; overflow:hidden}
+:root #zone-suivi .dialogue.imp .imp-corps{overflow:auto; padding:0 20px 12px; flex:1}
+:root #zone-suivi .dialogue.imp .intro{padding:0; margin:4px 0 12px}
+:root #zone-suivi .imp-source{display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:10px}
+:root #zone-suivi .imp-source .ld{display:grid; gap:4px; border:0; padding:0}
+:root #zone-suivi .imp-fichier{min-height:44px; display:inline-flex; align-items:center; padding:0 18px; border-radius:999px; border:1px solid var(--ligne, rgba(127,127,127,.35)); font-weight:500; cursor:pointer}
+:root #zone-suivi .imp-fichier:hover{background:var(--groupe-2, rgba(127,127,127,.12))}
+:root #zone-suivi .imp-texte{width:100%; min-height:72px; font:inherit; font-size:.8125rem; resize:vertical}
+:root #zone-suivi .imp-bilan{margin:14px 0 8px; font-size:.875rem}
+:root #zone-suivi .imp-doute, :root #zone-suivi .imp-al{color:var(--orange)}
+:root #zone-suivi .imp-erreur{color:var(--rouge); margin:12px 0}
+:root #zone-suivi .imp-ligne{display:grid; grid-template-columns:24px 40px minmax(150px, 1.1fr) minmax(220px, 1.3fr) minmax(220px, 2fr); gap:10px; align-items:start; padding:10px 4px; border-top:1px solid var(--ligne, rgba(127,127,127,.18)); cursor:pointer; font-size:.8125rem}
+:root #zone-suivi .imp-ligne.doute{box-shadow:inset 3px 0 0 var(--orange)}
+:root #zone-suivi .imp-ligne input{width:18px; height:18px; margin-top:2px}
+:root #zone-suivi .imp-n{color:var(--second); font-variant-numeric:tabular-nums}
+:root #zone-suivi .imp-client, :root #zone-suivi .imp-etats, :root #zone-suivi .imp-obs{display:grid; gap:4px; min-width:0; overflow-wrap:anywhere}
+:root #zone-suivi .imp-eq{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+:root #zone-suivi .imp-al{display:block; font-weight:500}
+@media (max-width:760px){
+  :root #zone-suivi .imp-ligne{grid-template-columns:24px 1fr; }
+  :root #zone-suivi .imp-ligne > .imp-n{display:none}
+  :root #zone-suivi .imp-ligne > :is(.imp-etats, .imp-obs){grid-column:2}
+}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
