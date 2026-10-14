@@ -4812,8 +4812,8 @@ function render(){
         <span class="login-go" aria-hidden="true">→</span>
       </button>`; };
       const comptes = S.users.filter(compteUtilisable);
-      { const pied = document.querySelector("#login .login-pied"); if (pied) pied.hidden = !DEMO && !DANS_COSIUM; }   // 14 oct. 2026 : « simulation, choisis un accès » n'a plus cours hors démonstration
-      if (!DEMO && !DANS_COSIUM) $("loginList").innerHTML = `<form class="login-ident login-mdp" data-form="login-mdp">
+      { const pied = document.querySelector("#login .login-pied"); if (pied) pied.hidden = !DEMO; }   // 14 oct. 2026 : « simulation, choisis un accès » n'a plus cours hors démonstration
+      if (!DEMO) $("loginList").innerHTML = `<form class="login-ident login-mdp" data-form="login-mdp">
         <label for="loginEmail">Adresse e-mail</label><input id="loginEmail" name="email" class="inp" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         <label for="loginMdp">Mot de passe</label><input id="loginMdp" name="mdp" class="inp" type="password" autocomplete="current-password" required>
         <button type="submit" class="btn primary">Se connecter</button>
@@ -9638,7 +9638,7 @@ const authEcrire = a => { try { if (a) localStorage.setItem(AUTH_CLE, JSON.strin
 const authDepuis = r => { const c = ((r.user || {}).app_metadata || {}).chouf || {};
   return {jeton:r.access_token, refresh:r.refresh_token, fin:Date.now() + (r.expires_in || 3600) * 1e3, compte:c.compte || null, role:c.role || null, mag:c.mag || null, perso:!!c.perso}; };
 /* 14 oct. 2026 : ce que le serveur dit du compte connecté (magasin, rôle) ; c'est lui qui décide des droits d'écriture, l'application s'y aligne */
-const authCompte = id => { if (DEMO || DANS_COSIUM) return null; const a = authLire(); return a && id && a.compte === id ? a : null; };
+const authCompte = id => { if (DEMO) return null; const a = authLire(); return a && id && a.compte === id ? a : null; };
 async function authAppel(chemin, corps){
   const r = await fetch(BASE.auth + chemin, {method:"POST", headers:{apikey:BASE.cle, "Content-Type":"application/json"}, body:JSON.stringify(corps)});
   const t = await r.json().catch(() => ({}));
@@ -9660,7 +9660,7 @@ let baseDelai = 15e3;
 /* 14 oct. 2026 : une ligne par magasin et par ensemble (colonne « magasin ») : « * » pour ce qui est commun aux deux magasins,
    « 18 » ou « 5 » pour ce qui est propre à un magasin. Le serveur vérifie qui peut écrire où (chouf_peut_ecrire). */
 const BASE_PAR_MAG = new Set(["dossiers", "duplicatas", "fichesAtelier", "numeroAtelier", "commandes", "semaines", "retards", "moisClotures", "journal", "suiviClients", "cheques", "conges", "signalements", "annonces", "notifications", "taches"]);
-const baseMag = () => (typeof S !== "undefined" && S && S.magasin) || "18";
+const baseMag = () => (typeof S !== "undefined" && S && S.magasin) || (authLire() || {}).mag || "18";   // dans Cosium (un seul magasin) : celui du compte
 const baseMagDe = cle => BASE_PAR_MAG.has(cle) ? baseMag() : "*";
 const baseFiltreMag = () => "magasin=in.(%22*%22,18,5)";   // tous les magasins : l'autre est rangé dans MAG_DONNEES
 const baseCle = (m, cle) => m + "|" + cle;
@@ -9734,24 +9734,29 @@ async function baseRelever(){
     baseEnPanne = false;
   } catch (e){ basePanne(e); }
 }
-let baseLancee = false;
+let baseLancee = false, baseLecture = null;   // baseLecture : lecture en cours, partagée si on rappelle baseDemarrer() pendant ce temps
 async function baseDemarrer(){
   if (DEMO){ basePret = true; return; }
   if (!authLire()) return;   // 14 oct. 2026 : rien avant la connexion ; relancée par le formulaire de connexion
   if (baseLancee) return;
+  if (baseLecture) return baseLecture;
   /* 14 oct. 2026 (garde-fou, après 138 000 lectures complètes en 24 h par une vue web cachée) : la base n'est lue que depuis un onglet affiché,
      et plus du tout si la page redémarre en rafale dans ce navigateur (plus de 5 démarrages en une minute). */
   if (document.visibilityState !== "visible"){ document.addEventListener("visibilitychange", baseDemarrer, {once:true}); return; }
   try { const t = Date.now(), d = JSON.parse(localStorage.getItem("chouftout-demarrages") || "[]").filter(x => t - x < 60e3); d.push(t);
     localStorage.setItem("chouftout-demarrages", JSON.stringify(d.slice(-20)));
     if (d.length > 5){ console.warn("Base partagée : trop de démarrages en une minute, lecture suspendue."); setTimeout(baseDemarrer, 60e3); return; } } catch (_) {}
+  let fini; baseLecture = new Promise(ok => { fini = ok; });
   try {
     const rangs = await baseAppel("donnees?select=magasin,cle,valeur,version&" + baseFiltreMag());
     baseVersion = rangs.reduce((m, r) => Math.max(m, r.version), 0);
     if (rangs.length) baseRepartir(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
     basePret = true; baseLancee = true;
+    /* 14 oct. 2026 : session Supabase valide mais compte inconnu avant la lecture de la base (comptes créés depuis) : on ouvre maintenant */
+    if (!S.user){ const a = authLire(); if (a && a.compte && compteUtilisable(userOf(a.compte))) login(a.compte, !DANS_COSIUM && SESSION_REPRISE && SESSION_REPRISE.id === a.compte ? SESSION_REPRISE : null); }
+    baseLecture = null; fini();
     await baseEnvoyer();
-  } catch (e){ basePanne(e); baseDelai = Math.min(baseDelai * 2, 10 * 60e3); setTimeout(baseDemarrer, baseDelai); return; }   // relance de plus en plus espacée : 30 s, 1 min… jusqu'à 10 min
+  } catch (e){ baseLecture = null; fini(); basePanne(e); baseDelai = Math.min(baseDelai * 2, 10 * 60e3); setTimeout(baseDemarrer, baseDelai); return; }   // relance de plus en plus espacée : 30 s, 1 min… jusqu'à 10 min
   setInterval(() => { if (!document.hidden) baseEnvoyer().then(baseRelever); }, 8e3);   // en pause quand l'onglet est caché
   ["pointerup", "keyup", "change", "drop"].forEach(t => document.addEventListener(t, () => { clearTimeout(baseMinuterie); baseMinuterie = setTimeout(baseEnvoyer, 1e3); }, true));
   addEventListener("pagehide", () => { baseEnvoyer(); });
@@ -11380,6 +11385,8 @@ if (!DANS_COSIUM) addEventListener("pagehide", () => { if (S.user && sessionLire
 /* 9 oct. 2026 : dans le bandeau Cosium, le dernier compte connecté revient au rechargement (jusqu'à « Se déconnecter »),
    sinon le compte équipe s'ouvre seul : aucun mot de passe au lancement (demande de Mohamed) */
 if (DANS_COSIUM) setTimeout(() => { if (S.user) return; let id = null; try { id = localStorage.getItem("chouftout-cosium-compte"); } catch (_) {}
+  /* 14 oct. 2026 : base fermée : dans Cosium aussi, on se connecte une fois par e-mail et mot de passe, puis la session reste */
+  if (!DEMO){ const a = authLire(); if (a && a.compte && compteUtilisable(userOf(a.compte))) login(a.compte); baseDemarrer(); return; }
   const eq = S.users.find(u => u.role === "equipe" && compteUtilisable(u));
   if (!(id && compteUtilisable(userOf(id)))) id = eq ? eq.id : null;
   if (id) login(id); }, 0);
@@ -11391,7 +11398,7 @@ function donneesAccueil(u){
     date:cap(fmtFull.format(TODAY)), mag:MULTI && S.magasin ? (m => ({nom:m.nom, lieu:m.lieu, c:m.c, dome:magDome(m.id, "trace")}))(magDe(S.magasin)) : null};
 }
 function logout(){
-  if (!DEMO && !DANS_COSIUM){ authSortir(); basePret = false; }   // 14 oct. 2026 : fin de la session Supabase
+  if (!DEMO){ authSortir(); basePret = false; }   // 14 oct. 2026 : fin de la session Supabase
   if (DANS_COSIUM) try { localStorage.removeItem("chouftout-cosium-compte"); } catch (_) {}   // 9 oct. 2026 : voir plus bas
   else sessionEcrire(null);
   clearTimeout(idleTimer);
@@ -12900,8 +12907,9 @@ document.addEventListener("submit", async e => {
     b.disabled = true; b.textContent = "Connexion…";
     try {
       const a = await authConnecter(email, mdp); f.elements.mdp.value = "";
+      if (a.compte && !compteUtilisable(userOf(a.compte))) await baseDemarrer();   // compte créé depuis : il n'est connu qu'une fois la base lue
       if (!a.compte || !compteUtilisable(userOf(a.compte))){ authSortir(); toast("Ce compte n’est relié à aucun accès Chouf’Tout. Demande à la direction."); return; }
-      login(a.compte); baseDemarrer();
+      if (!S.user) login(a.compte); baseDemarrer();
       { const u = userOf(a.compte), p = u && u.collab ? personOf(u.collab) : null;   // 14 oct. 2026 : fiche de la personne alignée sur le magasin du serveur
         if (a.mag && p && magPers(p) !== a.mag && !renfortLe(p, TODAY)) toast("Ton compte est rattaché à " + magDe(a.mag).nom + " ; ta fiche dans l’équipe dit " + magDe(magPers(p)).nom + ". Demande à la direction de corriger l’un des deux."); }
     } catch (err){ toast(err.statut === 400 ? "E-mail ou mot de passe incorrect." : "Connexion impossible pour le moment. Réessaie dans un instant."); }
