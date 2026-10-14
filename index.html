@@ -9619,7 +9619,9 @@ const AUTH_CLE = "chouftout-auth";
 const authLire = () => { try { const a = JSON.parse(localStorage.getItem(AUTH_CLE) || "null"); return a && a.refresh ? a : null; } catch (_) { return null; } };
 const authEcrire = a => { try { if (a) localStorage.setItem(AUTH_CLE, JSON.stringify(a)); else localStorage.removeItem(AUTH_CLE); } catch (_) {} };
 const authDepuis = r => { const c = ((r.user || {}).app_metadata || {}).chouf || {};
-  return {jeton:r.access_token, refresh:r.refresh_token, fin:Date.now() + (r.expires_in || 3600) * 1e3, compte:c.compte || null, role:c.role || null}; };
+  return {jeton:r.access_token, refresh:r.refresh_token, fin:Date.now() + (r.expires_in || 3600) * 1e3, compte:c.compte || null, role:c.role || null, mag:c.mag || null, perso:!!c.perso}; };
+/* 14 oct. 2026 : ce que le serveur dit du compte connecté (magasin, rôle) ; c'est lui qui décide des droits d'écriture, l'application s'y aligne */
+const authCompte = id => { if (DEMO || DANS_COSIUM) return null; const a = authLire(); return a && id && a.compte === id ? a : null; };
 async function authAppel(chemin, corps){
   const r = await fetch(BASE.auth + chemin, {method:"POST", headers:{apikey:BASE.cle, "Content-Type":"application/json"}, body:JSON.stringify(corps)});
   const t = await r.json().catch(() => ({}));
@@ -9750,7 +9752,9 @@ const MAG_COMPTE = "chouftout-compte-appareil", MAG_VERROU = "chouftout-magasin-
 const magVerrou = () => { try { const v = localStorage.getItem(MAG_VERROU); return MAGASINS.some(m => m.id === v) ? v : null; } catch (_) { return null; } };   // ordinateur du magasin, verrouillé par l'administrateur
 const presentAuj = p => { const t = p && p.typical[dayIdx(TODAY)]; return !!t && !t.absence && !onLeave(p, TODAY); };
 const magAppareil = () => { if (magVerrou()) return magVerrou(); if (!S.magAppareil){ try { S.magAppareil = localStorage.getItem(MAG_APPAREIL); } catch (_) {} } return magDe(S.magAppareil).id; };
-const magDefaut = u => (u && u.mag) || (u && u.collab && personOf(u.collab) ? magLe(personOf(u.collab), TODAY) : MAGASINS[0].id);   // en renfort aujourd'hui : le magasin du renfort
+const magDefaut = u => { const sv = authCompte(u && u.id), p = u && u.collab ? personOf(u.collab) : null, rf = p ? renfortLe(p, TODAY) : null;
+  if (sv && sv.mag) return rf ? rf.mag : sv.mag;   // 14 oct. 2026 : le magasin du serveur (sauf renfort du jour)
+  return (u && u.mag) || (p ? magLe(p, TODAY) : MAGASINS[0].id); };   // en renfort aujourd'hui : le magasin du renfort
 /* Les horaires prévus d'une personne, refaits dans les deux magasins à partir d'aujourd'hui (renfort ajouté ou retiré, rattachement changé) */
 function magChez(id, fn){
   if (id === S.magasin) return fn();
@@ -9779,7 +9783,9 @@ function magBlocPersonne(p, g){
       <button type="submit" class="btn">Ajouter un renfort à ${esc(autre.nom)}</button>
     </form>` : !ici ? `<p class="sub">Son contrat, ses horaires et ses absences se règlent depuis ${esc(chez.nom)}.</p>` : ""}`;
 }
-const magsCompte = u => { const r = u && roleOf(u.role); return (r && r.admin) || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)]; };
+const magsCompte = u => { const r = u && roleOf(u.role), sv = authCompte(u && u.id);
+  if (sv) return sv.role === "admin" || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)];   // 14 oct. 2026 : le serveur décide qui voit les deux
+  return (r && r.admin) || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)]; };
 const magPrendre = () => { const d = {}; MAG_CLES.forEach(k => { d[k] = S[k]; }); d.dossiers = JSON.stringify(window.SuviAPI.sauvegarde()); return d; };
 function magPoser(d){
   MAG_CLES.forEach(k => { if (k in d) S[k] = d[k]; });
@@ -12875,6 +12881,8 @@ document.addEventListener("submit", async e => {
       const a = await authConnecter(email, mdp); f.elements.mdp.value = "";
       if (!a.compte || !compteUtilisable(userOf(a.compte))){ authSortir(); toast("Ce compte n’est relié à aucun accès Chouf’Tout. Demande à la direction."); return; }
       login(a.compte); baseDemarrer();
+      { const u = userOf(a.compte), p = u && u.collab ? personOf(u.collab) : null;   // 14 oct. 2026 : fiche de la personne alignée sur le magasin du serveur
+        if (a.mag && p && magPers(p) !== a.mag && !renfortLe(p, TODAY)) toast("Ton compte est rattaché à " + magDe(a.mag).nom + " ; ta fiche dans l’équipe dit " + magDe(magPers(p)).nom + ". Demande à la direction de corriger l’un des deux."); }
     } catch (err){ toast(err.statut === 400 ? "E-mail ou mot de passe incorrect." : "Connexion impossible pour le moment. Réessaie dans un instant."); }
     finally { b.disabled = false; b.textContent = "Se connecter"; }
     return;
