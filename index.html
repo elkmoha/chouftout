@@ -9634,6 +9634,12 @@ async function authJeton(){
 const authSortir = () => { const a = authLire(); authEcrire(null);
   if (a) fetch(BASE.auth + "logout", {method:"POST", headers:{apikey:BASE.cle, Authorization:"Bearer " + a.jeton}}).catch(() => {}); };
 let baseDelai = 15e3;
+/* 14 oct. 2026 : une ligne par magasin et par ensemble (colonne « magasin ») : « * » pour ce qui est commun aux deux magasins,
+   « 18 » ou « 5 » pour ce qui est propre à un magasin. Le serveur vérifie qui peut écrire où (chouf_peut_ecrire). */
+const BASE_PAR_MAG = new Set(["dossiers", "duplicatas", "fichesAtelier", "numeroAtelier", "commandes", "semaines", "retards", "moisClotures", "journal", "suiviClients", "cheques", "conges", "signalements", "annonces", "notifications", "taches"]);
+const baseMag = () => (typeof S !== "undefined" && S && S.magasin) || "18";
+const baseMagDe = cle => BASE_PAR_MAG.has(cle) ? baseMag() : "*";
+const baseFiltreMag = () => "magasin=in.(%22*%22," + baseMag() + ")";
 let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMinuterie = null, baseRefus = new Set();   // baseRefus : ensembles illisibles, jamais renvoyés
 const baseAppel = async (chemin, o = {}) => { const j = await authJeton(); if (!j) throw new Error("base : pas connecté");
   const r = await fetch(BASE.url + chemin, Object.assign({}, o, {headers:Object.assign({apikey:BASE.cle, Authorization:"Bearer " + j, "Content-Type":"application/json"}, o.headers || {})}));
@@ -9655,8 +9661,8 @@ async function baseEnvoyer(){
   const rangs = Object.entries(baseLocal()).map(([cle, v]) => ({cle, valeur:v, j:JSON.stringify(v)})).filter(r => r.valeur !== undefined && baseVu[r.cle] !== r.j && !baseRefus.size);   // dossiers illisibles : rien n'est renvoyé (chèques et planning en dépendent)
   if (!rangs.length) return;
   rangs.forEach(r => { baseVu[r.cle] = r.j; });
-  try { await baseAppel("donnees?on_conflict=cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
-    body:JSON.stringify(rangs.map(r => ({cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false;
+  try { await baseAppel("donnees?on_conflict=magasin,cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+    body:JSON.stringify(rangs.map(r => ({magasin:baseMagDe(r.cle), cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false;
     if (parent !== window) parent.postMessage({chouf:"maj"}, "*"); }   // 9 oct. 2026 : dans le panneau de l'extension, la barre de Cosium se met à jour
   catch (e){ rangs.forEach(r => { delete baseVu[r.cle]; }); basePanne(e); }
 }
@@ -9677,7 +9683,7 @@ function baseAppliquer(rangs){
 async function baseRelever(){
   if (!basePret || baseOccupe()) return;
   try {
-    const rangs = await baseAppel("donnees?select=cle,valeur,version,session&order=version&version=gt." + baseVersion);
+    const rangs = await baseAppel("donnees?select=cle,valeur,version,session&order=version&" + baseFiltreMag() + "&version=gt." + baseVersion);
     if (!rangs.length) return;
     baseVersion = Math.max(baseVersion, ...rangs.map(r => r.version));
     const autres = rangs.filter(r => r.session !== BASE.session);
@@ -9697,7 +9703,7 @@ async function baseDemarrer(){
     localStorage.setItem("chouftout-demarrages", JSON.stringify(d.slice(-20)));
     if (d.length > 5){ console.warn("Base partagée : trop de démarrages en une minute, lecture suspendue."); setTimeout(baseDemarrer, 60e3); return; } } catch (_) {}
   try {
-    const rangs = await baseAppel("donnees?select=cle,valeur,version");
+    const rangs = await baseAppel("donnees?select=cle,valeur,version&" + baseFiltreMag());
     baseVersion = rangs.reduce((m, r) => Math.max(m, r.version), 0);
     if (rangs.length) baseAppliquer(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
     basePret = true; baseLancee = true;
