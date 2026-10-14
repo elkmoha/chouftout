@@ -3517,7 +3517,8 @@ const TODAY = new Date();
 const TODAY_KEY = keyOf(TODAY);
 const DAYS = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 const DAYS_SHORT = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
-const STATUSES = ["Opticien","Vendeur confirmé","Vendeur débutant","Alternant"];
+const STATUSES = ["Opticien","Opticien et audioprothésiste","Vendeur confirmé","Vendeur débutant","Alternant"];
+const estOpticien = p => !!p && /^Opticien/.test(p.status || "");   // 14 oct. 2026 : « Opticien et audioprothésiste » compte comme opticien (alertes du planning)
 const LEVELS = [1,2,3,4,5];
 const ABSENCES = ["Congés payés","Maladie","École","Formation","Récupération","Sans solde","Autre"];
 const WORK_ABS = ["École","Formation"];
@@ -4468,7 +4469,7 @@ function chqPastilleJours(c){
 const tacheCheques = t => !!t && (t.cheques === "relance" || t.id === "cheques");
 const congesAttente = () => S.conges.filter(c => c.statut === "attente");
 const congeOf = id => S.conges.find(c => c.id === id);
-const statutVisible = p => !p ? "" : (can("equipe.gerer") ? p.status : (p.status === "Opticien" ? "Opticien" : ""));
+const statutVisible = p => !p ? "" : (can("equipe.gerer") ? p.status : (estOpticien(p) ? p.status : ""));
 const canSeeTarifs = () => can("tarifs.voir");
 const gridKey = t => t.mutuelle + "|" + (t.plateforme || "");
 const gridLabel = (m, pl) => m + (pl ? " – " + pl : "");
@@ -5309,7 +5310,7 @@ function renderTableau(w){
     const ids = closed ? [] : presentIds(w, d);
     const alertes = [];
     if (!closed){
-      if (st().opticienRequis && ids.length && !ids.some(id => personOf(id).status === "Opticien")) alertes.push("Aucun opticien ce jour");
+      if (st().opticienRequis && ids.length && !ids.some(id => estOpticien(personOf(id)))) alertes.push("Aucun opticien ce jour");
       const libres = ids.length ? freeCount(w, d) : 0;
       if (ids.length && libres < salesMin(d)) alertes.push(libres + " disponible" + (libres > 1 ? "s" : "") + " pour la vente (minimum " + salesMin(d) + ")");
       const places = w.items.filter(i => i.day === d).reduce((n, i) => n + Math.max(0, itemMeta(i).need - i.who.length), 0);
@@ -5368,8 +5369,8 @@ function renderDay(w, d){
   if (!closed){
     const ids = presentIds(w, d);
     head += `<div class="pres-line">${ids.length ? `<span class="initials">${ids.map(id => { const p = personOf(id); const sh = effVu(w, d, id);
-      return `<button type="button" class="ini ini-btn${p.status === "Opticien" ? " opt" : ""}" style="--c:${pc(p)}" data-action="who-hours" data-day="${d}" data-person="${id}" aria-label="${esc(p.name)} : ${sh ? fmtRange(sh) : ""}" title="${esc(p.name)}, ${sh ? fmtRange(sh) : ""}">${esc(p.name.slice(0, 2))}</button>`; }).join("")}</span>` : `<span class="nobody">Personne</span>`}</div>`;
-    if (st().opticienRequis && ids.length && !ids.some(id => personOf(id).status === "Opticien")) alerts.push(["Aucun opticien ce jour", false]);
+      return `<button type="button" class="ini ini-btn${estOpticien(p) ? " opt" : ""}" style="--c:${pc(p)}" data-action="who-hours" data-day="${d}" data-person="${id}" aria-label="${esc(p.name)} : ${sh ? fmtRange(sh) : ""}" title="${esc(p.name)}, ${sh ? fmtRange(sh) : ""}">${esc(p.name.slice(0, 2))}</button>`; }).join("")}</span>` : `<span class="nobody">Personne</span>`}</div>`;
+    if (st().opticienRequis && ids.length && !ids.some(id => estOpticien(personOf(id)))) alerts.push(["Aucun opticien ce jour", false]);
     if (st().hours.on){
       const h = st().hours.days[d];
       const shifts = ids.map(id => effVu(w, d, id)).filter(Boolean);
