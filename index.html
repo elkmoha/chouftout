@@ -3677,7 +3677,7 @@ const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
 /* 13 oct. 2026 (essai, mode démonstration seulement) : deux magasins. Chacun a ses dossiers, commandes, chèques, planning… (MAG_CLES, plus bas) ;
    catalogue, tarifs, process, comptes et réglages sont communs. S.magasin : le magasin affiché. p.mag : magasin de rattachement d'une personne.
    Hors démonstration (base partagée), rien ne change : un seul magasin. */
-const MULTI = /[?&]demo=1\b/.test(location.search);
+const MULTI = new URLSearchParams(location.search).get("cosium") !== "1";   // 14 oct. 2026 : deux magasins aussi sur les vraies données (pas dans l'extension Cosium)
 const MAGASINS = [{id:"18", nom:"Chouf 18", lieu:"Montmartre", c:"var(--pj-bleu)"}, {id:"5", nom:"Chouf 5", lieu:"Quartier latin", c:"var(--pj-or)"}];
 const magDe = id => MAGASINS.find(m => m.id === id) || MAGASINS[0];
 /* 14 oct. 2026 : un dôme par magasin, tracé au fil comme le néon de la marque (Sacré-Cœur pour le 18e, Panthéon pour le 5e). Repère 120 × 100. */
@@ -4784,7 +4784,7 @@ function render(){
     $("armBar").hidden = true;
     { const z = document.getElementById("zone-suivi"); if (z) z.hidden = true; document.body.classList.remove("mode-dossiers");  S.suviCompte = null; }
     /* 14 oct. 2026 (demande de Mohamed) : au lancement, le magasin d'abord (deux cartes), puis ses comptes */
-    const choixMag = MULTI && S.magasin && !S.magEtape && !magVerrou(), retenu = (() => { try { return localStorage.getItem(MAG_APPAREIL); } catch (_) { return null; } })();
+    const choixMag = DEMO && MULTI && S.magasin && !S.magEtape && !magVerrou(), retenu = (() => { try { return localStorage.getItem(MAG_APPAREIL); } catch (_) { return null; } })();
     $("login").classList.toggle("choix-mag", !!choixMag);
     if (choixMag) $("loginList").innerHTML = `<div class="login-mags" role="group" aria-label="Choisis ton magasin"><p class="login-question">Dans quel magasin es-tu ?</p>${MAGASINS.map(m => `<button type="button" class="login-mag-carte" data-action="mag-appareil" data-mag="${m.id}" style="--mag:${m.c}">${magDome(m.id, "trace")}<b>${esc(m.nom)}</b><small>${esc(m.lieu)}</small>${m.id === retenu ? `<span class="lm-dernier">Dernier utilisé ici</span>` : ""}</button>`).join("")}</div>`;
     else {
@@ -6110,8 +6110,12 @@ window.ChoufAPI = {
     const n = (MAG_DONNEES[m.id].dossiers.match(new RegExp('"confie":\\{"a":"' + S.magasin + '"', "g")) || []).length;
     return n ? {n, id:m.id, nom:m.nom, c:m.c, dome:magDome(m.id, "", true), lecture:!currentUser().collab} : null; },
   /* 14 oct. 2026 : rattacher un dossier à l'autre magasin. Il attend dans ses « arrivées » et rejoint ses dossiers à la prochaine ouverture (magPoser). */
-  rattacher(id, texte){ const d = MAG_DONNEES[id]; if (!d) return null; (d.arrivees || (d.arrivees = [])).push(texte); return texte; },
-  rattacherAnnuler(id, texte){ const d = MAG_DONNEES[id], i = d && d.arrivees ? d.arrivees.indexOf(texte) : -1; if (i < 0) return false; d.arrivees.splice(i, 1); return true; },
+  rattacher(id, texte){ const d = MAG_DONNEES[id]; if (!d) return null;
+    if (!DEMO){ const avant = d.dossiers; d.dossiers = window.SuviAPI.fusionner(d.dossiers, [texte]); return {avant, apres:d.dossiers}; }   // 14 oct. 2026 : envoyé à la base avec l'autre magasin
+    (d.arrivees || (d.arrivees = [])).push(texte); return texte; },
+  rattacherAnnuler(id, texte){ const d = MAG_DONNEES[id]; if (!d) return false;
+    if (texte && texte.apres){ if (d.dossiers !== texte.apres) return false; d.dossiers = texte.avant; return true; }
+    const i = d.arrivees ? d.arrivees.indexOf(texte) : -1; if (i < 0) return false; d.arrivees.splice(i, 1); return true; },
   /* 14 oct. 2026 : le client est-il déjà suivi dans l'autre magasin ? (même n° de dossier Cosium, ou même nom et prénom) */
   enFace(n, nom, prenom){ if (!MULTI || !S || !S.magasin) return null; const m = MAGASINS.find(x => x.id !== S.magasin && MAG_DONNEES[x.id]); if (!m) return null;
     const qn = sansAccent(nom || ""), qp = sansAccent(prenom || "");
@@ -9639,7 +9643,23 @@ let baseDelai = 15e3;
 const BASE_PAR_MAG = new Set(["dossiers", "duplicatas", "fichesAtelier", "numeroAtelier", "commandes", "semaines", "retards", "moisClotures", "journal", "suiviClients", "cheques", "conges", "signalements", "annonces", "notifications", "taches"]);
 const baseMag = () => (typeof S !== "undefined" && S && S.magasin) || "18";
 const baseMagDe = cle => BASE_PAR_MAG.has(cle) ? baseMag() : "*";
-const baseFiltreMag = () => "magasin=in.(%22*%22," + baseMag() + ")";
+const baseFiltreMag = () => "magasin=in.(%22*%22,18,5)";   // tous les magasins : l'autre est rangé dans MAG_DONNEES
+const baseCle = (m, cle) => m + "|" + cle;
+/* l'autre magasin (rangé dans MAG_DONNEES), au format de la base */
+const baseAutre = () => { const o = MULTI && !DEMO ? MAGASINS.find(m => m.id !== S.magasin && MAG_DONNEES[m.id]) : null; if (!o) return null;
+  const d = MAG_DONNEES[o.id], inv = Object.fromEntries(Object.entries(SAUVE_CLES).map(([k, p]) => [p, k])), out = {};
+  [...BASE_PAR_MAG].forEach(cle => { const p = cle === "dossiers" ? "dossiers" : SAUVE_CLES[cle]; if (!p || !(p in d)) return;
+    out[cle] = cle === "dossiers" ? JSON.parse(d.dossiers) : d[p]; });
+  return {mag:o.id, data:out}; };
+function baseAppliquerAutre(o, rangs){ const d = MAG_DONNEES[o]; if (!d) return;
+  rangs.forEach(r => { const p = r.cle === "dossiers" ? "dossiers" : SAUVE_CLES[r.cle]; if (!p) return;
+    d[p] = r.cle === "dossiers" ? JSON.stringify(r.valeur) : r.valeur; baseVu[baseCle(o, r.cle)] = JSON.stringify(r.valeur); }); }
+/* répartit ce que renvoie la base : le commun et le magasin affiché vont dans S, l'autre magasin dans MAG_DONNEES */
+function baseRepartir(rangs){
+  const ici = rangs.filter(r => r.magasin === "*" || r.magasin === baseMag() || !r.magasin), ailleurs = rangs.filter(r => r.magasin && r.magasin !== "*" && r.magasin !== baseMag());
+  if (ici.length) baseAppliquer(ici);
+  [...new Set(ailleurs.map(r => r.magasin))].forEach(m => baseAppliquerAutre(m, ailleurs.filter(r => r.magasin === m)));
+}
 let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMinuterie = null, baseRefus = new Set();   // baseRefus : ensembles illisibles, jamais renvoyés
 const baseAppel = async (chemin, o = {}) => { const j = await authJeton(); if (!j) throw new Error("base : pas connecté");
   const r = await fetch(BASE.url + chemin, Object.assign({}, o, {headers:Object.assign({apikey:BASE.cle, Authorization:"Bearer " + j, "Content-Type":"application/json"}, o.headers || {})}));
@@ -9658,17 +9678,20 @@ async function baseEnvoyer(){
   if (DEMO) return;
   if (!basePret) return;
   const par = (currentUser() || {}).name || null;
-  const rangs = Object.entries(baseLocal()).map(([cle, v]) => ({cle, valeur:v, j:JSON.stringify(v)})).filter(r => r.valeur !== undefined && baseVu[r.cle] !== r.j && !baseRefus.size);   // dossiers illisibles : rien n'est renvoyé (chèques et planning en dépendent)
+  const au = baseAutre();
+  const rangs = Object.entries(baseLocal()).map(([cle, v]) => ({mag:baseMagDe(cle), cle, valeur:v, j:JSON.stringify(v)}))
+    .concat(au ? Object.entries(au.data).map(([cle, v]) => ({mag:au.mag, cle, valeur:v, j:JSON.stringify(v)})) : [])
+    .filter(r => r.valeur !== undefined && baseVu[baseCle(r.mag, r.cle)] !== r.j && !baseRefus.size);   // dossiers illisibles : rien n'est renvoyé (chèques et planning en dépendent)
   if (!rangs.length) return;
-  rangs.forEach(r => { baseVu[r.cle] = r.j; });
+  rangs.forEach(r => { baseVu[baseCle(r.mag, r.cle)] = r.j; });
   try { await baseAppel("donnees?on_conflict=magasin,cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
-    body:JSON.stringify(rangs.map(r => ({magasin:baseMagDe(r.cle), cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false;
+    body:JSON.stringify(rangs.map(r => ({magasin:r.mag, cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false;
     if (parent !== window) parent.postMessage({chouf:"maj"}, "*"); }   // 9 oct. 2026 : dans le panneau de l'extension, la barre de Cosium se met à jour
-  catch (e){ rangs.forEach(r => { delete baseVu[r.cle]; }); basePanne(e); }
+  catch (e){ rangs.forEach(r => { delete baseVu[baseCle(r.mag, r.cle)]; }); basePanne(e); }
 }
 function baseAppliquer(rangs){
   const data = {};
-  rangs.forEach(r => { data[r.cle] = r.valeur; baseVu[r.cle] = JSON.stringify(r.valeur); });
+  rangs.forEach(r => { data[r.cle] = r.valeur; baseVu[baseCle(r.magasin || baseMagDe(r.cle), r.cle)] = JSON.stringify(r.valeur); });
   actMuet = true;   // les changements des collègues ne sont pas les miens : pas d’activité notée
   try {
     Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; });
@@ -9678,16 +9701,17 @@ function baseAppliquer(rangs){
     render();
   } finally { actMuet = false; }
   // l’ordre des clés revient trié par la base : on note ce qu’on a maintenant pour ne pas le renvoyer
-  Object.entries(baseLocal()).forEach(([cle, v]) => { if (cle in data) baseVu[cle] = JSON.stringify(v); });
+  Object.entries(baseLocal()).forEach(([cle, v]) => { if (cle in data) baseVu[baseCle(baseMagDe(cle), cle)] = JSON.stringify(v); });
+  if (typeof magPhoto !== "undefined") magPhoto = null;   // un changement venu de la base n'est pas un geste refusé en lecture seule
 }
 async function baseRelever(){
   if (!basePret || baseOccupe()) return;
   try {
-    const rangs = await baseAppel("donnees?select=cle,valeur,version,session&order=version&" + baseFiltreMag() + "&version=gt." + baseVersion);
+    const rangs = await baseAppel("donnees?select=magasin,cle,valeur,version,session&order=version&" + baseFiltreMag() + "&version=gt." + baseVersion);
     if (!rangs.length) return;
     baseVersion = Math.max(baseVersion, ...rangs.map(r => r.version));
     const autres = rangs.filter(r => r.session !== BASE.session);
-    if (autres.length) baseAppliquer(autres);
+    if (autres.length) baseRepartir(autres);
     baseEnPanne = false;
   } catch (e){ basePanne(e); }
 }
@@ -9703,9 +9727,9 @@ async function baseDemarrer(){
     localStorage.setItem("chouftout-demarrages", JSON.stringify(d.slice(-20)));
     if (d.length > 5){ console.warn("Base partagée : trop de démarrages en une minute, lecture suspendue."); setTimeout(baseDemarrer, 60e3); return; } } catch (_) {}
   try {
-    const rangs = await baseAppel("donnees?select=cle,valeur,version&" + baseFiltreMag());
+    const rangs = await baseAppel("donnees?select=magasin,cle,valeur,version&" + baseFiltreMag());
     baseVersion = rangs.reduce((m, r) => Math.max(m, r.version), 0);
-    if (rangs.length) baseAppliquer(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
+    if (rangs.length) baseRepartir(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
     basePret = true; baseLancee = true;
     await baseEnvoyer();
   } catch (e){ basePanne(e); baseDelai = Math.min(baseDelai * 2, 10 * 60e3); setTimeout(baseDemarrer, baseDelai); return; }   // relance de plus en plus espacée : 30 s, 1 min… jusqu'à 10 min
@@ -9853,9 +9877,14 @@ function magMenu(){
 }
 /* Le second magasin de la démonstration : son équipe, ses comptes, et des données dérivées de celles du premier
    (autres clients, autres conseillers, autres numéros de dossier, listes plus courtes), puis son planning. */
+/* 14 oct. 2026 : hors démonstration, rien n'est fabriqué : Chouf 18 est le magasin affiché au départ, Chouf 5 part vide,
+   puis la base (une ligne par magasin et par ensemble) remplit les deux. */
+const magVide = () => ({duplicatas:[], ateliers:[], atelierNum:0, commandes:[], weeks:{}, retards:[], closedMonths:{}, journal:[], suivi:{releve:TODAY_KEY, dossiers:[], histoire:[], faits:{}},
+  cheques:[], conges:[], signalements:[], annonces:[], notifs:[], tasks:JSON.parse(JSON.stringify(S.tasks || [])), dossiers:'{"lignes":[],"familles":[],"famSeq":1,"recapsSolo":[],"journal":[]}'});
 function magDemarrer(){
   if (!MULTI) return;
   if (!window.SuviAPI || !window.SuviAPI.sauvegarde){ setTimeout(magDemarrer, 30); return; }
+  if (!DEMO){ if (!S.magasin) S.magasin = "18"; MAGASINS.forEach(m => { if (m.id !== S.magasin && !MAG_DONNEES[m.id]) MAG_DONNEES[m.id] = magVide(); }); return; }
   const W = "09:30>17:30/60";
   const pers = (id, name, color, status, contract, typ) => ({id, name, color, status, contract, levels:{montage:3, admin:3, vente:3, facturation:3}, typical:H(typ), leaves:[], history:[], archived:false, mag:"5"});
   S.people = S.people.filter(p => p.mag !== "5"); S.people.forEach(p => { p.mag = "18"; delete p.renforts; delete p.magHisto; });
@@ -18121,6 +18150,10 @@ window.SuviAPI = {
   /* Export des dossiers depuis Réglages › Données : équipements facturés entre deux dates (toutes les lignes si b est vide) */
   rangsFactures(b){ const g = b ? i => i.factureLe && i.factureLe >= b[0] && i.factureLe <= b[1] : () => true; return rangsCSV(LIGNES.filter(l => l.items.some(g)), g); },
   /* 14 oct. 2026 : dossiers rattachés à ce magasin depuis l'autre. Un client déjà suivi ici garde sa fiche : pas de doublon. */
+  /* 14 oct. 2026 : ajoute des dossiers (rattachés) au texte des dossiers d'un autre magasin, sans l'ouvrir */
+  fusionner(t, textes){ const g = depuisGraphe(JSON.parse(t)), ls = g.lignes || (g.lignes = []), cs = [...new Set(ls.map(l => l.c))];
+    textes.forEach(x => { try { const l = depuisGraphe(JSON.parse(x)).l, c = cs.find(y => cleClient(y) === cleClient(l.c)); if (c) l.c = c; ls.push(l); } catch (_) {} });
+    return JSON.stringify(versGraphe(g)); },
   accueillir(textes){ textes.forEach(t => { try { const l = depuisGraphe(JSON.parse(t)).l, c = clientsDe().find(x => cleClient(x) === cleClient(l.c)); if (c) l.c = c; LIGNES.push(l); } catch (_) {} });
     RENOUV_CACHE = null; try { rendre(); } catch (_) {} },
   resume(){ return tdbResume(); },
