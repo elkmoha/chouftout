@@ -3598,7 +3598,12 @@ const PERMS = [
     ["retards.voir", "Voir les retards"],
     ["retards.noter", "Noter ou supprimer un retard"],
     ["equipe.gerer", "Gérer l’équipe, les compétences et les tâches"],
-    ["reglages.gerer", "Gérer les réglages et les accès"]]}
+    ["reglages.gerer", "Gérer les réglages et les accès"]]},
+  /* 14 oct. 2026 (demande de Mohamed) : réservés au super administrateur ; le rôle « Administrateur » a tout le reste */
+  {group:"Super administrateur", items:[
+    ["comptes.gerer", "Gérer les comptes, les rôles et les accès"],
+    ["donnees.gerer", "Exporter, sauvegarder et recharger les données"],
+    ["magasin.regler", "Régler l’identité, le logo, l’ouverture et la mise en route du magasin"]]}
 ];
 const CMD_ETATS = [
   {id:"a_commander", label:"À commander", desc:"Montures à commander aujourd’hui", color:"var(--warn)"},
@@ -3622,6 +3627,16 @@ const CHQ_ETATS = [
 const chqEtatOf = id => CHQ_ETATS.find(e => e.id === id);
 const etatOf = id => CMD_ETATS.find(e => e.id === id);
 const ALL_PERMS = PERMS.flatMap(g => g.items.map(i => i[0]));
+const PERMS_SUPER = ["comptes.gerer", "donnees.gerer", "magasin.regler"];
+const roleAdministrateur = () => ({id:"administrateur", name:"Administrateur", perms:ALL_PERMS.filter(p => !PERMS_SUPER.includes(p)), gestion:true, deuxMag:true});
+/* 14 oct. 2026 : rôles mis à jour sur des données déjà enregistrées (base, sauvegarde) : super administrateur, administrateur, planning pour l'associé */
+function rolesAJour(){
+  if (typeof S === "undefined" || !S || !Array.isArray(S.roles)) return;
+  const a = S.roles.find(r => r.admin); if (a && a.name === "Administrateur") a.name = "Super administrateur";
+  if (!S.roles.some(r => r.id === "administrateur")) S.roles.push(roleAdministrateur());
+  const as = S.roles.find(r => r.id === "associe"); if (as && !as.majPlanning){ if (!as.perms.includes("planning.voir")) as.perms.push("planning.voir"); as.majPlanning = true; }
+}
+const roleGestion = r => !!r && (r.admin || r.gestion);   // super administrateur ou administrateur : tableau de bord, vue de direction
 const PERM_LABEL = Object.fromEntries(PERMS.flatMap(g => g.items));
 const TAB_PERM = [
   ["jour", "Ma journée", "planning.voir"],
@@ -3854,8 +3869,9 @@ function seed(){
     roles:[
       {id:"equipe", name:"Équipe", perms:["planning.voir","planning.assigner","planning.ajouter","suivi.voir","suivi.cocher","duplicatas.gerer","commandes.voir","commandes.gerer","atelier.creer","tarifs.voir","tarifs.proposer","tarifs.cout","cheques.voir","cheques.gerer","horaires.voir","conges.demander"]},
       {id:"superopticien", name:"Super opticien", archive:true, perms:["planning.voir","planning.assigner","planning.ajouter","planning.repartir","planning.jours","annonces.publier","process.ecrire","suivi.voir","suivi.cocher","duplicatas.gerer","commandes.voir","commandes.gerer","atelier.creer","tarifs.voir","tarifs.proposer","tarifs.gerer","tarifs.cout","cheques.voir","cheques.gerer","horaires.voir","conges.demander"]},
-      {id:"associe", name:"Associé", perms:["horaires.voir","horaires.realise","paie.voir","retards.voir","cheques.voir"]},
-      {id:"admin", name:"Administrateur", perms:ALL_PERMS.slice(), admin:true}
+      {id:"associe", name:"Associé", perms:["horaires.voir","horaires.realise","paie.voir","retards.voir","cheques.voir","planning.voir"], majPlanning:true},
+      {id:"admin", name:"Super administrateur", perms:ALL_PERMS.slice(), admin:true},
+      roleAdministrateur()
     ],
     users:[
       {id:"u1", login:"equipe", name:"Compte équipe", role:"equipe", collab:null, actif:true, pw:"boutique2026", pwTemp:false},
@@ -4837,7 +4853,7 @@ function render(){
   /* v73 : les Réglages s'ouvrent dans une fenêtre en verre, par-dessus l'écran d'où l'on vient (charte du suivi) */
   if (S.tab !== "reglages") S.fondTab = S.tab;
   /* Fusion : le suivi apprend qui est connecté avant que les écrans ne lisent ses dossiers (Mes dossiers, tâches) */
-  if (window.SuviAPI){ const u = currentUser(), p = u.collab ? personOf(u.collab) : null, adm = !!(currentRole() && currentRole().admin), cle = (p ? p.name : "") + "|" + adm;
+  if (window.SuviAPI){ const u = currentUser(), p = u.collab ? personOf(u.collab) : null, adm = roleGestion(currentRole()), cle = (p ? p.name : "") + "|" + adm;
     if (S.suviCompte !== cle){ S.suviCompte = cle;
       window.SuviAPI.equipe(activePeople().map(x => x.name), S.users.filter(x => x.collab && personOf(x.collab) && (roleOf(x.role) || {}).admin).map(x => personOf(x.collab).name));
       window.SuviAPI.connecter(p ? p.name : null, adm); }
@@ -4857,7 +4873,7 @@ function render(){
   const zone = document.getElementById("zone-suivi");
   if (zone){ const avant = zone.hidden; zone.hidden = !enDossiers && !zone.classList.contains("tdb-seul"); document.body.classList.toggle("mode-dossiers", enDossiers);
     if (avant && enDossiers && window.SuviAPI) window.SuviAPI.montrer();
-    if (window.SuviAPI){ const u = currentUser(), p = u.collab ? personOf(u.collab) : null, adm = !!(currentRole() && currentRole().admin);
+    if (window.SuviAPI){ const u = currentUser(), p = u.collab ? personOf(u.collab) : null, adm = roleGestion(currentRole());
       const cle = (p ? p.name : "") + "|" + adm;
       if (S.suviCompte !== cle){ S.suviCompte = cle; window.SuviAPI.connecter(p ? p.name : null, adm); } } }
   const pr = prefsOf();
@@ -9581,7 +9597,7 @@ async function exporterEnsemble(k){
 const SAUVE_CLES = {duplicatas:"duplicatas", fichesAtelier:"ateliers", numeroAtelier:"atelierNum", commandes:"commandes", reglages:"settings", competences:"skills", equipe:"people", taches:"tasks",
   semaines:"weeks", retards:"retards", moisClotures:"closedMonths", journal:"journal", suiviClients:"suivi", produits:"produits", process:"process", tarifsMutuelles:"tarifs", fichesMutuelles:"fiches",
   cheques:"cheques", conges:"conges", signalements:"signalements", annonces:"annonces", notifications:"notifs", roles:"roles"};
-const SAUVE_COMPTE = ["id", "login", "name", "role", "collab", "actif"];   // jamais les mots de passe
+const SAUVE_COMPTE = ["id", "login", "name", "role", "collab", "actif", "mag", "tousMag"];   // jamais les mots de passe
 function sauvegardeData(){
   const data = {application:"Chouf’Tout", version:1, exportLe:new Date().toISOString(), magasin:S.settings.shopName};
   Object.entries(SAUVE_CLES).forEach(([k, s]) => { data[k] = S[s]; });
@@ -9598,7 +9614,7 @@ async function restaurerSauvegarde(texte){
     <p>Elle remplace toutes les données actuelles : planning, équipe, commandes, chèques, catalogue, réglages${data.dossiers ? ", dossiers des clients" : ""}… Ce qui a été fait depuis sera perdu, et ne pourra pas être rétabli.</p>
     <p class="sub">Les mots de passe ne sont pas dans la sauvegarde : chaque compte garde le sien.</p>`, "Remplacer les données");
   if (!ok) return;
-  Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; });
+  Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; }); rolesAJour();
   if (Array.isArray(data.comptes)) S.users = data.comptes.map(c => Object.assign({pw:"", pwTemp:true}, userOf(c.id) || {}, Object.fromEntries(SAUVE_COMPTE.filter(k => k in c).map(k => [k, c[k]]))));
   if (!userOf(S.user)) S.user = (S.users.find(u => (roleOf(u.role) || {}).admin && u.actif) || {}).id || null;
   let dossiers = true;
@@ -9696,7 +9712,7 @@ function baseAppliquer(rangs){
   rangs.forEach(r => { data[r.cle] = r.valeur; baseVu[baseCle(r.magasin || baseMagDe(r.cle), r.cle)] = JSON.stringify(r.valeur); });
   actMuet = true;   // les changements des collègues ne sont pas les miens : pas d’activité notée
   try {
-    Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; });
+    Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; }); rolesAJour();
     if (Array.isArray(data.comptes)) S.users = data.comptes.map(c => Object.assign({pw:"", pwTemp:true}, userOf(c.id) || {}, Object.fromEntries(SAUVE_COMPTE.filter(k => k in c).map(k => [k, c[k]]))));
     if (data.dossiers && window.SuviAPI) try { window.SuviAPI.restaurer(data.dossiers, true); baseRefus.delete("dossiers"); }
       catch (e){ console.warn("Base partagée, dossiers :", e); baseRefus.add("dossiers"); }   // 9 oct. 2026 : ne pas renvoyer nos dossiers à la place de ceux de la base
@@ -9784,8 +9800,8 @@ function magBlocPersonne(p, g){
     </form>` : !ici ? `<p class="sub">Son contrat, ses horaires et ses absences se règlent depuis ${esc(chez.nom)}.</p>` : ""}`;
 }
 const magsCompte = u => { const r = u && roleOf(u.role), sv = authCompte(u && u.id);
-  if (sv) return sv.role === "admin" || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)];   // 14 oct. 2026 : le serveur décide qui voit les deux
-  return (r && r.admin) || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)]; };
+  if (sv) return sv.role === "admin" || sv.role === "administrateur" || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)];   // 14 oct. 2026 : le serveur décide qui voit les deux
+  return (r && (r.admin || r.deuxMag)) || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)]; };
 const magPrendre = () => { const d = {}; MAG_CLES.forEach(k => { d[k] = S[k]; }); d.dossiers = JSON.stringify(window.SuviAPI.sauvegarde()); return d; };
 function magPoser(d){
   MAG_CLES.forEach(k => { if (k in d) S[k] = d[k]; });
@@ -10235,6 +10251,8 @@ const REG_INTRO = {
   ecrans:"Écrans visibles pour l’équipe, bouton « + » et ordre de la barre du haut.",
   donnees:"Exports pour le tableur, sauvegarde et durées de conservation."
 };
+const REG_PERM = {acces:"comptes.gerer", donnees:"donnees.gerer", boutique:"magasin.regler", affichage:"magasin.regler", miseenroute:"magasin.regler"};   // 14 oct. 2026 : super administrateur
+const sectionPermise = x => (x[2] || can("reglages.gerer")) && (!REG_PERM[x[0]] || can(REG_PERM[x[0]]));
 const SECTIONS = [
   ["prefs", "Mon compte", true],
   ["miseenroute", "Mise en route"],
@@ -10277,7 +10295,7 @@ function onRow(label, path, hint){
 function renderSettings(){
   /* 13 oct. 2026 : « Mise en route » quitte la liste une fois toutes ses étapes faites (elle reste trouvable par la recherche) */
   const routeFinie = etapesMiseEnRoute().every(x => x.fait) && S.regSection !== "miseenroute";
-  const libres = SECTIONS.filter(x => (x[2] || can("reglages.gerer")) && !(routeFinie && x[0] === "miseenroute"));
+  const libres = SECTIONS.filter(x => sectionPermise(x) && !(routeFinie && x[0] === "miseenroute"));
   if (!libres.some(x => x[0] === S.regSection)) S.regSection = libres[0][0];
   const sec = S.regSection;
   const q = sansAccent((S.regQ || "").trim());
@@ -10693,11 +10711,12 @@ function secComptes(){
     <h3>Comptes</h3>
     <p class="sub" style="margin:4px 0 12px;max-width:74ch">Tu choisis l’identifiant et le mot de passe à la création, et tu peux le changer à tout moment. Un compte peut être lié à un collaborateur : « Ma journée » s’ouvre alors directement sur son prénom.<br>Les mots de passe sont chiffrés : personne ne peut les relire, pas même toi. En cas d’oubli, définis-en un nouveau.</p>
 
-    <div class="table-scroll"><table class="htable mid"><thead><tr><th scope="col">Nom</th><th scope="col">Identifiant</th><th scope="col">Rôle</th><th scope="col">Collaborateur lié</th><th scope="col">Actif</th><th scope="col">Actions</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="htable mid"><thead><tr><th scope="col">Nom</th><th scope="col">Identifiant</th><th scope="col">Rôle</th><th scope="col">Collaborateur lié</th><th scope="col">Magasin</th><th scope="col">Actif</th><th scope="col">Actions</th></tr></thead><tbody>
     ${S.users.map(u => `<tr><td><input class="inp" style="width:140px" value="${esc(u.name)}" maxlength="30" data-edit="user-name" data-user="${u.id}" data-key="un-${u.id}" aria-label="Nom du compte"></td>
       <td><input class="inp" style="width:120px" value="${esc(u.login)}" maxlength="20" data-edit="user-login" data-user="${u.id}" data-key="ul-${u.id}" aria-label="Identifiant"></td>
       <td><select class="inp" data-edit="user-role" data-user="${u.id}" data-key="ur-${u.id}" aria-label="Rôle">${S.roles.filter(r => !r.archive || u.role === r.id).map(r => `<option value="${r.id}" ${u.role === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></td>
       <td><select class="inp" data-edit="user-collab" data-user="${u.id}" data-key="uc-${u.id}" aria-label="Collaborateur lié"><option value="">Aucun</option>${activePeople().map(pp => `<option value="${pp.id}" ${u.collab === pp.id ? "selected" : ""}>${esc(pp.name)}</option>`).join("")}${u.collab && personOf(u.collab) && personOf(u.collab).archived ? `<option value="${u.collab}" selected>${esc(personOf(u.collab).name)} (parti)</option>` : ""}</select></td>
+      <td><select class="inp" data-edit="user-mag" data-user="${u.id}" data-key="um-${u.id}" aria-label="Magasin du compte">${[["18|", "Chouf 18"], ["5|", "Chouf 5"], ["18|1", "Les deux, Chouf 18 d’abord"], ["5|1", "Les deux, Chouf 5 d’abord"]].map(([v, l]) => `<option value="${v}" ${((u.mag || "18") + "|" + (u.tousMag ? "1" : "")) === v ? "selected" : ""}>${l}</option>`).join("")}</select></td>
       <td><label class="check-line"><input type="checkbox" data-edit="user-actif" data-user="${u.id}" data-key="ua-${u.id}" ${u.actif ? "checked" : ""}><span class="sr">Compte actif</span></label></td>
       <td><span class="skill-row"><button type="button" class="btn small" data-action="reset-pw" data-user="${u.id}">Changer le mot de passe</button>
         <button type="button" class="btn small danger" data-action="del-user" data-user="${u.id}">Supprimer</button></span></td></tr>`).join("")}
@@ -10714,7 +10733,7 @@ function secComptes(){
   </section>
   <section class="panel">
     <h3>Rôles et autorisations</h3>
-    <p class="sub" style="margin:4px 0 12px;max-width:74ch">Les droits sont rangés par famille : touche une famille pour voir et cocher le détail. Pour un nouveau rôle, duplique celui qui s’en rapproche le plus. Le rôle administrateur a tous les droits et ne se modifie pas.</p>
+    <p class="sub" style="margin:4px 0 12px;max-width:74ch">Les droits sont rangés par famille : touche une famille pour voir et cocher le détail. Pour un nouveau rôle, duplique celui qui s’en rapproche le plus. Le rôle super administrateur a tous les droits et ne se modifie pas ; l’administrateur a tout, sauf les comptes et rôles, les données et sauvegardes, et les réglages du magasin.</p>
     <div class="panel-grid">
     ${S.roles.filter(r => !r.archive).map(r => {
       const nb = S.users.filter(u => u.role === r.id).length;
@@ -11341,7 +11360,7 @@ function login(userId, reprise){
   S.jourVoir = null; S.pile = []; S.dernierTab = null; S.dernierDrawerCle = ""; S.procQ = ""; S.procRub = ""; S.atlQ = ""; S.atlEdit = null; S.dupQ = ""; S.dupForm = dupFormVide(); S.dupFichier = null;
   S.me = u.collab || null; S.raccOuvert = false;
   S.visite = null; magPhoto = null; S.loginAutre = false;
-  if (MULTI) magAller(magsCompte(u).length > 1 ? magAppareil() : magDefaut(u), true);   // 13 oct. 2026 : chaque compte s’ouvre sur son magasin ; qui voit les deux, sur celui de l’appareil
+  if (MULTI) magAller(magsCompte(u).length > 1 ? (magVerrou() || (!DEMO && magDefaut(u)) || magAppareil()) : magDefaut(u), true);   // 14 oct. 2026 : qui voit les deux s'ouvre sur son magasin par défaut   // 13 oct. 2026 : chaque compte s’ouvre sur son magasin ; qui voit les deux, sur celui de l’appareil
   purgerNotifs();
   const ent = entreesDispo();
   S.tab = ent.length ? ent[0].tabs[0] : "jour";
@@ -12493,7 +12512,7 @@ document.addEventListener("click", async e => {
     case "open-day": S.settings.open[day] = !S.settings.open[day]; render(); break;
     case "logo-del": S.settings.logo = ""; S.settings.logoSombre = ""; render(); break;
     case "logo-sombre-del": S.settings.logoSombre = ""; render(); break;
-    case "reg-section": if (!SECTIONS.some(x => x[0] === el.dataset.section && (x[2] || can("reglages.gerer")))) return; S.regSection = el.dataset.section; S.regQ = ""; render(); window.scrollTo(0, 0); { const f = document.querySelector(".page-reglages .pr-defile"); if (f) f.scrollTop = 0; } break;
+    case "reg-section": if (!SECTIONS.some(x => x[0] === el.dataset.section && sectionPermise(x))) return; S.regSection = el.dataset.section; S.regQ = ""; render(); window.scrollTo(0, 0); { const f = document.querySelector(".page-reglages .pr-defile"); if (f) f.scrollTop = 0; } break;
     case "reg-aller": {
       S.regSection = el.dataset.section; S.regQ = ""; const txt = el.dataset.txt;
       render();
@@ -12707,7 +12726,7 @@ document.addEventListener("change", e => {
     render(); return;
   }
   if (k === "contract"){ if (!can("equipe.gerer") && !can("reglages.gerer")) return; }
-  else if (["setting", "num", "on", "hour", "path", "mailRecup", "adresse", "cosiumUrl", "titre", "slogan", "doc", "shopName", "user-name", "user-login", "user-role", "user-collab", "user-actif", "role-name", "role-perm"].includes(k)){ if (!can("reglages.gerer")) return; }
+  else if (["setting", "num", "on", "hour", "path", "mailRecup", "adresse", "cosiumUrl", "titre", "slogan", "doc", "shopName", "user-name", "user-login", "user-role", "user-collab", "user-actif", "user-mag", "role-name", "role-perm"].includes(k)){ if (!can("reglages.gerer") || (/^(user|role)-/.test(k) && !can("comptes.gerer"))) return; }
   else if (!can("equipe.gerer")) return;
   const p = el.dataset.person ? personOf(el.dataset.person) : null;
   const t = el.dataset.task ? S.tasks.find(x => x.id === el.dataset.task) : null;
@@ -12803,6 +12822,7 @@ document.addEventListener("change", e => {
       break;
     }
     case "user-collab": { const u = userOf(el.dataset.user); u.collab = el.value || null; break; }
+    case "user-mag": { const u = userOf(el.dataset.user), [m, tous] = el.value.split("|"); u.mag = m || null; u.tousMag = tous === "1"; break; }   // 14 oct. 2026
     case "user-actif": {
       const u = userOf(el.dataset.user);
       const admins = S.users.filter(x => x.actif && roleOf(x.role) && roleOf(x.role).admin);
