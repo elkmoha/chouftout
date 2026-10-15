@@ -4859,6 +4859,9 @@ function render(){
     if (S.suviCompte !== cle){ S.suviCompte = cle;
       window.SuviAPI.equipe(activePeople().map(x => x.name), S.users.filter(x => x.collab && personOf(x.collab) && (roleOf(x.role) || {}).admin).map(x => personOf(x.collab).name));
       window.SuviAPI.connecter(p ? p.name : null, adm); }
+    /* 15 oct. 2026 : l'équipe lue dans la base après la connexion est aussi transmise (conseillers du suivi) */
+    const eqNoms = activePeople().map(x => x.name).join(",");
+    if (S.suviEquipe !== eqNoms){ S.suviEquipe = eqNoms; window.SuviAPI.equipe(activePeople().map(x => x.name), S.users.filter(x => x.collab && personOf(x.collab) && (roleOf(x.role) || {}).admin).map(x => personOf(x.collab).name)); }
     syncChequesSuvi(); }
   const premier = (entreesDispo().find(e => e.id !== "reglages") || {tabs:["jour"]}).tabs[0];
   const fond = S.tab !== "reglages" ? S.tab : (S.fondTab && S.fondTab !== "reglages" && tabs.some(t => t[0] === S.fondTab) ? S.fondTab : premier);
