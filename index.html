@@ -9652,7 +9652,10 @@ async function authJeton(){
   const a = authLire(); if (!a) return null;
   if (a.fin - Date.now() > 60e3) return a.jeton;
   authRenouv = authRenouv || authAppel("token?grant_type=refresh_token", {refresh_token:a.refresh}).then(r => { const b = authDepuis(r); authEcrire(b); return b.jeton; })
-    .catch(e => { if (e.statut === 400 || e.statut === 401) authEcrire(null); throw e; }).finally(() => { authRenouv = null; });
+    .catch(e => { if (e.statut === 400 || e.statut === 401){ authEcrire(null);
+      /* 15 oct. 2026 : session Supabase refusée : on revient à l'écran de connexion au lieu de rester ouvert sur les données d'exemple */
+      if (!DEMO && S.user) setTimeout(() => { if (!S.user || authLire()) return; logout(); toast("Ta session a expiré : reconnecte-toi."); }, 0); }
+      throw e; }).finally(() => { authRenouv = null; });
   return authRenouv;
 }
 /* 14 oct. 2026 : mot de passe oublié (lien envoyé par Supabase, qui revient sur cette page) et changement de mot de passe */
