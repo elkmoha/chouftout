@@ -16966,6 +16966,7 @@ addEventListener("message", e => {
   if (!(/^chrome-extension:\/\//.test(e.origin) || (e.origin === location.origin && e.source !== window)) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
   if (EN_COSIUM && e.data.demande.quoi === "suivre"){ bandeauSuivre(e.data.demande); return; }
   if (EN_COSIUM && e.data.demande.quoi === "ordonnance"){ ORDO_ATTENTE = e.data.demande; bandeauOrdo(); return; }
+  if (EN_COSIUM && e.data.demande.quoi === "recap"){ RECAP_ATTENTE = e.data.demande; bandeauRecap(); return; }   // 16 oct. 2026 : onglet Notes de Cosium
   if (EN_COSIUM && e.data.demande.quoi === "duplicata"){ DUP_ATTENTE = e.data.demande; bandeauDuplicata(); return; }
   DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
 });
@@ -17067,7 +17068,19 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
    sauf si ce dossier Cosium est bien plus ancien que la ligne de suivi de cet équipement : ce n'est alors pas la bonne ordonnance.
    L'avis s'affiche dans Cosium, sous la correction ({chouf:"avis"}). */
 const ORDO_ECART_J = 30;   // un dossier Cosium ouvert plus de 30 jours avant la ligne de suivi n'est pas celui du passage
-let ORDO_ATTENTE = null, DUP_ATTENTE = null;
+let ORDO_ATTENTE = null, DUP_ATTENTE = null, RECAP_ATTENTE = null;
+/* 16 oct. 2026 (demande de Mohamed) : onglet Notes ouvert dans Cosium, la fiche Chouf'Tout du client s'ouvre sur son récapitulatif.
+   Rien si une fenêtre est ouverte ou si une saisie est en cours ; client pas suivi : rien. */
+function bandeauRecap(){   // en attente tant que le compte et la base ne sont pas prêts (relancée toutes les 250 ms)
+  const d = RECAP_ATTENTE, ch = window.ChoufAPI; if (!d || !ch || !ch.moi() || !ch.basePrete()) return;
+  RECAP_ATTENTE = null;
+  if (document.querySelector(".dialogue-fond, .alerte-fond")) return;
+  const a = document.activeElement; if (ouverte && a && a.matches("input, textarea, select, [contenteditable]")) return;
+  const c = clientCosium(d.dossier); if (!c) return;
+  const ls = LIGNES.filter(l => l.c === c), l = ls.find(x => ilEstEnCours(x)) || ls[ls.length - 1]; if (!l) return;
+  if (!ouverte || LIGNES[ficheLi].c !== c) ouvrir(LIGNES.indexOf(l));
+  RC_EDIT.clear(); RC_VUE = null; rendreRecap(recapProprio(c)); allerPage(1, "f-recap");
+}
 const choufPret = () => !!(window.ChoufAPI && window.ChoufAPI.moi() && window.ChoufAPI.basePrete());
 const avisCosium = (zone, o) => parent.postMessage(Object.assign({chouf:"avis", zone}, o), "*");
 const clientCosium = n => clientsDe().find(x => x.dossier === n || (x.autresDossiers || []).includes(n)) || null;
@@ -17216,7 +17229,7 @@ if (EN_COSIUM){
     DEMANDE_COSIUM = b.dataset.bc === "fiche" ? {quoi:"fiche", dossier:BANDEAU.dossier} : Object.assign({}, BANDEAU, {quoi:"ajout"}); traiterDemandeCosium();
   });
   addEventListener("keydown", e => { if (e.key === "Escape" && BANDEAU_CONNEXION){ BANDEAU_CONNEXION = false; bandeauMaj(); } });   // renoncer à se connecter
-  setInterval(() => { bandeauMaj(); if (ORDO_ATTENTE) bandeauOrdo(); if (DUP_ATTENTE) bandeauDuplicata(); }, 250);
+  setInterval(() => { bandeauMaj(); if (ORDO_ATTENTE) bandeauOrdo(); if (DUP_ATTENTE) bandeauDuplicata(); if (RECAP_ATTENTE) bandeauRecap(); }, 250);
 }
 if (COTE){
   document.body.insertAdjacentHTML("afterbegin", `<header class="cote-tete"><span class="bc-marque">Chouf’Tout</span></header>`);
