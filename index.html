@@ -17038,9 +17038,10 @@ function bandeauOrdo(){
   // Équipement lunettes (9 oct. 2026) : paniers retenus, monture et verres (code, libellé, marque, codes LPP), rangés dans l'équipement de la ligne
   const it = l.items.find(i => i.t === d.type), eq = d.equip || [];
   if (it && eq.length && JSON.stringify((it.cosium || {}).equip) !== JSON.stringify(eq)){
-    const lib = p => p ? p.libelle : "—";
+    const lib = p => p ? p.libelle : "—", libs = q => JSON.stringify((q || []).map(e => [e.panier, lib(e.monture), lib(e.od), lib(e.og)]));
+    const memes = libs((it.cosium || {}).equip) === libs(eq);   // 16 oct. 2026 : les codes LPP arrivent après la première lecture : pas de seconde note pour eux
     it.cosium = {equip:eq, dossierLe:d.dossierLe};
-    l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Équipement lu dans Cosium : ${eq.map(e => `monture ${lib(e.monture)}, verres ${lib(e.od)}${e.og && (!e.od || e.og.libelle !== e.od.libelle) ? ` / ${e.og.libelle}` : ""}`).join(" ; ")}`});
+    if (!memes) l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Équipement lu dans Cosium : ${eq.map(e => `monture ${lib(e.monture)}, verres ${lib(e.od)}${e.og && (!e.od || e.og.libelle !== e.od.libelle) ? ` / ${e.og.libelle}` : ""}`).join(" ; ")}`});
     maj = true;
   }
   if (!isoFr(d.ordoLe)){ if (maj){ RENOUV_CACHE = null; rafraichirFiche(); } return rep("ok", "Équipement inscrit dans Chouf’Tout"); }
