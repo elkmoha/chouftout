@@ -5044,7 +5044,14 @@ function drawerActivite(){
         <span class="sub">${esc((x.par || "Auteur non choisi") + " · " + x.quand + (x.retabli ? ` · rétabli${x.retabli.par ? " par " + x.retabli.par : ""} ${x.retabli.quand}` : ""))}</span></span>
       ${x.retabli ? `<span class="sub act-fait">Rétabli</span>` : `<button type="button" class="btn small" data-action="act-retablir" data-act="${x.id}">Rétablir</button>`}</li>`).join("")}</ul>`
     : `<p class="sub">Aucun changement pour l’instant. Chaque modification (dossier, commande, chèque, verre, planning, équipe, réglage…) s’affichera ici, avec la possibilité de la rétablir.</p>`;
-  return {titre:"Activité récente", sous:"Tout ce qui a été changé. « Rétablir » remet comme avant.", corps};
+  /* 16 oct. 2026 : en dessous, l'historique gardé dans la base (toute l'équipe, avant cette session), sans « Rétablir » */
+  histoLire();
+  const H = HISTO_LU.activite.filter(x => new Date(x.t).getTime() < HISTO_DEBUT).slice(0, 150);
+  const histo = DEMO ? "" : `<h4 class="act-histo-titre">Historique${H.length ? "" : HISTO_LU.t ? " : rien avant cette session" : " : lecture…"}</h4>${H.length ? `<ul class="notif-liste act-liste act-histo-base">${H.map(x => `<li class="act-li">
+      <span class="notif-ico act-ini" aria-hidden="true">${esc(x.par ? x.par.slice(0, 2) : "?")}</span>
+      <span class="notif-corps">${x.ou ? `<span class="act-lien">${esc(x.ou)}</span>` : ""}<span class="notif-txt">${esc(x.texte)}</span>
+        <span class="sub">${esc((x.par || "Auteur non choisi") + " · " + histoQuand(x.t))}</span></span></li>`).join("")}</ul>` : ""}`;
+  return {titre:"Activité récente", sous:"Tout ce qui a été changé. « Rétablir » remet comme avant ; l’historique plus ancien est gardé dans la base.", corps:corps + histo};
 }
 
 /* ---------- Barre du haut (v73) : même charte que le suivi Suvi ----------
@@ -6158,6 +6165,7 @@ window.ChoufAPI = {
   retirerNotifMag(id, ids){ const d = MAG_DONNEES[id]; if (d && d.notifs && ids && ids.length) d.notifs = d.notifs.filter(n => !ids.includes(n.id)); },
   dossiersAutre(){ const m = MULTI && S.magasin ? MAGASINS.find(x => x.id !== S.magasin && MAG_DONNEES[x.id]) : null; return m ? MAG_DONNEES[m.id].dossiers : null; },
   ouvrirConfies(){ const m = MAGASINS.find(x => x.id !== S.magasin && MAG_DONNEES[x.id]); if (!m) return; magOuvrir(m.id, true); S.tab = "dossiers"; render(); window.scrollTo(0, 0); window.SuviAPI.vue("confie"); },
+  historique(texte, ou, par){ histoNoter("activite", texte, ou, par); },   // 16 oct. 2026 : appelé par le journal du suivi
   ouvrirActivite(){ S.drawer = S.drawer && S.drawer.type === "activite" ? null : {type:"activite"}; renderDrawer(); },
   majActivite(){ if (S && S.drawer && S.drawer.type === "activite" && !$("drawer").hidden) renderDrawer(); },
   /* 8 oct. 2026 : un collègue change un état sur un dossier → le conseiller du dossier est prévenu (jamais soi-même) */
@@ -9720,6 +9728,33 @@ let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMin
 const baseAppel = async (chemin, o = {}) => { const j = await authJeton(); if (!j) throw new Error("base : pas connecté");
   const r = await fetch(BASE.url + chemin, Object.assign({}, o, {headers:Object.assign({apikey:BASE.cle, Authorization:"Bearer " + j, "Content-Type":"application/json"}, o.headers || {})}));
   if (!r.ok) throw new Error("base " + r.status); const t = await r.text(); return t ? JSON.parse(t) : null; };
+/* 16 oct. 2026 (demande de Mohamed) : historique durable, table « historique » (ajout seul, ni modification ni suppression) :
+   connexions et activité, partagés entre les appareils. Envoi groupé 2 s après le dernier ajout ; en cas d'échec, gardé et renvoyé ensuite. */
+let HISTO_FILE = [], histoMinuteur = null;
+const HISTO_LU = {t:0, en:false, activite:[], connexion:[]}, HISTO_DEBUT = Date.now();
+function histoNoter(type, texte, ou, par){
+  if (DEMO || !authLire() || !texte) return;
+  HISTO_FILE.push({magasin:type === "connexion" ? "*" : baseMag(), type, par:par || null, texte:String(texte).slice(0, 1000), ou:ou ? String(ou).slice(0, 200) : null});
+  if (HISTO_FILE.length > 300) HISTO_FILE = HISTO_FILE.slice(-300);
+  clearTimeout(histoMinuteur); histoMinuteur = setTimeout(histoEnvoyer, 2000);
+}
+async function histoEnvoyer(){
+  clearTimeout(histoMinuteur); if (!HISTO_FILE.length) return;
+  const lot = HISTO_FILE; HISTO_FILE = [];
+  try { await baseAppel("historique", {method:"POST", keepalive:true, headers:{Prefer:"return=minimal"}, body:JSON.stringify(lot)}); HISTO_LU.t = 0; }
+  catch (e){ console.warn("Historique :", e); HISTO_FILE = lot.concat(HISTO_FILE).slice(-300); histoMinuteur = setTimeout(histoEnvoyer, 60e3); }
+}
+addEventListener("pagehide", () => { if (HISTO_FILE.length) histoEnvoyer(); });
+// Lecture : les 300 dernières entrées du magasin affiché et du commun, relues au plus toutes les 30 s, à l'ouverture de l'Activité ou des Réglages
+function histoLire(){
+  if (DEMO || !authLire() || HISTO_LU.en || Date.now() - HISTO_LU.t < 30e3) return;
+  HISTO_LU.en = true;
+  baseAppel(`historique?select=t,type,par,texte,ou,magasin&magasin=in.${encodeURIComponent(`("*","${baseMag()}")`)}&order=t.desc&limit=300`)
+    .then(r => { HISTO_LU.activite = (r || []).filter(x => x.type === "activite"); HISTO_LU.connexion = (r || []).filter(x => x.type === "connexion"); HISTO_LU.t = Date.now();
+      if (S.drawer && S.drawer.type === "activite" && !$("drawer").hidden) renderDrawer(); if (S.tab === "reglages") render(); })
+    .catch(e => console.warn("Historique :", e)).finally(() => { HISTO_LU.en = false; });
+}
+const histoQuand = t => new Date(t).toLocaleString("fr-FR", {weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}).replace(":", " h ");
 const baseLocal = () => { const d = sauvegardeData(); delete d.application; delete d.version; delete d.exportLe; delete d.magasin; return d; };
 const baseOccupe = () => { const a = document.activeElement;
   return !!(a && a.matches && a.matches("input:not([type=search]), textarea, select, [contenteditable]")) || !$("modal").hidden || !!(window.SuviAPI && window.SuviAPI.occupe()); };
@@ -10742,7 +10777,8 @@ function secAcces(){
       <input class="inp" id="mailRecup" type="email" style="flex:1;max-width:280px" value="${esc(st.mailRecup)}" placeholder="mohamed@exemple.fr" data-edit="mailRecup" data-key="mailRecup"></div>
     ${onRow("Tenir un journal des connexions", "journalConnexions", "Seule trace disponible avec un compte commun.")}
     ${st.journalConnexions ? `<div class="row" style="align-items:flex-start"><span class="lbl" style="min-width:300px">Dernières connexions</span>
-      <ul class="journal" style="flex:1">${S.logins.length ? S.logins.slice(0, 12).map(l => `<li>${esc(new Date(l.at).toLocaleString("fr-FR"))} : ${esc(l.user)}, ${esc(l.role.toLowerCase())}</li>`).join("") : `<li>Aucune connexion enregistrée depuis l’ouverture de la démo.</li>`}</ul></div>` : ""}
+      <ul class="journal" style="flex:1">${DEMO ? (S.logins.length ? S.logins.slice(0, 12).map(l => `<li>${esc(new Date(l.at).toLocaleString("fr-FR"))} : ${esc(l.user)}, ${esc(l.role.toLowerCase())}</li>`).join("") : `<li>Aucune connexion enregistrée depuis l’ouverture de la démo.</li>`)
+        : (histoLire(), HISTO_LU.connexion.length ? HISTO_LU.connexion.slice(0, 30).map(l => `<li>${esc(histoQuand(l.t))} : ${esc(l.par || "?")}, ${esc(l.texte.replace(/^Connexion · /, "").toLowerCase())}</li>`).join("") : `<li>${HISTO_LU.t ? "Aucune connexion enregistrée." : "Lecture de l’historique…"}</li>`)}</ul></div>` : ""}
   </section>
   ${secComptes()}`;
 }
@@ -11407,6 +11443,7 @@ function login(userId, reprise){
   S.prodQ = ""; S.prodCat = ""; S.prodFourn = ""; S.prodTrait = {}; S.prodFav = false; S.prodArchives = false; S.oeil = false; clearTimeout(oeilTimer);
   S.chqQ = ""; S.chqEmetteur = ""; S.tarifPlat = ""; S.regQ = ""; S.regFourn = ""; S.ficheKey = "";
   if (st().journalConnexions) S.logins.unshift({at:new Date().toISOString(), user:u.name, role:(roleOf(u.role) || {}).name || ""});
+  if (st().journalConnexions && !reprise && !DANS_COSIUM) histoNoter("connexion", "Connexion · " + ((roleOf(u.role) || {}).name || "compte"), null, u.name);   // 16 oct. 2026 : gardée dans la base
   S.logins = S.logins.slice(0, 50);
   S.jourVoir = null; S.pile = []; S.dernierTab = null; S.dernierDrawerCle = ""; S.procQ = ""; S.procRub = ""; S.atlQ = ""; S.atlEdit = null; S.dupQ = ""; S.dupForm = dupFormVide(); S.dupFichier = null;
   S.me = u.collab || null; S.raccOuvert = false;
@@ -16327,8 +16364,9 @@ const TYPES_JOURNAL = {boutique:"Boutique (commandes, chèques, catalogue, équi
 const typeDe = t => /Rétabli/.test(t) ? "retablir" : /encaiss|[Rr]èglement/.test(t) ? "reglement" : /avoir/i.test(t) ? "avoir" : /[Nn]ote|Action faite|Modification enregistrée|Échéance|supprimée de l’historique/.test(t) ? "note"
   : /[Cc]lôtur|[Aa]rchiv/.test(t) ? "cloture" : /(Lunettes|Lentilles|Audio) (ajouté|retiré)/.test(t) ? "equipement" : /avant le|Facturé le|Délai|effacé/.test(t) ? "date"
   : /[Ff]amille|membre|parent|passage|[Rr]enouvellement|[Aa]pparaîtra|suivi par|Réseau/.test(t) ? "dossier" : "etat";
-function noterJournal(quoi, type, client){ const mg = window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufAPI.magasin() : null;   // 14 oct. 2026 : en visite, le geste est signé « Samy · Chouf 18 »
-  JOURNAL.unshift({t:Date.now(), par:(auteur() || (COMPTE.perso || "Auteur non choisi")) + (mg && mg.de ? " · " + mg.de : ""), quoi, type:type || typeDe(quoi), client:client || null}); }
+function noterJournal(quoi, type, client, ou){ const mg = window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufAPI.magasin() : null;   // 14 oct. 2026 : en visite, le geste est signé « Samy · Chouf 18 »
+  JOURNAL.unshift({t:Date.now(), par:(auteur() || (COMPTE.perso || "Auteur non choisi")) + (mg && mg.de ? " · " + mg.de : ""), quoi, type:type || typeDe(quoi), client:client || null});
+  if (window.ChoufAPI && window.ChoufAPI.historique) window.ChoufAPI.historique(quoi, client ? nomClient(client) : ou || null, JOURNAL[0].par); }   // 16 oct. 2026 : gardé dans la base
 function noterActivite(texte, annuler, client){
   noterJournal(texte, null, client || null);
   const e = {id:actiSeq++, t:Date.now(), texte, annuler, client:client || null, par:auteur(), retabli:null};
@@ -16339,7 +16377,7 @@ function noterActivite(texte, annuler, client){
 function noterActiviteExt(o){
   const d = ACTIVITE[0];
   if (o.fusion && d && d.fusion === o.fusion && !d.retabli && d.par === o.par && Date.now() - d.t < 30e3){ d.texte = o.texte; d.t = Date.now(); majActivite(); return d; }   // une saisie en plusieurs fois = un seul changement
-  noterJournal(o.texte, "boutique", null);
+  noterJournal(o.texte, "boutique", null, o.ou);
   const e = {id:actiSeq++, t:Date.now(), texte:o.texte, annuler:o.annuler, client:null, cle:o.cle, ou:o.ou, ouvrir:o.ouvrir, fusion:o.fusion, avantJ:o.avantJ, par:o.par, retabli:null};
   ACTIVITE.unshift(e); if (ACTIVITE.length > 60) ACTIVITE.pop();
   majActivite(); return e;
@@ -22416,6 +22454,9 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root #login .login-mdp label{font-size:.875rem; font-weight:500; margin-top:6px}
 :root #login .login-mdp .btn{margin-top:12px; min-height:44px}
 /* ================= deux magasins (fin) ================= */
+/* 16 oct. 2026 : historique de la base sous l'Activité récente */
+:root .act-histo-titre{margin:22px 0 8px; font-size:.8125rem; font-weight:600; letter-spacing:.02em; color:var(--second)}
+:root .act-histo-base .act-lien{cursor:default; text-decoration:none}
 /* 15 oct. 2026 : import du suivi Google Sheets (fenêtre large, aperçu ligne par ligne) */
 :root #zone-suivi .dialogue.imp{width:min(1180px, 100%); max-height:calc(92vh / var(--zm, 1)); display:flex; flex-direction:column; overflow:hidden}
 :root #zone-suivi .dialogue.imp .imp-corps{overflow:auto; padding:0 20px 12px; flex:1}
