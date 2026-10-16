@@ -14386,7 +14386,7 @@ function equipCosium(l, t = "lunettes"){
     return `<p class="tl-sec">Équipement lentilles${e.typeVisite ? ` (${esc(e.typeVisite.toLowerCase())} du ${esc(e.visite)})` : ""}${tot ? ` · ${euros(tot)}` : ""}</p>
     <div class="bloc">${prod("Lentille droite", e.od)}${prod("Lentille gauche", e.og)}</div>`; }).join("");
   return it.cosium.equip.map(e => `<p class="tl-sec">Équipement lunettes${e.panier ? ` (${esc(e.panier)}${e.total != null ? ` · ${euros(e.total)}` : ""})` : ""}</p>
-    <div class="bloc">${prod("Monture", e.monture)}${prod("Verre droit", e.od)}${prod("Verre gauche", e.og)}</div>`).join("");
+    <div class="bloc">${prod("Monture", e.monture)}${prod("Verre droit", e.od)}${prod("Verre gauche", e.og)}${hauteursTexte(e.hauteur) ? champ("Hauteurs (OD / OG)", cp(hauteursTexte(e.hauteur), "Hauteurs"), true) : ""}${e.facture ? champ("Prise en charge", esc(partsTexte(e.facture)), true) : ""}</div>`).join("");
 }
 function rendreCosium(idx){
   const l = LIGNES[idx], c = l.c, k = c.cosium;
@@ -14448,11 +14448,11 @@ function rendreDonnees(l){
     <div class="source"><i></i>Lues dans les dossiers Cosium par l’extension</div>
 
     <p class="tl-sec">Ordonnance (dossier lunettes)</p>
-    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true)}${champsCorr(k.ordo.corr)}</div>
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true)}${champ("N° RPPS", cp(k.ordo.rpps, "N° RPPS"), true)}${champsCorr(k.ordo.corr)}${champ("Écarts (OD / OG)", cp(ecartsTexte(k.ordo.ecarts), "Écarts"), true)}</div>
     ${equipCosium(l) || `<p class="tl-sec">Équipement lunettes</p><div class="bloc">${champ("Monture et verres", "", true)}</div>`}
     ${equipCosium(l, "lentilles")}
     ${k.ordoLen && k.ordoLen.date ? `<p class="tl-sec">Ordonnance (dossier lentilles)</p>
-    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}${champsCorr(k.ordoLen.corr)}</div>` : ""}
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}${champ("N° RPPS", cp(k.ordoLen.rpps, "N° RPPS"), true)}${champsCorr(k.ordoLen.corr)}</div>` : ""}
     <div class="note-sante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
       <span>Corrections et n° de sécu sont des données de santé : ne les copie que pour le dossier du client (PEC, duplicata).</span></div>
     <p class="passage-note">Ouvre un dossier Lunettes dans Cosium : l’extension met ces données à jour toute seule.</p>`;
@@ -16936,7 +16936,8 @@ function bandeauAjoutValider(){
 const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autresDossiers || []).includes(BANDEAU.dossier));
 const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
 const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
-const CHAMPS_FICHE = {ne:"date de naissance", secu:"n° de sécu", caisse:"caisse", adherent:"n° d’adhérent", finDroits:"fin de droits", tel:"portable", email:"e-mail", adresse:"adresse"};
+const CHAMPS_FICHE = {ne:"date de naissance", secu:"n° de sécu", caisse:"caisse", tauxSS:"taux sécu", qualite:"qualité", assure:"assuré", assureNe:"naissance de l’assuré", assureSecu:"n° de sécu de l’assuré",
+  adherent:"n° d’adhérent", contrat:"n° de contrat", finDroits:"fin de droits", tel:"portable", email:"e-mail", adresse:"adresse"};   // 16 oct. 2026 : qualité, assuré, contrat, taux (relevé sur le vrai Cosium)
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null;
   else if (BANDEAU_AJOUT && d.reseau && !BANDEAU.reseau) BANDEAU_AJOUT.reseau = reseauCosium(d.reseau);   // réseau arrivé après l'ouverture de l'ajout
   if (d.aucun){ BANDEAU = null; BANDEAU_C = null; bandeauMaj(true); return; }   // 9 oct. 2026 : aucun client ouvert dans Cosium (accueil)
@@ -16972,6 +16973,9 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
 const corrUtile = r => !!(r && ["od", "og"].some(o => r[o] && (r[o].sph || r[o].cyl || r[o].add)));
 const corrOeil = x => x ? [x.sph, x.cyl ? `(${x.cyl})${x.axe ? " " + x.axe + "°" : ""}` : "", x.add ? "Add " + x.add : ""].filter(Boolean).join(" ") : "";
 const corrTexte = r => r ? `OD ${corrOeil(r.od) || "—"} ; OG ${corrOeil(r.og) || "—"}` : "";
+const ecartsTexte = e => e ? [e.loinOD || e.loinOG ? `VL ${e.loinOD || "—"} / ${e.loinOG || "—"}` : "", e.presOD || e.presOG ? `VP ${e.presOD || "—"} / ${e.presOG || "—"}` : ""].filter(Boolean).join(" · ") : "";
+const hauteursTexte = h => h && (h.od || h.og) ? `${h.od || "—"} / ${h.og || "—"}` : "";
+const partsTexte = f => f ? [f.ss != null ? `sécu ${euros(f.ss)}` : "", f.compl != null ? `mutuelle ${euros(f.compl)}` : "", f.assure != null ? `reste ${euros(f.assure)}` : ""].filter(Boolean).join(" · ") : "";
 const ORDO_ECART_J = 30;   // un dossier Cosium ouvert plus de 30 jours avant la ligne de suivi n'est pas celui du passage
 let ORDO_ATTENTE = null, DUP_ATTENTE = null, RECAP_ATTENTE = null, PEC_ATTENTE = null;
 /* 16 oct. 2026 (demande de Mohamed) : onglet Notes ouvert dans Cosium, la fiche Chouf'Tout du client s'ouvre sur son récapitulatif.
@@ -17024,7 +17028,10 @@ function bandeauOrdo(){
     l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Correction ${nom} ${avant && avant.corr && memeOrdo ? "modifiée" : "lue"} dans Cosium : ${corrTexte(corr)}`});
     maj = true;
   }
-  if (maj) c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe, delivrance:deliv, corr};
+  /* 16 oct. 2026 : RPPS du prescripteur et écarts pupillaires (vides dans Cosium : la valeur connue est gardée) */
+  const ec = d.ecarts && Object.values(d.ecarts).some(Boolean) ? d.ecarts : (avant && avant.ecarts) || null, rpps = d.rpps || (avant && avant.rpps) || "";
+  if (JSON.stringify([rpps, ec]) !== JSON.stringify([(avant && avant.rpps) || "", (avant && avant.ecarts) || null])) maj = true;
+  if (maj) c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe, delivrance:deliv, corr, rpps, ecarts:ec};
   if (maj){ RENOUV_CACHE = null; rafraichirFiche(); }
   rep("ok", `Ordonnance du ${d.ordoLe}${corr ? ", correction" : ""}${eq.length ? " et équipement" : ""} inscrits dans Chouf’Tout`);
 }
@@ -17094,16 +17101,20 @@ function bandeauPec(){
   const v = {nom:c ? c.nom : d.nom, prenom:c ? c.prenom : d.prenom, ne:k.ne, secu:d.secu || k.secu, caisse:k.caisse, mut:m ? m.nom : "", reseau:m ? m.reseau : "",
     adherent:k.adherent, finDroits:k.finDroits, ordoLe:d.ordoLe, prescripteur:d.prescripteur, delivrance:d.delivrance};
   const L = [];   // [titre, [[libellé, valeur]]]
-  L.push(["Bénéficiaire", [["Nom", v.nom], ["Prénom", v.prenom], ["Né(e) le", v.ne], ["N° de sécurité sociale", v.secu], ["Caisse", v.caisse], ["N° de dossier Cosium", d.dossier]]]);
-  L.push(["Complémentaire", [["Mutuelle", v.mut], ["Réseau", v.reseau !== "Hors réseau" ? v.reseau : ""], ["N° d’adhérent", v.adherent], ["Fin de droits", v.finDroits]]]);
-  L.push([`Ordonnance ${len ? "lentilles" : "lunettes"}`, [["Date", v.ordoLe], ["Prescripteur", v.prescripteur], ...(len ? [] : [["Délivrance", v.delivrance]]),
-    ["Œil droit", corrOeil(corr && corr.od)], ["Œil gauche", corrOeil(corr && corr.og)]]]);
+  const ordo = (len ? k.ordoLen : k.ordo) || {}, ayantDroit = k.qualite && !/^assur/i.test(k.qualite);   // 16 oct. 2026 : qualité, assuré, contrat, RPPS, acuité, écarts
+  L.push(["Bénéficiaire", [["Nom", v.nom], ["Prénom", v.prenom], ["Né(e) le", v.ne], ["Qualité", k.qualite], ["N° de sécurité sociale", v.secu], ["Caisse", v.caisse], ["Taux sécu", k.tauxSS ? k.tauxSS + " %" : ""], ["N° de dossier Cosium", d.dossier]]]);
+  if (ayantDroit) L.push(["Assuré ouvrant droit", [["Assuré", k.assure], ["Né(e) le", k.assureNe], ["N° de sécu de l’assuré", k.assureSecu]]]);
+  L.push(["Complémentaire", [["Mutuelle", v.mut], ["Réseau", v.reseau !== "Hors réseau" ? v.reseau : ""], ["N° d’adhérent", v.adherent], ["N° de contrat", k.contrat], ["Fin de droits", v.finDroits]]]);
+  const ac = o => corr && corr[o] && corr[o].acuite ? ` · acuité ${corr[o].acuite}` : "";
+  L.push([`Ordonnance ${len ? "lentilles" : "lunettes"}`, [["Date", v.ordoLe], ["Prescripteur", v.prescripteur], ["N° RPPS", d.rpps || ordo.rpps || ""], ...(len ? [] : [["Délivrance", v.delivrance]]),
+    ["Œil droit", corrOeil(corr && corr.od) + ac("od")], ["Œil gauche", corrOeil(corr && corr.og) + ac("og")], ...(len ? [] : [["Écarts (OD / OG)", ecartsTexte(d.ecarts && Object.values(d.ecarts).some(Boolean) ? d.ecarts : ordo.ecarts)]])]]);
   const prod = (nom, p) => p ? [[nom, [p.libelle, p.code].filter(Boolean).join(" · ")], [`Prix ${nom.toLowerCase()}`, p.prix != null ? `${p.qte > 1 ? p.qte + " × " : ""}${euros(p.prix)}` : ""],
     ...(len ? [] : [[`LPP ${nom.toLowerCase()}`, p.lpp || ""]])] : [];
   (d.equip || []).forEach(e => L.push([len ? `Lentilles${e.visite ? " du " + e.visite : ""}` : `Équipement${e.panier ? " · " + e.panier : ""}`,
-    [...prod("Monture", e.monture), ...prod(len ? "Lentille droite" : "Verre droit", e.od), ...prod(len ? "Lentille gauche" : "Verre gauche", e.og), ...(e.total != null ? [["Total", euros(e.total)]] : [])]]));
+    [...prod("Monture", e.monture), ...prod(len ? "Lentille droite" : "Verre droit", e.od), ...prod(len ? "Lentille gauche" : "Verre gauche", e.og), ...(e.total != null ? [["Total", euros(e.total)]] : []),
+    ...(len ? [] : [["Hauteurs (OD / OG)", hauteursTexte(e.hauteur)]]), ...(e.facture ? [["Part sécu", e.facture.ss != null ? euros(e.facture.ss) : ""], ["Part mutuelle", e.facture.compl != null ? euros(e.facture.compl) : ""], ["Reste à charge", e.facture.assure != null ? euros(e.facture.assure) : ""]] : [])]]));
   if (!(d.equip || []).length) L.push(["Équipement", [[len ? "Lentilles" : "Panier retenu", ""]]]);
-  const manque = L.flatMap(([, r]) => r.filter(([n, x]) => !x && !/^(Réseau|Caisse|Fin de droits|Délivrance)$/.test(n)).map(([n]) => n));
+  const manque = L.flatMap(([, r]) => r.filter(([n, x]) => !x && !/^(Réseau|Caisse|Fin de droits|Délivrance|Qualité|Taux sécu|N° de contrat|Écarts \(OD \/ OG\)|Hauteurs \(OD \/ OG\)|Part sécu|Part mutuelle|Reste à charge)$/.test(n)).map(([n]) => n));
   if (!m && c) manque.unshift("mutuelle (dossier sans tiers payant)");
   if (!k.secu && !d.secu) manque.push("ouvre la fiche du client dans Cosium pour le n° de sécu");
   const texte = [`DEMANDE DE PEC · ${v.nom} ${v.prenom}`, ...L.map(([t, r]) => [t.toUpperCase(), ...r.filter(([, x]) => x).map(([n, x]) => `${n} : ${x}`)].join("\n"))].join("\n\n");
