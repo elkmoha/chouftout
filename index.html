@@ -14242,7 +14242,10 @@ function rendreLignes(){
   const apercu = f => f.note ? `<span class="note-apercu">${esc(f.note)}</span>` : "";
   const teteLib = x => `<div class="fam-lib">${PEOPLE}${esc(x.tete.nom)}<span class="petit">· ${x.n} membre${x.n > 1 ? "s" : ""}${x.vus < x.n ? `, ${x.vus} affiché${x.vus > 1 ? "s" : ""}` : ""}</span>${apercu(x.tete)}</div>`;
 
-  document.getElementById("lignes").innerHTML = v.length ? v.map((l, i) => {
+  /* 16 oct. 2026 : seule la présentation affichée est fabriquée (tableau sur ordinateur, cartes sur téléphone) ; l'autre reste vide.
+     Avec les vrais dossiers (129 lignes), fabriquer les deux faisait ~17 000 éléments à chaque geste, soit 0,4 à 1 s de blocage. */
+  const telLignes = matchMedia("(max-width:760px)").matches;   // même seuil que la règle CSS qui montre les cartes au lieu du tableau
+  document.getElementById("lignes").innerHTML = telLignes ? "" : v.length ? v.map((l, i) => {
     if (l.tete) return `<tr class="fam-tete" data-fam="${l.tete.id}" tabindex="0"><td colspan="${6 + colSel}">${teteLib(l)}</td></tr>`;
     const s = estSuite(l, i), f = famDe(l.c), es = etatSel(l.c);
     return `<tr class="${s ? "suite" : ""}${f ? " membre" : ""} ${es}" data-i="${idx(l)}" tabindex="0"${SEL.actif ? ` aria-selected="${es === "sel-on"}"` : ""}>
@@ -14262,7 +14265,7 @@ function rendreLignes(){
     </tr>`;
   }).join("") : `<tr><td colspan="8">${vide}</td></tr>`;
 
-  document.getElementById("liste").innerHTML = v.length ? v.map((l, i) => {
+  document.getElementById("liste").innerHTML = !telLignes ? "" : v.length ? v.map((l, i) => {
     if (l.tete) return `<li class="fam-tete" data-fam="${l.tete.id}" tabindex="0">${teteLib(l)}</li>`;
     const s = estSuite(l, i), f = famDe(l.c), es = etatSel(l.c);
     return `<li class="cellule ${s ? "suite" : ""}${f ? " membre" : ""} ${es}" data-i="${idx(l)}" tabindex="0">
@@ -14289,6 +14292,7 @@ function rendreLignes(){
 }
 
 function rendre(){ basculerRenouv(); rendreFiltres(); rendreLignes(); if (VUE === "cosium") rendreBarre(); }
+matchMedia("(max-width:760px)").addEventListener("change", () => rendreLignes());   // 16 oct. 2026 : passage ordinateur ↔ téléphone
 
 /* ---------- Ressort critique (amortissement 1,0) : part toujours de la valeur affichée et garde la vitesse ---------- */
 function ressort({de, vers, vitesse = 0, reponse = 0.38, amorti = 1, maj, fin}){
