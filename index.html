@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Chouf’Tout bêta</title>
+<!-- 16 oct. 2026 : page masquée jusqu'à la fin du fichier ; sinon le navigateur l'affiche avec les premiers styles, avant la couche « luxe » de la fin, puis la redessine -->
+<style id="avant-chargement">html:not(.charge) body{visibility:hidden}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..600&display=swap">
@@ -15709,7 +15711,10 @@ function appliquerAgrandi(){
   b.setAttribute("aria-label", FICHE_AGRANDIE ? "Réduire sur le côté" : "Agrandir en fenêtre");
   b.title = b.getAttribute("aria-label");
 }
-document.getElementById("agrandir").addEventListener("click", () => { FICHE_AGRANDIE = !FICHE_AGRANDIE; appliquerAgrandi(); if (ouverte) poser(0); });
+document.getElementById("agrandir").addEventListener("click", () => { FICHE_AGRANDIE = !FICHE_AGRANDIE; appliquerAgrandi(); if (ouverte) poser(0);
+  /* 16 oct. 2026 : la largeur et la position changeaient en 0,55 s (toute la fiche recalculée à chaque image : saccades, forme de l'ancien panneau
+     au passage) ; la fiche se pose maintenant à sa nouvelle place avec un fondu et un léger zoom, en transform et opacité seulement */
+  if (ouverte && !mobile() && !reduit.matches) feuille.animate([{opacity:0, transform:`scale(${FICHE_AGRANDIE ? .96 : .98})`}, {opacity:1, transform:"scale(1)"}], {duration:240, easing:"cubic-bezier(.2,.9,.3,1)"}); });
 
 /* Dates des étapes franchies : {étape:{d:"AAAA-MM-JJ", t, par}}. La première étape de chaque parcours (départ) n'a pas de date. */
 const dateEtape = () => ({d:isoJour(), t:Date.now(), par:auteur() || COMPTE.perso || null});
@@ -22658,6 +22663,8 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* Agrandir la fiche client (16 oct. 2026) : plus de transition sur la taille et la position, voir le clic sur #agrandir */
+@media (min-width:761px){ :root:root:root #zone-suivi:not(#luxe) #feuille.feuille{transition-property:box-shadow} }
 /* Fiche client sur téléphone (16 oct. 2026) : comme sur ordinateur, dossier · conseiller · mutuelle en surtitre bleu au-dessus du nom,
    nom à 28 px, blocs sans bordure ; la feuille de verre et son glisser restent. */
 @media (max-width:760px){
@@ -23646,5 +23653,6 @@ html.mode-cosium.cosium-cote .ct-lien span{flex:1}
 html.mode-cosium.cosium-cote .ct-lien b{font-weight:500; font-variant-numeric:tabular-nums; color:var(--orange)}
 html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 </style>
+<script id="charge-js">document.documentElement.classList.add("charge");   // 16 oct. 2026 : tous les styles sont lus, la page peut s'afficher</script>
 </body>
 </html>
