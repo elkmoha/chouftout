@@ -22685,6 +22685,17 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root:root body .htable:not(#luxe):not(#luxe-b), :root:root:root body .htable:not(#luxe):not(#luxe-b) th{background:transparent; box-shadow:none}
 :root:root:root body .ct-aide:not(#luxe):not(#luxe-b) p{background:color-mix(in srgb, var(--encre) 8%, var(--fond)); border-color:transparent}
 :root:root:root body .vide:not(#luxe):not(#luxe-b){-webkit-backdrop-filter:none; backdrop-filter:none}
+/* Restes relevés sur téléphone (16 oct. 2026) : Planning, cartes des fiches atelier et duplicatas, lignes des chèques, blocs du suivi,
+   Réglages (menu, listes) et cartes du tableau de bord. Les feuilles en verre du téléphone (fiche, panneaux, Réglages) restent. */
+:root:root:root body :is(.rp-onglet, .rp-cadre, .rp-coin, .rp-tache, .card.proc-card, .card.dup-card, .suivi-block, .settings-nav.reg-rail, .panel.settings-list, .panel.export-centre, .tdb-carte):not(#luxe):not(#luxe-b){
+  border-color:transparent; background-color:color-mix(in srgb, var(--encre) 4%, transparent); background-image:none; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root:root body :is(.rp-tache, .rp-onglet):not(#luxe):not(#luxe-b){background-color:color-mix(in srgb, var(--encre) 6%, transparent)}
+:root:root:root body .page-reglages .panel:not(#luxe):not(#luxe-b), :root:root:root body .pr-fenetre .panel:not(#luxe):not(#luxe-b){border-color:transparent; background-color:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+@media (max-width:980px){ :root:root:root body #app:not(#luxe):not(#luxe-b) table tr{background-color:transparent} }   /* chèques : lignes du tableau sur tablette et téléphone */
+:root:root:root #zone-suivi:not(#luxe):not(#luxe-b) .obs-lue.act{background-color:color-mix(in srgb, var(--encre) 6%, transparent)}
+/* annonces de Ma journée (comptes de l'équipe) : sans fond blanc ; l'importante garde sa teinte orange */
+:root:root:root body .annonce:not(#luxe):not(#luxe-b){border-color:transparent; background-color:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root:root body .annonce.important:not(#luxe):not(#luxe-b){background-color:color-mix(in srgb, var(--orange) 9%, transparent)}
 /* Fiche client agrandie (16 oct. 2026, signalé par Mohamed : deux teintes de fond) : elle gardait les blocs blanc bleuté de l'ancien style
    sur le fond ivoire. Mêmes blocs et même en-tête que le panneau (surtitre bleu au-dessus du nom). */
 @media (min-width:761px){
