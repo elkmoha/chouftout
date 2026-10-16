@@ -22658,6 +22658,19 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* Fiche de tâche (16 oct. 2026) : comme la fiche client. Titre plein, horaire en gris, tuiles neutres sans liseré
+   (la couleur reste pour « À attribuer »), « Comment faire » en surtitre bleu, étapes dans un bloc. */
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe){--dt:var(--pj-bleu)}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(.dr-flotte):not(#luxe) .dr-head h2{font-weight:500; letter-spacing:-.035em; line-height:1.1}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-quand{font-weight:400; color:var(--second)}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile{background:color-mix(in srgb, var(--encre) 5%, transparent) !important; border-radius:16px}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(.dr-flotte):not(#luxe) .dt-tuile{gap:6px; min-height:0; padding:12px 14px}   /* compactes, comme les tuiles de la fiche client */
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile::after{display:none}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile > span{font-weight:400; color:var(--second)}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile > b{font-weight:500}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-suite > h4{margin:28px 0 8px; font-size:.8125rem; font-weight:500; letter-spacing:0; color:var(--dt)}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(.agrandie):not(#luxe) .dt-suite > ol.aide-etapes{margin:0; padding:4px 16px; border-radius:16px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-suite .row .btn{min-height:36px; border:0; border-radius:999px; background:color-mix(in srgb, var(--encre) 7%, transparent)}
 /* Panneaux latéraux de Chouf'Tout (16 oct. 2026) : comme la fiche client. Sous-titre en surtitre bleu au-dessus du titre,
    lignes « libellé / valeur » regroupées en blocs sans bordure, boutons en pilules. Ordinateur, panneau (pas le carré flottant ni la fenêtre agrandie). */
 @media (min-width:761px){
