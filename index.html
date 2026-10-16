@@ -17120,9 +17120,10 @@ async function bandeauDuplicata(){
   const cab = cfg.cabinets.find(x => mots.some(m => plat(x.nom).includes(m)));
   const fond = document.createElement("div");
   fond.className = "dialogue-fond";
-  fond.innerHTML = `<div class="dialogue" role="dialog" aria-modal="true" aria-labelledby="dp-t">
-    <h3 id="dp-t">Demander un duplicata</h3>
-    <p class="intro">${esc(client)} · ordonnance ${esc(nom)} du ${esc(d.ordoLe || "?")}${d.prescripteur ? `, ${esc(d.prescripteur)}` : ""}. Lu dans Cosium.</p>
+  fond.innerHTML = `<div class="dialogue aj" role="dialog" aria-modal="true" aria-labelledby="dp-t">
+    <p class="aj-sur">Demander un duplicata</p>
+    <h3 id="dp-t">${esc(client)}</h3>
+    <p class="intro">Ordonnance ${esc(nom)} du ${esc(d.ordoLe || "?")}${d.prescripteur ? `, ${esc(d.prescripteur)}` : ""}. Lu dans Cosium.</p>
     ${cfg.cabinets.length ? "" : `<div class="aj-statut doublon"><b>Aucun cabinet</b>Ajoute les cabinets dans Réglages, Duplicatas d’ordonnance.</div>`}
     <div class="bloc">
       <div class="ld"><span>Cabinet</span><select class="aj-champ" id="dp-cab"><option value="">Choisir…</option>${cfg.cabinets.map(x => `<option value="${esc(x.id)}"${cab && cab.id === x.id ? " selected" : ""}>${esc(x.nom)}</option>`).join("")}</select></div>
@@ -22635,6 +22636,11 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue.aj .pied button{height:48px; border-radius:999px; font-size:.9375rem; font-weight:500}
 :root:root #zone-suivi:not(#luxe) .dialogue.aj .pied .secondaire{flex:0 1 auto; padding:0 22px; background:transparent; color:var(--second)}
 :root:root #zone-suivi:not(#luxe) .dialogue.aj .pied .secondaire:hover{color:var(--encre); background:color-mix(in srgb, var(--encre) 6%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj select.aj-champ{-webkit-appearance:none; appearance:none; padding-right:30px; cursor:pointer;
+  background-image:linear-gradient(45deg, transparent 50%, var(--second) 50%), linear-gradient(135deg, var(--second) 50%, transparent 50%);
+  background-position:calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size:5px 5px; background-repeat:no-repeat}   /* duplicata : listes Cabinet et Motif */
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ.dp-message{height:auto; min-height:150px; padding:14px 16px; background:transparent; resize:vertical; font-size:.875rem; line-height:1.5}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue.aj :is(.aj-sur, h3, .intro, .aj-exemples){padding-left:20px; padding-right:20px}
   :root:root #zone-suivi:not(#luxe) .dialogue.aj :is(.bloc, .aj-statut, .tl-sec){margin-left:20px; margin-right:20px} :root:root #zone-suivi:not(#luxe) .dialogue.aj .pied{padding:20px} }
 </style>
