@@ -13999,14 +13999,11 @@ const RAPIDES = [
   {k:"livrer", lib:"Prêts à livrer", aide:"Équipement prêt, à remettre au client", test:l => enCours(l) && l.equip === "pret"},
   {k:"livres", lib:"Livrés incomplets", urgent:true, aide:"Équipement déjà livré alors que le BL n’est pas commandé, ou qu’un équipement n’a pas encore sa prise en charge (avant PEC OK) ou l’accord du client",
     test:l => enCours(l) && l.equip === "livre" && l.items.some(i => i.bl === "non" || ["a_traiter", "devis", "instance", "s_traiter"].includes(i.a))},
-  /* 16 oct. 2026 (demande de Mohamed) : les étapes du parcours d'un dossier, une carte par geste à faire */
-  {k:"traiter", lib:"À traiter", aide:"Prise en charge ou devis à faire", test:l => enCours(l) && l.items.some(i => ["a_traiter", "s_traiter"].includes(i.a))},
-  {k:"devis", lib:"Devis en attente", aide:"Devis fait, le client doit revenir choisir", test:l => enCours(l) && l.items.some(i => i.a === "devis")},
+  /* 16 oct. 2026 (demande de Mohamed) : les étapes du parcours, regroupées en 4 cartes (plus Tous et À facturer) */
+  {k:"traiter", lib:"À traiter", aide:"Prise en charge ou devis à faire, devis en attente du client, refus à résoudre", test:l => enCours(l) && l.items.some(i => ["a_traiter", "s_traiter", "devis", "refuse"].includes(i.a))},
   {k:"mutuelle", lib:"Attente mutuelle", aide:"Demande de prise en charge envoyée, pas encore de réponse", test:l => enCours(l) && l.items.some(i => i.a === "instance")},
-  {k:"refus", lib:"Refusés", aide:"Prise en charge refusée : à résoudre avec le client ou la mutuelle", test:l => enCours(l) && l.items.some(i => i.a === "refuse")},
   {k:"commander", lib:"À commander", aide:"PEC OK ou accord du client, BL pas encore commandé", test:l => enCours(l) && l.equip !== "livre" && l.items.some(i => ["pec_ok", "accord"].includes(i.a) && i.bl === "non")},
-  {k:"encommande", lib:"En commande", aide:"BL commandé, en attente de réception", test:l => enCours(l) && l.items.some(i => i.bl === "cours")},
-  {k:"monter", lib:"À monter / livrer", aide:"BL reçu ou équipement prêt, pas encore livré", test:l => enCours(l) && (l.equip === "pret" || (l.equip === "prep" && l.items.some(i => i.bl === "recu" && !["refuse", "annule"].includes(i.a))))},
+  {k:"encours", lib:"En cours", aide:"BL en commande, BL reçu à monter, ou équipement prêt à livrer", test:l => enCours(l) && (l.equip === "pret" || l.items.some(i => i.bl === "cours") || (l.equip === "prep" && l.items.some(i => i.bl === "recu" && !["refuse", "annule"].includes(i.a))))},
   {k:"facturer", lib:"À facturer", aide:"Livré, prise en charge ou accord obtenu, pas encore facturé",
     test:l => enCours(l) && l.equip === "livre" && l.items.some(i => i.a === "pec_ok" || (i.a === "accord" && !bloque(l)))},
   {k:"encaisser", lib:"Reste à encaisser", aide:"Le récapitulatif a un reste à charge à encaisser ou à reporter", test:l => enCours(l) && soldeClient(l.c)?.cl === "du"},
@@ -14042,11 +14039,11 @@ const nbEtats = () => Object.values(filtre.etats).reduce((t, s) => t + s.size, 0
 const viderEtats = () => Object.values(filtre.etats).forEach(s => s.clear());
 const libEtats = g => { const set = filtre.etats[g]; return !set.size ? "Tous" : set.size === 1 ? familles(g).find(f => set.has(f.k))?.lib : `${set.size} états`; };
 const magInfo = () => window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufAPI.magasin() : null;
-const RAPIDES_PLUS = ["prog", "renouv", "clos"];   // rangées dans « Plus »
+const RAPIDES_PLUS = ["mes", "relancer", "perime", "livres", "encaisser", "confie", "livrer", "prog", "renouv", "clos"];   // 16 oct. 2026 : tout ce qui n'a pas de carte, dans « Autres vues »
 /* 11 oct. 2026 (essai) : sur ordinateur, les vues sont des tuiles teintées dans une bande qui déborde ; toutes y sont, sans « Plus » */
 const BANDE_VUES = matchMedia("(min-width:1px)");   // 12 oct. 2026 : tuiles aussi sur téléphone
-const RAPIDE_C = {traiter:"--pj-bleu", devis:"--pj-cyan", mutuelle:"--pj-rose", refus:"--rouge", commander:"--pj-or", encommande:"--pj-cyan", monter:"--vert", tous:"--pj-bleu", mes:"--pj-cyan", relancer:"--rouge", perime:"--orange", livrer:"--vert", livres:"--pj-rose", facturer:"--violet", encaisser:"--pj-or", prog:"--pj-cyan", renouv:"--pj-or", clos:"--second", confie:"--pj-cyan"};
-const RAPIDE_SOUS = {traiter:"PEC ou devis à faire", devis:"le client doit revenir", mutuelle:"demande envoyée", refus:"à résoudre", commander:"BL pas commandé", encommande:"BL attendu", monter:"BL reçu ou prêt", confie:"traités par l’autre magasin", tous:"en cours de suivi", mes:"ceux que je suis", relancer:"action en retard ou sans mouvement", perime:"accords à facturer vite", livrer:"équipement prêt, à remettre",
+const RAPIDE_C = {traiter:"--pj-bleu", mutuelle:"--pj-rose", commander:"--pj-or", encours:"--vert", tous:"--pj-bleu", mes:"--pj-cyan", relancer:"--rouge", perime:"--orange", livrer:"--vert", livres:"--pj-rose", facturer:"--violet", encaisser:"--pj-or", prog:"--pj-cyan", renouv:"--pj-or", clos:"--second", confie:"--pj-cyan"};
+const RAPIDE_SOUS = {traiter:"PEC, devis, refus", mutuelle:"demande envoyée", commander:"BL pas commandé", encours:"commande, montage, prêt", confie:"traités par l’autre magasin", tous:"en cours de suivi", mes:"ceux que je suis", relancer:"action en retard ou sans mouvement", perime:"accords à facturer vite", livrer:"équipement prêt, à remettre",
   livres:"BL ou prise en charge à régulariser", facturer:"livrés, accord obtenu", encaisser:"reste à charge à régler", prog:"renouvellements en attente", renouv:"clients à rappeler", clos:"payés, annulés ou archivés"};
 function visibles(){
   const q = plat(filtre.q.trim()), R = RAPIDES.find(r => r.k === filtre.rapide) || RAPIDES[0];
@@ -14068,13 +14065,17 @@ function rendreFiltres(){
   const nbVue = r => r.k === "mes" && !moi() ? null : base.filter(r.test).length;
   const nbActiver = base.filter(aActiver).length, nbRappel = base.filter(aRappeler).length;
   const vr = r => { const n = nbVue(r);
-    return `<button class="vr${["prog", "renouv", "clos"].includes(r.k) ? " vr-fin" : ""}${["traiter", "devis", "mutuelle", "refus", "commander", "encommande", "monter", "facturer"].includes(r.k) ? " vr-etape" : ""}${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.aide ? ` title="${r.aide}"` : r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${RAPIDE_SOUS[r.k]}</small></button>`; };
+    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.aide ? ` title="${r.aide}"` : r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${RAPIDE_SOUS[r.k]}</small></button>`; };
   // « Programmés » sort de « Plus » tant qu'un renouvellement attend d'être activé
-  /* 16 oct. 2026 : ordre du parcours ; les alertes seulement quand il y en a ; programmés, échéances, clôturés au bout ; « Prêts à livrer » est dans « À monter / livrer » */
-  const ORDRE_VUES = ["tous", "mes", "relancer", "perime", "livres", "encaisser", "confie", "traiter", "devis", "mutuelle", "refus", "commander", "encommande", "monter", "facturer", "prog", "renouv", "clos"];
-  const VUES_SI = ["relancer", "perime", "livres", "encaisser", "confie"];
-  const parcours = ORDRE_VUES.map(k => RAPIDES.find(r => r.k === k)).filter(r => r && (!VUES_SI.includes(r.k) || nbVue(r) || filtre.rapide === r.k));
-  { const c = RAPIDES.find(r => r.k === filtre.rapide); if (c && !parcours.includes(c)) parcours.push(c); }
+  /* 16 oct. 2026 (demande de Mohamed) : six cartes dans l'ordre du parcours ; les alertes en pastille orange sur leur carte ; le reste dans « Autres vues » */
+  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer"];
+  const PASTILLES = {tous:["relancer", "livres"], facturer:["perime", "encaisser"]};   // « confiés » : déjà le bandeau sous les cartes
+  const PAST_LIB = {relancer:"en retard", livres:"incomplets", perime:"périmés", encaisser:"à encaisser"};
+  const parcours = ORDRE_VUES.map(k => RAPIDES.find(r => r.k === k)).filter(Boolean);
+  { const c = RAPIDES.find(r => r.k === filtre.rapide); if (c && !parcours.includes(c) && !Object.values(PASTILLES).flat().includes(c.k)) parcours.push(c); }
+  const pastilles = r => (PASTILLES[r.k] || []).map(k => { const a = RAPIDES.find(x => x.k === k), n = a ? nbVue(a) : 0;
+    return n ? `<button type="button" class="vr-pastille${k === "confie" ? " info" : ""}" data-rapide="${k}" aria-pressed="${filtre.rapide === k}" style="--c:var(${RAPIDE_C[k]})" title="${esc(a.aide || "")}">${n} ${PAST_LIB[k]}</button>` : ""; }).join("");
+  const carte = r => `<span class="vr-groupe">${vr(r)}${pastilles(r) ? `<span class="vr-pastilles">${pastilles(r)}</span>` : ""}</span>`;
   const principales = (BANDE_VUES.matches ? parcours : RAPIDES.filter(r => (!RAPIDES_PLUS.includes(r.k) || (r.k === "prog" && nbActiver) || (r.k === "renouv" && nbRappel)) && (r.k !== "perime" || nbVue(r) || filtre.rapide === r.k)))
     .filter(r => r.k !== "confie" || nbVue(r) || filtre.rapide === "confie");   // « Confiés » seulement s'il y en a
   /* ce que l'autre magasin a confié à celui-ci : un bouton au-dessus de la liste, qui ouvre ses dossiers sur la vue « Confiés » */
@@ -14087,8 +14088,8 @@ function rendreFiltres(){
   const k = filtre.crit, pills = [];
   for (const g of ["cons", "mut", "res", "type", "regime", "autres"]) k[g].forEach(v => pills.push(`<button type="button" class="crit" data-crit-g="${g}" data-crit-v="${esc(v)}" title="Retirer ce filtre">${CRIT_LIB[g] ? `<span>${CRIT_LIB[g]}</span>` : ""}${esc(libCrit(g, v))}<i aria-hidden="true">×</i></button>`));
   if (k.cree != null) pills.push(`<button type="button" class="crit" data-crit-g="cree" data-crit-v="${k.cree}"><span>Créé</span>${CREE_LIB[k.cree]}<i aria-hidden="true">×</i></button>`);
-  document.getElementById("vuesRapides").innerHTML = principales.map(vr).join("") + `<span class="vr-pousse" aria-hidden="true"></span><span class="vr-saut" aria-hidden="true"></span>` + (choisieEnPlus ? vr(choisieEnPlus) : "")
-    + `<button class="vr vr-plus" type="button" data-vr-plus aria-haspopup="true" aria-expanded="false" title="Programmés, échéances, clôturés">Plus<svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1 1 4 4 4-4"/></svg></button>`
+  document.getElementById("vuesRapides").innerHTML = principales.map(BANDE_VUES.matches ? carte : vr).join("") + (choisieEnPlus && !principales.includes(choisieEnPlus) && !Object.values(PASTILLES).flat().includes(choisieEnPlus.k) ? vr(choisieEnPlus) : "")
+    + `<button class="vr vr-plus" type="button" data-vr-plus aria-haspopup="true" aria-expanded="false" title="Mes dossiers, alertes, programmés, échéances, clôturés">Autres vues<svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1 1 4 4 4-4"/></svg></button>`
     + (pills.length ? `<span class="vr-crit">${pills.join("")}</span>` : "");
   document.getElementById("doCrit").innerHTML = pills.join("");   // ordinateur : les critères actifs sous le titre de l'index
   // la vue choisie reste visible dans la rangée qui défile (téléphone, et « Plus » au bout de la rangée)
@@ -22495,21 +22496,22 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root #login .login-mdp .btn{margin-top:12px; min-height:44px}
 /* ================= deux magasins (fin) ================= */
 /* 16 oct. 2026 : cartes des Dossiers en étapes du parcours ; programmés, échéances, clôturés au bout, plus discrets */
-:root #zone-suivi:not(#luxe) #vuesRapides .vr.vr-fin{opacity:.72}
-:root #zone-suivi:not(#luxe) #vuesRapides :is(.vr-pousse, .vr-saut){display:none}
+:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe{position:relative; display:flex; flex:none}
+:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pastilles{position:absolute; z-index:2; top:-11px; left:10px; display:flex; flex-wrap:nowrap; gap:4px}
+:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pastille{min-height:24px; padding:0 9px; border:0; border-radius:999px; font:inherit; font-size:.75rem; font-weight:600; white-space:nowrap; cursor:pointer;
+  background:var(--orange); color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18)}
+:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pastille.info{background:var(--groupe-2, #333); color:var(--encre)}
+:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pastille[aria-pressed="true"]{outline:2px solid var(--encre); outline-offset:1px}
+:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-plus{display:inline-flex; flex:none; align-items:center; gap:6px; align-self:center; min-height:44px; padding:0 16px; border-radius:999px; font-size:.875rem; font-weight:500; height:auto; width:auto}
 @media (min-width:761px){
-  /* ordinateur : tout est visible d'un coup, plus de bande qui défile. Rangée 1 : Tous, Mes dossiers, alertes ; au bout, programmés, échéances, clôturés.
-     Rangée 2 : les 8 étapes côte à côte, sur toute la largeur. */
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides{flex-wrap:wrap; overflow:visible; margin:0; padding:3px 36px 32px; gap:12px; cursor:auto; scroll-snap-type:none}
+  /* ordinateur : une seule rangée, tout visible, les six cartes de même largeur ; « Autres vues » au bout */
+  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides{flex-wrap:nowrap; overflow:visible; margin:0; padding:12px 36px 32px; gap:12px; cursor:auto; scroll-snap-type:none}
   #zone-suivi:not(#luxe) .do-bande::after{display:none}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr{order:1; width:auto; height:auto; min-height:64px; padding:12px 18px}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pousse{display:block; order:2; flex:1 1 0}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr.vr-fin{order:3}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-saut{display:block; order:4; flex-basis:100%; height:0}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr.vr-etape{order:5; flex:1 1 0; min-width:0; grid-template-columns:minmax(0, 1fr); grid-template-rows:auto auto; align-content:start; min-height:96px; padding:14px 16px}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr.vr-etape > .nb{grid-column:1; grid-row:1; font-size:2rem}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr.vr-etape > .vr-lib{grid-column:1; grid-row:2; align-self:start; white-space:normal; font-size:.875rem}
-  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr.vr-etape > .vr-aide{display:none}
+  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe{flex:1 1 0; min-width:0}
+  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr{flex:1 1 auto; width:auto; min-width:0; height:auto; min-height:88px; padding:14px 16px; grid-template-columns:minmax(0, 1fr); grid-template-rows:auto auto auto; align-content:start}
+  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .nb{grid-column:1; grid-row:1; font-size:2rem}
+  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .vr-lib{grid-column:1; grid-row:2; white-space:normal}
+  :root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .vr-aide{grid-column:1; grid-row:3; white-space:nowrap}
 }
 /* 16 oct. 2026 : historique de la base sous l'Activité récente */
 :root .act-histo-titre{margin:22px 0 8px; font-size:.8125rem; font-weight:600; letter-spacing:.02em; color:var(--second)}
