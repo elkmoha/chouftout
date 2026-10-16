@@ -6201,6 +6201,7 @@ window.ChoufAPI = {
   moi(){ const u = currentUser(); if (!u) return null; const p = u.collab ? personOf(u.collab) : null; return p && !p.archived ? {id:"p:" + p.id, nom:p.name} : {equipe:true}; },
   ouvrirDossier(cle, idx){ if (!suviOk()) return; S.drawer = null; closePopover(); if (S.tab !== "dossiers"){ S.tab = "dossiers"; render(); window.scrollTo(0, 0); } window.SuviAPI.ouvrirLigne(idx, cle); },
   /* Pour l'intro animée : le logo et le slogan du magasin */
+  marqueHTML(){ return marqueNav(); },   // 16 oct. 2026 : en-tête de la colonne Cosium
   marque(){ return {logo:S.settings.logo || LOGO_MAGASIN, logoSombre:S.settings.logoSombre || LOGO_MAGASIN_SOMBRE, slogan:S.settings.slogan || ""}; },
   /* La roue du module Dossiers ouvre les Réglages communs */
   basePrete(){ return basePret || baseEnPanne; },   // 9 oct. 2026 : extension Cosium, attendre les dossiers de la base
@@ -17217,6 +17218,10 @@ if (EN_COSIUM){
 }
 if (COTE){
   document.body.insertAdjacentHTML("afterbegin", `<header class="cote-tete"><span class="bc-marque">Chouf’Tout</span></header>`);
+  /* 16 oct. 2026 : la marque du site avec son néon (marqueNav), joué une fois à l'arrivée puis au survol, pas en boucle (énergie) */
+  const coteMarque = () => { const t = document.querySelector(".cote-tete"); if (t) t.innerHTML = window.ChoufAPI.marqueHTML(); };
+  setTimeout(function attendre(){ if (window.ChoufAPI && window.ChoufAPI.moi()) coteMarque(); else setTimeout(attendre, 500); }, 500);
+  document.querySelector(".cote-tete").addEventListener("mouseenter", () => { const m = document.querySelector(".cote-tete .mq-fusion"); if (m && !m.getAnimations({subtree:true}).length) coteMarque(); });   // rejoué s'il a fini
   // Indicateurs : un clic ouvre la liste dans Chouf'Tout, dans l'onglet déjà ouvert s'il y en a un (l'extension le cherche), voir traiterDemandeCosium()
   document.addEventListener("click", e => {
     const g = e.target.closest("[data-cg]"), t = !g && e.target.closest("[data-ck]"); if (!g && !t) return;
@@ -21115,27 +21120,27 @@ ul.export-liste > li{display:flex; align-items:center; gap:12px; padding:10px 0;
       la marque reste allumée un instant, puis s'éteint. ══ */
 @media (min-width:761px){
   :root{--mq-coeur:#FFFFFF; --mq-coeur-txt:#4B4FF5; --mq-halo:#5B5FFF; --mq-pas:.22s}
-  #app:not(#luxe) .nav-marque.mq-fusion{position:relative; gap:0}
-  #app:not(#luxe) .mq-fusion .mq-logo{position:relative; display:flex; align-items:center}
+  :is(#app, .cote-tete):not(#luxe) .nav-marque.mq-fusion{position:relative; gap:0}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-logo{position:relative; display:flex; align-items:center}
   /* Le fil, posé sur le dessin du logo (l'image a 4 px et 8 px de marge intérieure) */
-  #app:not(#luxe) .mq-fusion .mq-neon{position:absolute; left:8px; top:4px; width:calc(100% - 16px); height:calc(100% - 8px); overflow:visible; pointer-events:none;
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-neon{position:absolute; left:8px; top:4px; width:calc(100% - 16px); height:calc(100% - 8px); overflow:visible; pointer-events:none;
     fill:none; stroke:var(--mq-coeur); stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 1.5px var(--mq-halo)) drop-shadow(0 0 5px var(--mq-halo))}
-  #app:not(#luxe) .mq-fusion .mq-fil{stroke-width:15; stroke-dasharray:1 1.3; stroke-dashoffset:1.15; animation:mq-fil 10s calc(var(--mq-d, 0s) - 10s + var(--k) * var(--mq-pas)) linear infinite}
-  #app:not(#luxe) .mq-fusion .mq-tete{stroke-width:30; stroke-dasharray:.1 3; stroke-dashoffset:.15; opacity:0; animation:mq-tete 10s calc(var(--mq-d, 0s) - 10s + var(--k) * var(--mq-pas)) linear infinite}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-fil{stroke-width:15; stroke-dasharray:1 1.3; stroke-dashoffset:1.15; animation:mq-fil 10s calc(var(--mq-d, 0s) - 10s + var(--k) * var(--mq-pas)) linear infinite}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-tete{stroke-width:30; stroke-dasharray:.1 3; stroke-dashoffset:.15; opacity:0; animation:mq-tete 10s calc(var(--mq-d, 0s) - 10s + var(--k) * var(--mq-pas)) linear infinite}
   @keyframes mq-fil{0%{stroke-dashoffset:1.15; opacity:1} 2.6%{stroke-dashoffset:0; opacity:1} 46%{stroke-dashoffset:0; opacity:1} 54%, 100%{stroke-dashoffset:0; opacity:0}}
   @keyframes mq-tete{0%{stroke-dashoffset:.15; opacity:1} 2.6%{stroke-dashoffset:-1.02; opacity:1} 2.7%, 100%{stroke-dashoffset:-1.02; opacity:0}}
   /* « ’Tout » : T majuscule puis minuscules, fin. Le texte garde sa place (span invisible), il est dessiné en SVG pour que le néon suive le contour des lettres. */
-  #app:not(#luxe) .mq-fusion b{position:relative; top:-2px; display:block; margin:0 0 0 -12px; font-size:1rem; font-weight:300; letter-spacing:.005em; line-height:1.2}
-  #app:not(#luxe) .mq-fusion b > span{visibility:hidden}
-  #app:not(#luxe) .mq-fusion .mq-txt{position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none}
-  #app:not(#luxe) .mq-fusion .mq-txt text{fill:var(--encre)}
-  #app:not(#luxe) .mq-fusion .mq-txt .mq-contour{fill:none; stroke:var(--mq-coeur-txt); stroke-width:.7px; stroke-linejoin:round; filter:drop-shadow(0 0 1.5px var(--mq-halo)) drop-shadow(0 0 5px var(--mq-halo))}
-  #app:not(#luxe) .mq-fusion .mq-contour tspan{stroke-dasharray:90 100; stroke-dashoffset:92; animation:mq-contour 10s calc(var(--mq-d, 0s) - 10s + var(--k) * var(--mq-pas)) linear infinite}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion b{position:relative; top:-2px; display:block; margin:0 0 0 -12px; font-size:1rem; font-weight:300; letter-spacing:.005em; line-height:1.2}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion b > span{visibility:hidden}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-txt{position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-txt text{fill:var(--encre)}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-txt .mq-contour{fill:none; stroke:var(--mq-coeur-txt); stroke-width:.7px; stroke-linejoin:round; filter:drop-shadow(0 0 1.5px var(--mq-halo)) drop-shadow(0 0 5px var(--mq-halo))}
+  :is(#app, .cote-tete):not(#luxe) .mq-fusion .mq-contour tspan{stroke-dasharray:90 100; stroke-dashoffset:92; animation:mq-contour 10s calc(var(--mq-d, 0s) - 10s + var(--k) * var(--mq-pas)) linear infinite}
   @keyframes mq-contour{0%{stroke-dashoffset:92; opacity:1} 5%{stroke-dashoffset:0; opacity:1} 44%{stroke-dashoffset:0; opacity:1} 52%, 100%{stroke-dashoffset:0; opacity:0}}
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--mq-coeur-txt:#FFFFFF; --mq-halo:#8A8DFF} }
 :root[data-theme="dark"]{--mq-coeur-txt:#FFFFFF; --mq-halo:#8A8DFF}
-@media (prefers-reduced-motion: reduce){ #app:not(#luxe) .mq-fusion, #app:not(#luxe) .mq-fusion *, #app:not(#luxe) .mq-fusion *::after{animation:none !important} }
+@media (prefers-reduced-motion: reduce){ :is(#app, .cote-tete):not(#luxe) .mq-fusion, :is(#app, .cote-tete):not(#luxe) .mq-fusion *, :is(#app, .cote-tete):not(#luxe) .mq-fusion *::after{animation:none !important} }
 /* ══ Essai 11 oct. 2026 : « Les autres tâches du magasin » en index typographique (inspiré de superwhisper.com).
       Plus de cartes : un cadre ouvert, des lignes numérotées à même le fond, rangées par personne ; au survol, la ligne visée reste seule allumée. ══ */
 #app:not(#luxe) .jt-index{position:relative; margin:56px 0 24px; min-width:0}
@@ -23412,6 +23417,9 @@ html.mode-cosium.cosium-cote #zone-suivi .ba-fin{margin-left:0; width:100%; just
 html.mode-cosium.cosium-cote:not(.cosium-plein:not(.cosium-connecte)) body{background:#000 !important; background-image:none !important; box-shadow:inset 1px 0 0 rgba(255,255,255,.1)}
 html.mode-cosium.cosium-cote.cosium-connecte .cote-tete{justify-content:flex-start; height:40px; padding:0 20px; background:transparent; box-shadow:none}
 html.mode-cosium.cosium-cote .cote-tete .bc-marque{font-size:13px; font-weight:500; letter-spacing:-.01em; color:var(--second)}
+html.mode-cosium.cosium-cote.cosium-connecte .cote-tete{height:48px; padding:0 14px}
+html.mode-cosium.cosium-cote .cote-tete .nav-marque img.logo{height:24px; width:auto; border-radius:5px}
+html.mode-cosium.cosium-cote .cote-tete .mq-fusion *{--mq-d:10s; animation-iteration-count:1 !important}   /* une seule fois, dès l'arrivée */
 html.mode-cosium.cosium-cote #zone-suivi #barreSuvi, html.mode-cosium.cosium-cote .bandeau-cosium:has(.ck){margin:2px 0 16px 10px !important; padding:0 !important;
   border:solid color-mix(in srgb, var(--pj-bleu, #4C9AFF) 40%, transparent); border-width:1px 0 0 1px !important; border-radius:22px 0 0 0 !important}
 html.mode-cosium.cosium-cote .ct-client{padding:18px 14px 14px; text-align:left}
