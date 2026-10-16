@@ -22658,6 +22658,16 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* Fiche client sur téléphone (16 oct. 2026) : comme sur ordinateur, dossier · conseiller · mutuelle en surtitre bleu au-dessus du nom,
+   nom à 28 px, blocs sans bordure ; la feuille de verre et son glisser restent. */
+@media (max-width:760px){
+  :root:root #zone-suivi:not(#luxe) #feuille:not(.agrandie){--dt:var(--pj-bleu)}
+  :root:root #zone-suivi:not(#luxe) #feuille:not(.agrandie) .entete > div:first-child{display:flex; flex-direction:column; min-width:0}
+  :root:root #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-sous{order:-1; margin:0 0 6px; font-size:.8125rem; font-weight:500; line-height:1.45; color:var(--dt)}
+  :root:root #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-titre{font-size:1.75rem; font-weight:500; letter-spacing:-.03em; line-height:1.15; color:var(--encre)}
+  :root:root #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-dates{margin-top:6px; font-size:.8125rem; color:var(--second)}
+  :root:root #zone-suivi:not(#luxe) #feuille:not(.agrandie) :is(.bloc, .carte-mut){border-color:transparent; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+}
 /* Fiche de tâche (16 oct. 2026) : comme la fiche client. Titre plein, horaire en gris, tuiles neutres sans liseré
    (la couleur reste pour « À attribuer »), « Comment faire » en surtitre bleu, étapes dans un bloc. */
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe){--dt:var(--pj-bleu)}
