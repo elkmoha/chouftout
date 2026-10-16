@@ -22663,6 +22663,28 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* ---------- 16 oct. 2026 : restes de l'ancien design relevés par l'inventaire (contrôles blancs sur le fond ivoire, champs gris en sombre) ----------
+   Même langage que les fenêtres refaites : fond légèrement teinté par l'encre, sans bordure ni ombre, boutons en pilules.
+   Partout deux « :not(#…) » pour l'emporter sur « :is(#app, …):not(#luxe):not(#luxe-b) .btn » (deux identifiants).
+   Laissés tels quels : aperçu imprimable de la fiche atelier, tuile du logo clair (rendus sur papier). */
+:root:root:root body :is(.btn, .btn.small, .btn.danger, button.btn):not(.primary):not(.principal):not(.dt-fait):not(#luxe):not(#luxe-b){border-color:transparent; background:color-mix(in srgb, var(--encre) 7%, transparent);
+  box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none; border-radius:999px}
+:root:root:root body :is(.btn, .btn.small):not(.primary):not(.principal):not(.danger):not(.dt-fait):not(#luxe):not(#luxe-b):hover{background:color-mix(in srgb, var(--encre) 12%, transparent)}
+:root:root:root body .btn.danger:not(.primary):not(#luxe):not(#luxe-b){background:color-mix(in srgb, var(--rouge) 10%, transparent); color:var(--rouge)}
+:root:root:root body .btn.danger:not(.primary):not(#luxe):not(#luxe-b):hover{background:color-mix(in srgb, var(--rouge) 18%, transparent)}
+:root:root:root body :is(input.inp, select.inp, textarea.inp, .inp, .champ-nom, .jg-recherche, #q, .search-box, .jg-menu, #btnFiltres, #triBouton, .fchip):not(.fiche-apercu *):not(#luxe):not(#luxe-b){
+  border-color:transparent; background-color:color-mix(in srgb, var(--encre) 6%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root:root body :is(input.inp, select.inp, textarea.inp, .champ-nom):not(#luxe):not(#luxe-b):focus{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--pj-bleu) 60%, transparent)}
+:root:root:root body .search-box:not(#luxe):not(#luxe-b){background-color:var(--fond); background-image:linear-gradient(color-mix(in srgb, var(--encre) 6%, transparent), color-mix(in srgb, var(--encre) 6%, transparent))}   /* opaque : passe par-dessus la page */
+/* fiche client */
+:root:root:root #zone-suivi:not(#luxe):not(#luxe-b) #feuille input:not([type=checkbox]):not([type=radio]):not([type=range]){border-color:transparent; background-color:color-mix(in srgb, var(--encre) 6%, transparent); box-shadow:none}
+:root:root:root #zone-suivi:not(#luxe):not(#luxe-b) #feuille :is(.pec-puce, .ajout, .rc-comm){border-color:transparent; background-color:color-mix(in srgb, var(--encre) 6%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root:root #zone-suivi:not(#luxe):not(#luxe-b) #feuille :is(.note-sante, .passage-note){border-color:transparent; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+/* isolés */
+:root:root:root body :is(.notif-li, .tdb-hero):not(#luxe):not(#luxe-b){border-color:transparent; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root:root body .htable:not(#luxe):not(#luxe-b), :root:root:root body .htable:not(#luxe):not(#luxe-b) th{background:transparent; box-shadow:none}
+:root:root:root body .ct-aide:not(#luxe):not(#luxe-b) p{background:color-mix(in srgb, var(--encre) 8%, var(--fond)); border-color:transparent}
+:root:root:root body .vide:not(#luxe):not(#luxe-b){-webkit-backdrop-filter:none; backdrop-filter:none}
 /* Fiche client agrandie (16 oct. 2026, signalé par Mohamed : deux teintes de fond) : elle gardait les blocs blanc bleuté de l'ancien style
    sur le fond ivoire. Mêmes blocs et même en-tête que le panneau (surtitre bleu au-dessus du nom). */
 @media (min-width:761px){
