@@ -18559,7 +18559,8 @@ function dialogueImport(){
   const fond = document.createElement("div"), mois0 = isoJour().slice(0, 7);
   fond.className = "dialogue-fond";
   fond.innerHTML = `<div class="dialogue imp" role="dialog" aria-modal="true" aria-labelledby="imp-t">
-    <h3 id="imp-t">Importer le suivi Google Sheets</h3>
+    <p class="aj-sur">Importer · Google Sheets</p>
+    <h3 id="imp-t">Le suivi d’un mois</h3>
     <div class="imp-corps">
       <p class="intro">Dans le Google Sheets, ouvre l’onglet du mois, puis Fichier › Télécharger › CSV. Ou sélectionne tout l’onglet (Ctrl A), copie et colle ici. Rien n’est créé avant ta validation.</p>
       <div class="imp-source">
@@ -22644,6 +22645,33 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* Import Google Sheets (16 oct. 2026) : même fond, liseré et boutons ; grande fenêtre en colonne, seul le corps défile */
+:root:root #zone-suivi:not(#luxe) .dialogue.imp{--dt:var(--pj-bleu, #4C9AFF); position:relative; border-radius:28px; background:var(--fond);
+  background-image:radial-gradient(50% 30% at 0% 0%, color-mix(in srgb, var(--dt) 14%, transparent), transparent 70%); box-shadow:0 40px 100px -30px rgba(0,0,0,.7)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp::after{content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; pointer-events:none;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--dt) 55%, transparent), color-mix(in srgb, var(--dt) 7%, transparent) 30%, color-mix(in srgb, var(--dt) 7%, transparent) 70%, color-mix(in srgb, var(--dt) 34%, transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .aj-sur{margin:0; padding:32px 32px 8px; font-size:.875rem; font-weight:500; color:var(--dt)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp h3{padding:0 32px 10px; font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1; color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-corps{padding:0 32px 12px}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .intro{margin:0 0 18px; max-width:760px; font-size:.875rem; line-height:1.5}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-source{gap:12px; margin-bottom:12px}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-source .ld > span{font-size:.8125rem; font-weight:500; color:var(--dt)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .aj-champ{height:44px; padding:0 14px; border-radius:12px; background:color-mix(in srgb, var(--encre) 6%, transparent); text-align:left}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-fichier{border:0; background:color-mix(in srgb, var(--encre) 8%, transparent); color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-fichier:hover{background:color-mix(in srgb, var(--encre) 13%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-texte{padding:12px 14px; border:0; border-radius:14px; background:color-mix(in srgb, var(--encre) 4%, transparent); color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-texte:focus{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dt) 60%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-bilan{margin:20px 0 10px}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-ligne{border-top-color:color-mix(in srgb, var(--encre) 8%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-n{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}   /* ne déborde plus sur le nom */
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .imp-ligne:hover{background:color-mix(in srgb, var(--encre) 3%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .pied{gap:8px; padding:16px 32px 28px; border-top:1px solid color-mix(in srgb, var(--encre) 8%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .pied button{flex:0 1 auto; height:48px; padding:0 28px; border-radius:999px; font-size:.9375rem; font-weight:500}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .pied .secondaire{margin-left:auto; padding:0 22px; background:transparent; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) .dialogue.imp .pied .secondaire:hover{color:var(--encre); background:color-mix(in srgb, var(--encre) 6%, transparent)}
+@media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue.imp :is(.aj-sur, h3, .imp-corps){padding-left:20px; padding-right:20px}
+  :root:root #zone-suivi:not(#luxe) .dialogue.imp .pied{padding:14px 20px 20px} :root:root #zone-suivi:not(#luxe) .dialogue.imp .pied .principal{flex:1} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .ld input:not([type=checkbox], [type=radio]):not(.aj-champ), :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .ld select:not(.aj-champ){border-radius:10px}
 /* Confirmations (confirmer()) : même fond, liseré et boutons en pilules */
 :root:root #zone-suivi:not(#luxe) .alerte-boite{--dt:var(--pj-bleu, #4C9AFF); position:relative; width:min(360px, 100%); border-radius:24px; text-align:left; background:var(--fond);
