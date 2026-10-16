@@ -22682,6 +22682,12 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-suite{border-left:0 !important; box-shadow:none !important; background-image:none !important}   /* le trait était un dégradé de fond */
 :root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-suite::before{display:none}
 :root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-suite > ol.aide-etapes{margin:0; padding:6px 20px; border-radius:18px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
+/* téléphone (16 oct. 2026) : même feuille de verre que la fiche client, titre à sa taille (28 px), horaire en texte courant */
+@media (max-width:760px){
+  :root:root:root:root body #drawer.drawer.dr-index:not(#luxe) .dr-head h2{font-size:1.75rem; font-weight:500; letter-spacing:-.03em; line-height:1.15}
+  :root:root:root:root body #drawer.drawer.dr-index:not(#luxe) .dt-quand{margin:4px 0 16px; font-size:1.0625rem; letter-spacing:-.01em}
+  :root:root:root:root body #drawer.drawer.dr-index:not(#luxe) .dt-tuile{padding:10px 12px}
+}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-suite .row .btn{min-height:36px; border:0; border-radius:999px; background:color-mix(in srgb, var(--encre) 7%, transparent)}
 /* Panneaux latéraux de Chouf'Tout (16 oct. 2026) : comme la fiche client. Sous-titre en surtitre bleu au-dessus du titre,
    lignes « libellé / valeur » regroupées en blocs sans bordure, boutons en pilules. Ordinateur, panneau (pas le carré flottant ni la fenêtre agrandie). */
