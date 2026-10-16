@@ -21582,45 +21582,45 @@ body.arming #app:not(#luxe) .pl-tuile[aria-pressed="false"], #app:not(#luxe) .pl
 /* ================= 12 oct. 2026 (essai), Chouftout-Test : fiche client en index, comme la fiche de tâche de Ma journée =================
    Ordinateur : panneau collé au bord, à même le fond, cadre ouvert (coin de 32 px), liseré qui s'allume une fois, contenu en cascade,
    la page recule à 98 % sous un voile flou (--fiche, posé par poser()). Saisie par l'en-tête, elle devient un carré flottant (.ff-carte).
-   Téléphone et bandeau Cosium : rien ne change. D'après superwhisper.com. */
+   Téléphone : rien ne change. Bandeau Cosium : même fiche depuis le 16 oct. 2026 (« :not(.x-cosium) » garde la spécificité ; ni recul ni carré flottant). D'après superwhisper.com. */
 #zone-suivi #fichesFlottes{display:none}
 @media (min-width:761px){
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie){--dt:var(--pj-bleu); top:0; right:0; bottom:0; height:auto; width:min(480px, calc(calc(100vw / var(--zm, 1)) - 28px)); border:0; border-radius:32px 0 0 0; background:var(--fond);
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie){--dt:var(--pj-bleu); top:0; right:0; bottom:0; height:auto; width:min(480px, calc(calc(100vw / var(--zm, 1)) - 28px)); border:0; border-radius:32px 0 0 0; background:var(--fond);
     -webkit-backdrop-filter:none; backdrop-filter:none; box-shadow:none}
   /* Cadre ouvert : trait en haut et à gauche, qui s'efface vers le bas */
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie)::before{display:block; z-index:5; background:none; border:1px solid color-mix(in srgb, var(--dt) 34%, transparent); border-right:0; border-bottom:0; border-radius:inherit;
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie)::before{display:block; z-index:5; background:none; border:1px solid color-mix(in srgb, var(--dt) 34%, transparent); border-right:0; border-bottom:0; border-radius:inherit;
     -webkit-mask:linear-gradient(#000 0, #000 40px, transparent 62%); mask:linear-gradient(#000 0, #000 40px, transparent 62%)}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie)::after{display:none}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie)::after{display:none}
   /* Le liseré s'allume une fois, de gauche à droite */
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre::after{display:block; inset:0 0 auto 32px; height:1px; padding:0; border-radius:0; -webkit-mask:none; mask:none;
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre::after{display:block; inset:0 0 auto 32px; height:1px; padding:0; border-radius:0; -webkit-mask:none; mask:none;
     background:linear-gradient(90deg, transparent, var(--dt), transparent) 0 0 / 50% 100% no-repeat; animation:dt-fil 1.1s .2s var(--ease-stripe, ease) both}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .zone-tirer{cursor:grab; -webkit-user-select:none; user-select:none}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .entete{padding:44px 36px 6px}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .entete > div:first-child{display:flex; flex-direction:column; min-width:0}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-sous{order:-1; margin:0 0 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-titre{font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1; color:var(--encre)}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-dates{margin-top:8px; font-size:.875rem; color:var(--second)}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .f-raccourcis{padding:10px 36px 16px}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .contenu{padding-left:36px; padding-right:36px}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .zone-tirer{cursor:grab; -webkit-user-select:none; user-select:none}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .entete{padding:44px 36px 6px}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .entete > div:first-child{display:flex; flex-direction:column; min-width:0}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-sous{order:-1; margin:0 0 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-titre{font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1; color:var(--encre)}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) #f-dates{margin-top:8px; font-size:.875rem; color:var(--second)}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .f-raccourcis{padding:10px 36px 16px}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) .contenu{padding-left:36px; padding-right:36px}
   /* Blocs sans bordure, séparés par l'espace */
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) :is(.bloc, .carte-mut){border-color:transparent; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie) :is(.bloc, .carte-mut){border-color:transparent; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
   /* Cascade à l'ouverture */
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre :is(.entete > div:first-child > *, .f-raccourcis, #f-contenu > *){animation:dt-monte .5s var(--ease-stripe, ease) both; animation-delay:calc(var(--i, 8) * 40ms + 90ms)}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-sous{--i:0}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-titre{--i:1}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-dates{--i:2}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre .f-raccourcis{--i:3}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(1){--i:4}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(2){--i:5}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(3){--i:6}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(4){--i:7}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre :is(.entete > div:first-child > *, .f-raccourcis, #f-contenu > *){animation:dt-monte .5s var(--ease-stripe, ease) both; animation-delay:calc(var(--i, 8) * 40ms + 90ms)}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-sous{--i:0}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-titre{--i:1}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-dates{--i:2}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre .f-raccourcis{--i:3}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(1){--i:4}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(2){--i:5}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(3){--i:6}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre #f-contenu > :nth-child(4){--i:7}
   /* La page recule : voile flou à la teinte du fond */
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #voile:not(.fort){background:color-mix(in srgb, var(--fond) 58%, transparent); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px)}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.fort){background:color-mix(in srgb, var(--fond) 58%, transparent); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px)}
   /* Fenêtre agrandie : fond plein, lueur dans le coin, liseré dégradé */
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille.agrandie{--dt:var(--pj-bleu); background:var(--fond); -webkit-backdrop-filter:none; backdrop-filter:none}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille.agrandie::before{background:radial-gradient(60% 46% at 0% 0%, color-mix(in srgb, var(--dt) 12%, transparent), transparent 70%)}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille.agrandie::after{background:linear-gradient(135deg, color-mix(in srgb, var(--dt) 55%, transparent), color-mix(in srgb, var(--dt) 7%, transparent) 30%, color-mix(in srgb, var(--dt) 7%, transparent) 70%, color-mix(in srgb, var(--dt) 34%, transparent))}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille.agrandie #f-titre{font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille.agrandie{--dt:var(--pj-bleu); background:var(--fond); -webkit-backdrop-filter:none; backdrop-filter:none}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille.agrandie::before{background:radial-gradient(60% 46% at 0% 0%, color-mix(in srgb, var(--dt) 12%, transparent), transparent 70%)}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille.agrandie::after{background:linear-gradient(135deg, color-mix(in srgb, var(--dt) 55%, transparent), color-mix(in srgb, var(--dt) 7%, transparent) 30%, color-mix(in srgb, var(--dt) 7%, transparent) 70%, color-mix(in srgb, var(--dt) 34%, transparent))}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille.agrandie #f-titre{font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1}
 
   /* Carrés flottants : verre, liseré dégradé, l'essentiel du dossier */
   #zone-suivi:not(#luxe) #fichesFlottes{display:block; position:fixed; z-index:19; top:0; right:0; width:0; height:0}
@@ -21660,8 +21660,8 @@ body.arming #app:not(#luxe) .pl-tuile[aria-pressed="false"], #app:not(#luxe) .pl
 @media (min-width:761px) and (prefers-reduced-motion: no-preference){
   /* 16 oct. 2026 : l'échelle est posée par poser() sur les deux éléments ; ici seulement la couche dédiée pendant le recul */
   :root.fi-recul:not(.mode-cosium) #zone-suivi:not(#luxe) > :is(#barre, main){will-change:transform} }
-@media (prefers-reduced-motion: reduce){ :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre::after{display:none}
-  :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre :is(.entete > div:first-child > *, .f-raccourcis, #f-contenu > *){animation:dt-fondu .2s both}
+@media (prefers-reduced-motion: reduce){ :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre::after{display:none}
+  :root:root:not(.x-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre :is(.entete > div:first-child > *, .f-raccourcis, #f-contenu > *){animation:dt-fondu .2s both}
   #zone-suivi:not(#luxe) .ff-carte{transition:none; animation:none !important} }
 @media print{ #zone-suivi #fichesFlottes{display:none !important} }
 
