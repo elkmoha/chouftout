@@ -2505,6 +2505,7 @@ body.selection #zone-suivi main{padding-bottom:110px}
 /* Choix du parent principal */
 #zone-suivi .dialogue-fond{position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:16px; background:rgba(0,0,0,.28); opacity:0; transition:opacity .2s}
 #zone-suivi .dialogue-fond.vu{opacity:1}
+#zone-suivi .dialogue.pec{width:min(560px, 100%)}
 #zone-suivi .dialogue{width:min(420px, 100%); max-height:calc(88vh / var(--zm, 1)); overflow:auto; border-radius:16px; background:var(--groupe); box-shadow:0 24px 64px rgba(0,0,0,.25);
   transform:translateY(16px) scale(.98); transition:transform .3s cubic-bezier(.2,.9,.3,1)}
 #zone-suivi .dialogue-fond.vu .dialogue{transform:none}
@@ -14438,6 +14439,8 @@ function rendreCosium(idx){
 }
 /* Onglet « Données » (9 oct. 2026, demande de Mohamed) : ce que l'extension lit dans les dossiers Cosium (ordonnance, délivrance, équipement,
    codes LPP), à part de « Détail client » pour ne pas encombrer la gestion du dossier */
+const champsCorr = r => r ? ["od", "og"].map(o => champ(o === "od" ? "Œil droit" : "Œil gauche", cp(corrOeil(r[o]), `Correction ${o.toUpperCase()}`)
+  + (r[o] && r[o].acuite ? `<small class="eq-code">acuité ${esc(r[o].acuite)}</small>` : ""), true)).join("") : champ("Correction", "", true);
 function rendreDonnees(l){
   const k = l.c.cosium, retour = `<button class="retour" type="button"><svg viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2 2 10l8 8"/></svg>Suivi du dossier</button>`;
   document.getElementById("f-donnees").innerHTML = `${retour}
@@ -14445,13 +14448,13 @@ function rendreDonnees(l){
     <div class="source"><i></i>Lues dans les dossiers Cosium par l’extension</div>
 
     <p class="tl-sec">Ordonnance (dossier lunettes)</p>
-    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true)}</div>
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordo.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordo.prescripteur, "Prescripteur"), true)}${champ("Délivrance", cp(k.ordo.delivrance, "Délivrance"), true)}${champsCorr(k.ordo.corr)}</div>
     ${equipCosium(l) || `<p class="tl-sec">Équipement lunettes</p><div class="bloc">${champ("Monture et verres", "", true)}</div>`}
     ${equipCosium(l, "lentilles")}
     ${k.ordoLen && k.ordoLen.date ? `<p class="tl-sec">Ordonnance (dossier lentilles)</p>
-    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}</div>` : ""}
+    <div class="bloc">${champ("Date de l’ordonnance", cp(k.ordoLen.date, "Date de l’ordonnance"), true)}${champ("Prescripteur", cp(k.ordoLen.prescripteur, "Prescripteur"), true)}${champsCorr(k.ordoLen.corr)}</div>` : ""}
     <div class="note-sante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-      <span>Les corrections sont des données de santé : l’extension les lit pour le duplicata, mais elles ne sont ni affichées ni enregistrées ici.</span></div>
+      <span>Corrections et n° de sécu sont des données de santé : ne les copie que pour le dossier du client (PEC, duplicata).</span></div>
     <p class="passage-note">Ouvre un dossier Lunettes dans Cosium : l’extension met ces données à jour toute seule.</p>`;
 }
 // Navigation entre les deux pages de la feuille (ressort, interruptible)
@@ -16855,6 +16858,7 @@ addEventListener("message", e => {
   if (EN_COSIUM && e.data.demande.quoi === "ordonnance"){ ORDO_ATTENTE = e.data.demande; bandeauOrdo(); return; }
   if (EN_COSIUM && e.data.demande.quoi === "recap"){ RECAP_ATTENTE = e.data.demande; bandeauRecap(); return; }   // 16 oct. 2026 : onglet Notes de Cosium
   if (EN_COSIUM && e.data.demande.quoi === "duplicata"){ DUP_ATTENTE = e.data.demande; bandeauDuplicata(); return; }
+  if (EN_COSIUM && e.data.demande.quoi === "pec"){ PEC_ATTENTE = e.data.demande; bandeauPec(); return; }   // 16 oct. 2026
   DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
 });
 setInterval(traiterDemandeCosium, 1e3);   // en attente de la connexion
@@ -16932,12 +16936,10 @@ function bandeauAjoutValider(){
 const aBandeau = l => !!BANDEAU && (l.c.dossier === BANDEAU.dossier || (l.c.autresDossiers || []).includes(BANDEAU.dossier));
 const nomBandeau = b => b.complet ? `${b.prenom} ${b.nom.charAt(0)}${b.nom.slice(1).toLowerCase()}` : b.libelle;
 const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
+const CHAMPS_FICHE = {ne:"date de naissance", secu:"n° de sécu", caisse:"caisse", adherent:"n° d’adhérent", finDroits:"fin de droits", tel:"portable", email:"e-mail", adresse:"adresse"};
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null;
   else if (BANDEAU_AJOUT && d.reseau && !BANDEAU.reseau) BANDEAU_AJOUT.reseau = reseauCosium(d.reseau);   // réseau arrivé après l'ouverture de l'ajout
   if (d.aucun){ BANDEAU = null; BANDEAU_C = null; bandeauMaj(true); return; }   // 9 oct. 2026 : aucun client ouvert dans Cosium (accueil)
-  // 9 oct. 2026 : n° de sécu lu sur la fiche Cosium d'un client déjà suivi, inscrit dans sa fiche (dossiers de test seulement, base encore ouverte)
-  const cs = d.complet && d.cosium && d.cosium.secu && clientCosium(d.dossier);
-  if (cs && cs.cosium && cs.cosium.secu !== d.cosium.secu){ cs.cosium.secu = d.cosium.secu; if (ouverte) rafraichirFiche(); }
   // 9 oct. 2026 : réseau lu dans Cosium, inscrit sur les lignes en cours de cette mutuelle restées « Hors réseau » (réseau inconnu à l'ajout)
   const rc = d.complet && d.mut && reseauCosium(d.reseau), cr = rc && rc !== "Hors réseau" && clientCosium(d.dossier);
   const aRegler = cr ? LIGNES.filter(l => l.c === cr && !l.archive && l.mut && plat(l.mut.nom) === plat(d.mut) && l.mut.reseau === "Hors réseau") : [];
@@ -16946,6 +16948,18 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
   let ci = d.complet && clientCosium(d.dossier);
   if (d.complet && !ci){ const hs = clientsDe().filter(x => !x.dossier && !x.passage && plat(x.nom.trim()) === plat(d.nom || "") && plat(x.prenom.trim()) === plat(d.prenom || ""));
     if (hs.length === 1){ ci = hs[0]; ci.dossier = d.dossier; LIGNES.filter(l => l.c === ci).forEach(l => histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Dossier Cosium ${d.dossier} relié (client importé du suivi)`})); } }
+  /* 16 oct. 2026 (demande de Mohamed) : la fiche Cosium d'un client suivi est relue à chaque ouverture ; tout champ changé est inscrit et noté au journal.
+     Un champ vide dans Cosium n'efface jamais une valeur déjà connue. */
+  if (ci && ci.cosium && d.cosium){
+    const ch = Object.keys(CHAMPS_FICHE).filter(x => d.cosium[x] && d.cosium[x] !== (ci.cosium[x] || ""));
+    if (ch.length){
+      const nouveau = ch.filter(x => !ci.cosium[x]).length === ch.length;
+      ch.forEach(x => { ci.cosium[x] = d.cosium[x]; }); ci.cosium.lu = "le " + dateISO(isoJour(), "short");
+      const ls = LIGNES.filter(x => x.c === ci), l = ls.filter(x => !x.archive).sort((a, b) => a.ouvertJ - b.ouvertJ)[0] || ls[ls.length - 1];
+      if (l) histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Fiche Cosium ${nouveau ? "lue" : "relue"} : ${ch.map(x => CHAMPS_FICHE[x]).join(", ")} ${nouveau ? "inscrits" : "mis à jour"}`});
+      if (ouverte) rafraichirFiche();
+    }
+  }
   const aPreciser = ci && d.mut ? LIGNES.filter(l => l.c === ci && !l.archive && l.mut && l.mut.aPreciser) : [];
   aPreciser.forEach(l => { l.mut.nom = d.mut; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
     histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${d.mut} lue dans Cosium${rc && rc !== "Hors réseau" ? `, réseau ${rc}` : ""}`}); });
@@ -16954,8 +16968,12 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
 /* Ordonnance du dossier Lunettes ou Lentilles ouvert dans Cosium (9 oct. 2026, demande de Mohamed) : inscrite dans la fiche du client,
    sauf si ce dossier Cosium est bien plus ancien que la ligne de suivi de cet équipement : ce n'est alors pas la bonne ordonnance.
    L'avis s'affiche dans Cosium, sous la correction ({chouf:"avis"}). */
+/* Correction (16 oct. 2026) : {od, og} = {sph, cyl, axe, add, acuite}, écrite comme dans Cosium : « -1.00 (+0.25) 30° Add +2.00 » */
+const corrUtile = r => !!(r && ["od", "og"].some(o => r[o] && (r[o].sph || r[o].cyl || r[o].add)));
+const corrOeil = x => x ? [x.sph, x.cyl ? `(${x.cyl})${x.axe ? " " + x.axe + "°" : ""}` : "", x.add ? "Add " + x.add : ""].filter(Boolean).join(" ") : "";
+const corrTexte = r => r ? `OD ${corrOeil(r.od) || "—"} ; OG ${corrOeil(r.og) || "—"}` : "";
 const ORDO_ECART_J = 30;   // un dossier Cosium ouvert plus de 30 jours avant la ligne de suivi n'est pas celui du passage
-let ORDO_ATTENTE = null, DUP_ATTENTE = null, RECAP_ATTENTE = null;
+let ORDO_ATTENTE = null, DUP_ATTENTE = null, RECAP_ATTENTE = null, PEC_ATTENTE = null;
 /* 16 oct. 2026 (demande de Mohamed) : onglet Notes ouvert dans Cosium, la fiche Chouf'Tout du client s'ouvre sur son récapitulatif.
    Rien si une fenêtre est ouverte ou si une saisie est en cours ; client pas suivi : rien. */
 function bandeauRecap(){   // en attente tant que le compte et la base ne sont pas prêts (relancée toutes les 250 ms)
@@ -16996,13 +17014,19 @@ function bandeauOrdo(){
     maj = true;
   }
   if (!isoFr(d.ordoLe)){ if (maj){ RENOUV_CACHE = null; rafraichirFiche(); } return rep("ok", "Équipement inscrit dans Chouf’Tout"); }
-  if (!avant || avant.date !== d.ordoLe || avant.prescripteur !== d.prescripteur || (avant.delivrance || "") !== deliv){
-    c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe, delivrance:deliv};
+  const corr = corrUtile(d.corr) ? d.corr : (avant && avant.corr) || null;   // 16 oct. 2026 : correction rangée (décision de Mohamed)
+  const memeOrdo = avant && avant.date === d.ordoLe && avant.prescripteur === d.prescripteur && (avant.delivrance || "") === deliv;
+  if (!memeOrdo){
     l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Ordonnance ${nom} du ${d.ordoLe}${d.prescripteur ? ` (${d.prescripteur})` : ""}${deliv ? `, ${deliv.charAt(0).toLowerCase() + deliv.slice(1)}` : ""} lue dans Cosium`});
     maj = true;
   }
+  if (corr && JSON.stringify((avant && avant.corr) || null) !== JSON.stringify(corr)){
+    l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Correction ${nom} ${avant && avant.corr && memeOrdo ? "modifiée" : "lue"} dans Cosium : ${corrTexte(corr)}`});
+    maj = true;
+  }
+  if (maj) c.cosium[k] = {date:d.ordoLe, prescripteur:d.prescripteur, dossierLe:d.dossierLe, delivrance:deliv, corr};
   if (maj){ RENOUV_CACHE = null; rafraichirFiche(); }
-  rep("ok", `Ordonnance du ${d.ordoLe}${eq.length ? " et équipement" : ""} inscrits dans Chouf’Tout`);
+  rep("ok", `Ordonnance du ${d.ordoLe}${corr ? ", correction" : ""}${eq.length ? " et équipement" : ""} inscrits dans Chouf’Tout`);
 }
 /* « Demander un duplicata » (bouton de l'extension sous la correction) : cabinet, motif, remarque ; le message au cabinet est copié, jamais enregistré */
 async function bandeauDuplicata(){
@@ -17055,6 +17079,56 @@ async function bandeauDuplicata(){
     avisCosium("dup", {dossier:d.dossier, etat:"ok", texte:`Duplicata demandé : à envoyer à ${r.nom}${r.contact ? ` (${r.contact})` : ""}.${copie ? " Message copié." : ""}`});
   });
   $(cab ? "#dp-motif" : "#dp-cab").focus();
+}
+/* « Préparer la PEC » (16 oct. 2026, demande de Mohamed : la prise en charge se lance depuis le dossier Cosium) : tout ce que l'extension lit
+   (page ouverte, sinon fiche du client), chaque valeur copiable, la liste de ce qui manque, et tout le dossier en un texte.
+   Saisie sur la plateforme : étape suivante, plateforme par plateforme. */
+function bandeauPec(){
+  const d = PEC_ATTENTE, ch = window.ChoufAPI; if (!d) return;
+  if (!ch || !ch.moi()){ if (!BANDEAU_CONNEXION){ BANDEAU_CONNEXION = true; bandeauMaj(); } return; }
+  if (!ch.basePrete() || document.querySelector(".dialogue-fond, .alerte-fond")) return;
+  PEC_ATTENTE = null;
+  const c = clientCosium(d.dossier), k = (c && c.cosium) || {}, len = d.type === "lentilles";
+  const ls = c ? LIGNES.filter(x => x.c === c && !x.archive) : [], l = ls.find(x => x.items.some(i => i.t === d.type)) || ls[0], m = l && l.mut;
+  const corr = corrUtile(d.corr) ? d.corr : ((len ? k.ordoLen : k.ordo) || {}).corr;
+  const v = {nom:c ? c.nom : d.nom, prenom:c ? c.prenom : d.prenom, ne:k.ne, secu:d.secu || k.secu, caisse:k.caisse, mut:m ? m.nom : "", reseau:m ? m.reseau : "",
+    adherent:k.adherent, finDroits:k.finDroits, ordoLe:d.ordoLe, prescripteur:d.prescripteur, delivrance:d.delivrance};
+  const L = [];   // [titre, [[libellé, valeur]]]
+  L.push(["Bénéficiaire", [["Nom", v.nom], ["Prénom", v.prenom], ["Né(e) le", v.ne], ["N° de sécurité sociale", v.secu], ["Caisse", v.caisse], ["N° de dossier Cosium", d.dossier]]]);
+  L.push(["Complémentaire", [["Mutuelle", v.mut], ["Réseau", v.reseau !== "Hors réseau" ? v.reseau : ""], ["N° d’adhérent", v.adherent], ["Fin de droits", v.finDroits]]]);
+  L.push([`Ordonnance ${len ? "lentilles" : "lunettes"}`, [["Date", v.ordoLe], ["Prescripteur", v.prescripteur], ...(len ? [] : [["Délivrance", v.delivrance]]),
+    ["Œil droit", corrOeil(corr && corr.od)], ["Œil gauche", corrOeil(corr && corr.og)]]]);
+  const prod = (nom, p) => p ? [[nom, [p.libelle, p.code].filter(Boolean).join(" · ")], [`Prix ${nom.toLowerCase()}`, p.prix != null ? `${p.qte > 1 ? p.qte + " × " : ""}${euros(p.prix)}` : ""],
+    ...(len ? [] : [[`LPP ${nom.toLowerCase()}`, p.lpp || ""]])] : [];
+  (d.equip || []).forEach(e => L.push([len ? `Lentilles${e.visite ? " du " + e.visite : ""}` : `Équipement${e.panier ? " · " + e.panier : ""}`,
+    [...prod("Monture", e.monture), ...prod(len ? "Lentille droite" : "Verre droit", e.od), ...prod(len ? "Lentille gauche" : "Verre gauche", e.og), ...(e.total != null ? [["Total", euros(e.total)]] : [])]]));
+  if (!(d.equip || []).length) L.push(["Équipement", [[len ? "Lentilles" : "Panier retenu", ""]]]);
+  const manque = L.flatMap(([, r]) => r.filter(([n, x]) => !x && !/^(Réseau|Caisse|Fin de droits|Délivrance)$/.test(n)).map(([n]) => n));
+  if (!m && c) manque.unshift("mutuelle (dossier sans tiers payant)");
+  if (!k.secu && !d.secu) manque.push("ouvre la fiche du client dans Cosium pour le n° de sécu");
+  const texte = [`DEMANDE DE PEC · ${v.nom} ${v.prenom}`, ...L.map(([t, r]) => [t.toUpperCase(), ...r.filter(([, x]) => x).map(([n, x]) => `${n} : ${x}`)].join("\n"))].join("\n\n");
+  const fond = document.createElement("div");
+  fond.className = "dialogue-fond";
+  fond.innerHTML = `<div class="dialogue aj pec" role="dialog" aria-modal="true" aria-labelledby="pc-t">
+    <p class="aj-sur">Préparer la PEC · dossier ${esc(d.dossier)}</p>
+    <h3 id="pc-t">${esc(v.prenom)} ${esc(v.nom)}</h3>
+    <p class="intro">Lu dans Cosium${c ? " et dans la fiche Chouf’Tout" : " (client pas encore suivi dans Chouf’Tout)"}. Un clic sur une valeur la copie.</p>
+    ${manque.length ? `<div class="aj-statut doublon"><b>À compléter</b>${esc(manque.join(", "))}</div>` : `<div class="aj-statut"><b>Dossier complet</b>Tout ce qu’il faut pour la demande est lu.</div>`}
+    ${L.map(([t, r]) => `<p class="tl-sec">${esc(t)}</p><div class="bloc">${r.map(([n, x]) => champ(esc(n), cp(x, n), !!x)).join("")}</div>`).join("")}
+    <div class="pied"><button type="button" class="secondaire" data-r="0">Fermer</button><button type="button" class="principal" data-r="1">Tout copier</button></div>
+  </div>`;
+  ZONE_SUIVI.appendChild(fond);
+  requestAnimationFrame(() => fond.classList.add("vu"));
+  const fin = () => { removeEventListener("keydown", clavier, true); fond.classList.remove("vu"); setTimeout(() => fond.remove(), 200); };
+  const clavier = e => { if (e.key === "Escape"){ e.stopPropagation(); fin(); } };
+  addEventListener("keydown", clavier, true);
+  fond.addEventListener("click", async e => {
+    const b = e.target.closest("[data-r]"); if (!b && e.target !== fond) return;
+    if (!b || b.dataset.r === "0"){ fin(); return; }
+    const ok = await copier(texte);
+    toast(ok ? "Dossier de PEC copié" : "Copie impossible dans ce navigateur", null);
+  });
+  fond.querySelector('[data-r="1"]').focus();
 }
 let bandeauDernier = "";
 function bandeauMaj(forcer){
@@ -17116,7 +17190,7 @@ if (EN_COSIUM){
     DEMANDE_COSIUM = b.dataset.bc === "fiche" ? {quoi:"fiche", dossier:BANDEAU.dossier} : Object.assign({}, BANDEAU, {quoi:"ajout"}); traiterDemandeCosium();
   });
   addEventListener("keydown", e => { if (e.key === "Escape" && BANDEAU_CONNEXION){ BANDEAU_CONNEXION = false; bandeauMaj(); } });   // renoncer à se connecter
-  setInterval(() => { bandeauMaj(); if (ORDO_ATTENTE) bandeauOrdo(); if (DUP_ATTENTE) bandeauDuplicata(); if (RECAP_ATTENTE) bandeauRecap(); }, 250);
+  setInterval(() => { bandeauMaj(); if (ORDO_ATTENTE) bandeauOrdo(); if (DUP_ATTENTE) bandeauDuplicata(); if (PEC_ATTENTE) bandeauPec(); if (RECAP_ATTENTE) bandeauRecap(); }, 250);
 }
 if (COTE){
   document.body.insertAdjacentHTML("afterbegin", `<header class="cote-tete"><span class="bc-marque">Chouf’Tout</span></header>`);
