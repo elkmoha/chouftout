@@ -22645,6 +22645,23 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* Panneaux latéraux de Chouf'Tout (16 oct. 2026) : comme la fiche client. Sous-titre en surtitre bleu au-dessus du titre,
+   lignes « libellé / valeur » regroupées en blocs sans bordure, boutons en pilules. Ordinateur, panneau (pas le carré flottant ni la fenêtre agrandie). */
+@media (min-width:761px){
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-head > div:first-child{display:flex; flex-direction:column; min-width:0}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-head > div:first-child > .sub{order:-1; margin:0 0 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-head h2{font-weight:500; line-height:1.1}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-body > .dr-l{margin:0; padding:0 16px; min-height:48px; align-items:center;
+    background:color-mix(in srgb, var(--encre) 4%, transparent); border-color:color-mix(in srgb, var(--encre) 7%, transparent)}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-body > .dr-l:not(.dr-l + .dr-l){margin-top:16px; border-top:0; border-radius:16px 16px 0 0}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-body > .dr-l:not(:has(+ .dr-l)){border-bottom:0; border-radius:0 0 16px 16px}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-body > .dr-l:not(.dr-l + .dr-l):not(:has(+ .dr-l)){border-radius:16px}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-body > .dr-l > span:first-child{font-size:.875rem; color:var(--second)}
+  :root:root:root body #drawer.drawer.dr-fond:not(.agrandie):not(.dr-flotte):not(#luxe) .dr-body > .row{gap:8px; margin-top:20px}
+  :root:root:root body #drawer.drawer.dr-fond:not(#luxe) :is(.dr-body > .row, .dr-pied) .btn{min-height:44px; padding:0 20px; border-radius:999px; font-weight:500}
+  :root:root:root body #drawer.drawer.dr-fond:not(#luxe) .dr-body :is(input.inp, select.inp, textarea.inp){min-height:40px; border:0; border-radius:10px; background:color-mix(in srgb, var(--encre) 6%, transparent); box-shadow:none}
+  :root:root:root body #drawer.drawer.dr-fond:not(#luxe) .dr-body :is(input.inp, select.inp, textarea.inp):focus{outline:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dt) 60%, transparent)}
+}
 /* Import Google Sheets (16 oct. 2026) : même fond, liseré et boutons ; grande fenêtre en colonne, seul le corps défile */
 :root:root #zone-suivi:not(#luxe) .dialogue.imp{--dt:var(--pj-bleu, #4C9AFF); position:relative; border-radius:28px; background:var(--fond);
   background-image:radial-gradient(50% 30% at 0% 0%, color-mix(in srgb, var(--dt) 14%, transparent), transparent 70%); box-shadow:0 40px 100px -30px rgba(0,0,0,.7)}
