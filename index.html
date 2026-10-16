@@ -22663,6 +22663,14 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
 @media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
 :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+/* Fiche client agrandie (16 oct. 2026, signalé par Mohamed : deux teintes de fond) : elle gardait les blocs blanc bleuté de l'ancien style
+   sur le fond ivoire. Mêmes blocs et même en-tête que le panneau (surtitre bleu au-dessus du nom). */
+@media (min-width:761px){
+  :root:root #zone-suivi:not(#luxe) #feuille.agrandie :is(.bloc, .carte-mut){border-color:transparent; background:color-mix(in srgb, var(--encre) 4%, transparent); -webkit-backdrop-filter:none; backdrop-filter:none}
+  :root:root #zone-suivi:not(#luxe) #feuille.agrandie .entete > div:first-child{display:flex; flex-direction:column; min-width:0}
+  :root:root #zone-suivi:not(#luxe) #feuille.agrandie #f-sous{order:-1; margin:0 0 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
+  :root:root #zone-suivi:not(#luxe) #feuille.agrandie #f-dates{margin-top:8px; font-size:.875rem; color:var(--second)}
+}
 /* Agrandir la fiche client (16 oct. 2026) : plus de transition sur la taille et la position, voir le clic sur #agrandir */
 @media (min-width:761px){ :root:root:root #zone-suivi:not(#luxe) #feuille.feuille{transition-property:box-shadow} }
 /* Fiche client sur téléphone (16 oct. 2026) : comme sur ordinateur, dossier · conseiller · mutuelle en surtitre bleu au-dessus du nom,
