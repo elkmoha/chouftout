@@ -6205,6 +6205,24 @@ window.ChoufAPI = {
   /* La roue du module Dossiers ouvre les Réglages communs */
   basePrete(){ return basePret || baseEnPanne; },   // 9 oct. 2026 : extension Cosium, attendre les dossiers de la base
   allerDossiers(){ if (S.tab !== "dossiers"){ S.tab = "dossiers"; S.drawer = null; closePopover(); render(); window.scrollTo(0, 0); } },   // 9 oct. 2026
+  /* 16 oct. 2026 : raccourcis de la colonne Cosium. Commandes et duplicatas en cours d'un client, ou les compteurs du magasin (sans client) */
+  raccourcis(cle){ if (!currentUser()) return null;
+    if (cle == null) return {cmd:canSeeCmd() ? S.commandes.filter(c => c.statut === "a_commander").length : null, dup:canSeeDup() ? S.duplicatas.filter(d => d.statut === "a_envoyer").length : null};
+    return {cmds:canSeeCmd() ? S.commandes.filter(c => c.dossier === cle && (c.statut === "a_commander" || c.statut === "en_cours")).map(c => { const [etat, coul] = ETAT_CMD_COURT[c.statut]; return {id:c.id, nom:`${c.marque} ${c.modele}`.trim(), etat, coul}; }) : [],
+      dups:canSeeDup() ? S.duplicatas.filter(d => d.dossier === cle && (d.statut === "a_envoyer" || d.statut === "envoyee")).map(d => ({id:d.id, nom:nomCabinet(d), etat:d.statut === "a_envoyer" ? "À envoyer" : "Envoyée", coul:d.statut === "a_envoyer" ? "--orange" : "--bleu"})) : [],
+      commander:canSeeCmd() && can("commandes.gerer")}; },
+  gesteCosium(d){
+    if (window.SuviAPI) window.SuviAPI.fermerFiche();
+    S.drawer = null; closePopover();
+    if (d.quoi === "commande" && canSeeCmd() && S.commandes.some(c => c.id === d.id)){ S.tab = "commandes"; S.drawer = {type:"commande", id:d.id}; }
+    else if (d.quoi === "duplicata" && canSeeDup() && dupOf(d.id)){ S.tab = "duplicatas"; S.drawer = {type:"duplicata", id:d.id}; }
+    else if (d.quoi === "cmd-nouvelle" && canSeeCmd() && can("commandes.gerer") && d.nom){
+      S.cmdPrefill = {dossier:d.cle, client:d.nom, conseiller:nomPersonne(d.cons)}; S.cmdPour = ""; S.cmdQ = ""; S.cmdForm = true; S.tab = "commandes"; render(); window.scrollTo(0, 0);
+      requestAnimationFrame(() => { const x = document.querySelector('form[data-form="add-cmd"] [name="marque"]'); if (x) x.focus(); }); return; }
+    else if (d.quoi === "ecran" && ["jour", "commandes", "duplicatas"].includes(d.ecran)) S.tab = d.ecran;
+    else return;
+    render(); window.scrollTo(0, 0);
+  },
   reglages(section){ S.regSection = section || S.regSection; S.regQ = ""; S.tab = "reglages"; render(); },
   /* Ce que la fiche du client montre de Chouf'Tout */
   blocFiche(cle, info){
@@ -16832,7 +16850,7 @@ function rendreBarre(){
   if (!ls.length){
     const ps = LIGNES.filter(l => l.c === c && (l.archive || clos(l))).length, prog = LIGNES.find(l => l.c === c && estProgramme(l));
     z.innerHTML = tete + `<div class="bs-vide"><span><b>Aucun dossier en cours dans le suivi.</b> <span class="petit">${ps ? `${ps} dossier${ps > 1 ? "s" : ""} clôturé${ps > 1 ? "s" : ""} ou archivé${ps > 1 ? "s" : ""}` : "Jamais suivi"}${prog ? ` · renouvellement programmé le ${dateISO(prog.debut, "short")}` : ""}</span></span>
-      <button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>`;
+      <button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>${coteRacc(c)}`;
     return;
   }
   /* 16 oct. 2026 (colonne Cosium, version A) : le client une seule fois en tête, puis deux tuiles (dossiers en cours, solde) */
@@ -16849,8 +16867,15 @@ function rendreBarre(){
       <div>${htmlEquip(l)}</div>
       <div class="bs-act">${obs(i)}</div>
       <div class="bs-fin">${k === 0 && x ? `<button type="button" class="f-solde ${x.cl}" data-bs-fiche="${i}" data-bs-recap>${x.lib} <b>${rEur(x.v)}</b></button>` : ""}<button type="button" class="bs-ouvrir" data-bs-fiche="${i}">Ouvrir la fiche</button></div>
-    </div>`; }).join("")}</div>`;
+    </div>`; }).join("")}</div>${coteRacc(c)}`;
 }
+/* 16 oct. 2026 (colonne Cosium) : commandes et duplicatas en cours du client en cartes, et « Commander une monture » ; ouverts dans l'onglet Chouf'Tout */
+const coteRacc = c => { const r = COTE && window.ChoufAPI && window.ChoufAPI.raccourcis(cleClient(c)); if (!r) return "";
+  const carte = (attr, sur, nom, etat, coul) => `<button type="button" class="ct-racc" ${attr} title="Ouvrir dans Chouf’Tout"><span class="ct-racc-sur">${sur}</span><b>${esc(nom)}</b><span class="ct-racc-etat" style="--c:var(${coul})">${esc(etat)}</span></button>`;
+  const cartes = [...r.cmds.map(x => carte(`data-cg="commande" data-id="${esc(x.id)}"`, "Commande", x.nom, x.etat, x.coul)),
+    ...r.dups.map(x => carte(`data-cg="duplicata" data-id="${esc(x.id)}"`, "Duplicata", x.nom, x.etat, x.coul))];
+  if (r.commander) cartes.push(`<button type="button" class="ct-racc ct-racc-plus" data-cg="cmd-nouvelle" title="Ouvrir dans Chouf’Tout">+ Commander une monture</button>`);
+  return cartes.length ? `<div class="ct-raccs"><div class="ct-sur">Raccourcis</div>${cartes.join("")}</div>` : ""; };
 function rendreCosiumPage(){
   const c = COSIUM_C, k = c.cosium, ls = LIGNES.filter(l => l.c === c);
   document.getElementById("czRecents").innerHTML = clientsDe().filter(x => !x.passage).sort((a, b) => a.nom.localeCompare(b.nom, "fr"))
@@ -16904,6 +16929,9 @@ const EN_COSIUM = document.documentElement.classList.contains("mode-cosium");   
 function traiterDemandeCosium(){
   const d = DEMANDE_COSIUM, ch = window.ChoufAPI;
   if (!d || !ch || !ch.moi() || !ch.basePrete()) return;
+  if (["commande", "duplicata", "cmd-nouvelle", "ecran"].includes(d.quoi)){   // 16 oct. 2026 : raccourcis de la colonne Cosium
+    DEMANDE_COSIUM = null; const cc = d.cle ? clientsDe().find(x => cleClient(x) === d.cle) : null;
+    ch.gesteCosium(cc ? Object.assign({}, d, {nom:nomClient(cc), cons:cc.conseiller}) : d); return; }
   DEMANDE_COSIUM = null; ch.allerDossiers();
   if (d.quoi === "liste"){ if (RAPIDES.some(r => r.k === d.k)){ filtre.rapide = d.k; viderEtats(); effacerCriteres(); rendre(); } return; }   // indicateur cliqué dans Cosium (9 oct. 2026)
   const c = clientsDe().find(x => x.dossier === d.dossier || (x.autresDossiers || []).includes(d.dossier));
@@ -16967,7 +16995,11 @@ const coteKpi = () => { const nb = k => { const r = RAPIDES.find(x => x.k === k)
   return `<div class="ct-client"><div class="ct-sur">Suivi du magasin</div><div class="ct-nom">Dossiers</div></div>
   <div class="ck">${COTE_KPI.map(k => { const r = RAPIDES.find(x => x.k === k); if (!r) return ""; const n = nb(k);
     return `<button type="button" class="ck-tuile${n ? "" : " nul"}" data-ck="${k}" title="${esc((r.aide ? r.aide + ". " : "") + "Ouvrir la liste dans Chouf’Tout")}"><b>${n}</b><span>${k === "tous" ? "Tous" : r.lib}</span></button>`; }).join("")}</div>
-  ${al.length ? `<div class="ck-alertes">${al.map(([k, n, r]) => `<button type="button" class="ck-pastille" data-ck="${k}" title="Ouvrir la liste dans Chouf’Tout">${n} ${esc(r.lib.toLowerCase())}</button>`).join("")}</div>` : ""}`; };
+  ${al.length ? `<div class="ck-alertes">${al.map(([k, n, r]) => `<button type="button" class="ck-pastille" data-ck="${k}" title="Ouvrir la liste dans Chouf’Tout">${n} ${esc(r.lib.toLowerCase())}</button>`).join("")}</div>` : ""}${coteLiens()}`; };
+/* 16 oct. 2026 : sans client ouvert, des liens vers les autres écrans du suivi */
+const coteLiens = () => { const r = window.ChoufAPI && window.ChoufAPI.raccourcis(null); if (!r) return "";
+  const lien = (ecran, lib, n) => `<button type="button" class="ct-lien" data-cg="ecran" data-ecran="${ecran}" title="Ouvrir dans Chouf’Tout"><span>${lib}</span>${n ? `<b>${n}</b>` : ""}<i aria-hidden="true">›</i></button>`;
+  return `<div class="ct-raccs"><div class="ct-sur">Aller à</div>${lien("jour", "Ma journée")}${r.cmd != null ? lien("commandes", "Commandes", r.cmd) : ""}${r.dup != null ? lien("duplicatas", "Duplicatas", r.dup) : ""}</div>`; };
 // Largeur retenue, gardée en --cote-w : la fiche ouverte (cadre en plein écran), la colonne reste peinte à sa place sous le voile
 const coteW = () => { const w = coteLarge(); document.documentElement.style.setProperty("--cote-w", w + "px"); return w; };
 if (COTE) document.documentElement.classList.add("cosium-cote");
@@ -17187,8 +17219,10 @@ if (COTE){
   document.body.insertAdjacentHTML("afterbegin", `<header class="cote-tete"><span class="bc-marque">Chouf’Tout</span></header>`);
   // Indicateurs : un clic ouvre la liste dans Chouf'Tout, dans l'onglet déjà ouvert s'il y en a un (l'extension le cherche), voir traiterDemandeCosium()
   document.addEventListener("click", e => {
-    const t = e.target.closest("[data-ck]"); if (!t) return;
-    parent.postMessage({chouf:"liste", url:`${location.origin}${location.pathname}#cosium=${encodeURIComponent(JSON.stringify({quoi:"liste", k:t.dataset.ck}))}`}, "*");
+    const g = e.target.closest("[data-cg]"), t = !g && e.target.closest("[data-ck]"); if (!g && !t) return;
+    const d = t ? {quoi:"liste", k:t.dataset.ck} : g.dataset.cg === "ecran" ? {quoi:"ecran", ecran:g.dataset.ecran}
+      : g.dataset.cg === "cmd-nouvelle" ? {quoi:"cmd-nouvelle", cle:COSIUM_C ? cleClient(COSIUM_C) : ""} : {quoi:g.dataset.cg, id:g.dataset.id};   // 16 oct. 2026 : raccourcis
+    parent.postMessage({chouf:"liste", url:`${location.origin}${location.pathname}#cosium=${encodeURIComponent(JSON.stringify(d))}`}, "*");
   });
 }
 (() => { const q = new URLSearchParams(location.search); if (q.get("vue") === "cosium") basculerVue("cosium", clientsDe().find(x => x.dossier === q.get("dossier"))); })();
@@ -23429,6 +23463,25 @@ html.mode-cosium.cosium-cote .ck-alertes{display:flex; flex-wrap:wrap; gap:6px; 
 html.mode-cosium.cosium-cote .ck-pastille{border:0; border-radius:999px; padding:4px 10px; background:color-mix(in srgb, var(--orange) 16%, transparent); color:var(--orange);
   font:inherit; font-size:11.5px; line-height:1.3; cursor:pointer}
 html.mode-cosium.cosium-cote .ck-pastille:hover{background:color-mix(in srgb, var(--orange) 26%, transparent)}
+/* 16 oct. 2026 : le fondu sous la barre du haut du site (html[data-ecran]::before) voilait le haut de la colonne */
+html.mode-cosium[data-ecran]::before{display:none !important}
+/* raccourcis : cartes du client (commandes, duplicatas, commander), liens vers le suivi sans client */
+html.mode-cosium.cosium-cote .ct-raccs{display:grid; gap:6px; padding:14px; border-top:1px solid rgba(255,255,255,.1); text-align:left}
+html.mode-cosium.cosium-cote .bandeau-cosium .ct-raccs{padding-top:16px}
+html.mode-cosium.cosium-cote .ct-raccs > .ct-sur{margin-bottom:2px}
+html.mode-cosium.cosium-cote :is(.ct-racc, .ct-lien){display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; padding:9px 10px; border:0; border-radius:10px;
+  background:rgba(255,255,255,.06); color:var(--encre); font:inherit; font-size:13px; line-height:1.3; text-align:left; cursor:pointer; transition:background-color .2s var(--ease-stripe, ease)}
+html.mode-cosium.cosium-cote :is(.ct-racc, .ct-lien):hover{background:rgba(255,255,255,.11)}
+html.mode-cosium.cosium-cote :is(.ct-racc, .ct-lien):focus-visible{outline:2px solid var(--pj-bleu, #4C9AFF); outline-offset:2px}
+html.mode-cosium.cosium-cote .ct-racc b{max-width:100%; font-weight:500; overflow-wrap:anywhere}
+html.mode-cosium.cosium-cote .ct-racc-sur{font-size:11.5px; color:var(--second)}
+html.mode-cosium.cosium-cote .ct-racc-etat{font-size:12px; color:var(--c)}
+html.mode-cosium.cosium-cote .ct-racc-plus{background:transparent; border:1px dashed rgba(255,255,255,.2); color:var(--second)}
+html.mode-cosium.cosium-cote .ct-racc-plus:hover{color:var(--encre)}
+html.mode-cosium.cosium-cote .ct-lien{flex-direction:row; align-items:center; gap:8px}
+html.mode-cosium.cosium-cote .ct-lien span{flex:1}
+html.mode-cosium.cosium-cote .ct-lien b{font-weight:500; font-variant-numeric:tabular-nums; color:var(--orange)}
+html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 </style>
 </body>
 </html>
