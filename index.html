@@ -16675,8 +16675,9 @@ function dialogueAjout(pre){
   return new Promise(ok => {
     const fond = document.createElement("div");
     fond.className = "dialogue-fond";
-    fond.innerHTML = `<div class="dialogue" role="dialog" aria-modal="true" aria-labelledby="aj-t">
-      <h3 id="aj-t">Ajouter depuis Cosium</h3>
+    fond.innerHTML = `<div class="dialogue aj" role="dialog" aria-modal="true" aria-labelledby="aj-t">
+      <p class="aj-sur">Ajouter depuis Cosium${pre && pre.dossier ? " · dossier " + esc(pre.dossier) : ""}</p>
+      <h3 id="aj-t">${pre && pre.nom ? esc([pre.prenom, pre.nom].filter(Boolean).join(" ")) : "Nouveau dossier"}</h3>
       ${pre && pre.lu ? `<p class="intro">Lu sur la fiche Cosium du client. Vérifie la mutuelle et son réseau, puis choisis l’équipement.</p>` : `<p class="intro">Simulation de l’extension : en vrai, ces informations sont lues sur la fiche Cosium du client.</p>
       <div class="aj-exemples"><span class="petit" style="align-self:center">Exemples :</span>
         <button type="button" data-ex="retour">Client qui revient</button><button type="button" data-ex="doublon">Doublon possible</button><button type="button" data-ex="nouveau">Nouveau client</button>${magInfo() && window.ChoufAPI.exempleEnFace() ? `<button type="button" data-ex="enface">Suivi à ${esc(magInfo().autre.nom)}</button>` : ""}</div>`}
@@ -16724,8 +16725,8 @@ function dialogueAjout(pre){
       bouton.disabled = !pret;
       bouton.textContent = connu || (doublon && etat.lier) ? "Ajouter le passage" : "Créer le client";
     };
-    const remplir = e => { $("#aj-dossier").value = e.dossier; $("#aj-nom").value = e.nom; $("#aj-prenom").value = e.prenom; $("#aj-ne").value = e.ne;
-      $("#aj-mut").value = e.mut; $("#aj-reseau").value = e.reseau; fond.querySelectorAll("[name=aj-t]").forEach(x => { x.checked = e.types.includes(x.value); }); etat = {}; maj(); };
+    const remplir = e => { $("#aj-dossier").value = e.dossier || ""; $("#aj-nom").value = e.nom || ""; $("#aj-prenom").value = e.prenom || ""; $("#aj-ne").value = e.ne || "";   // 16 oct. 2026 : plus de « undefined » si Cosium n'a pas la donnée
+      $("#aj-mut").value = e.mut || ""; $("#aj-reseau").value = e.reseau || ""; fond.querySelectorAll("[name=aj-t]").forEach(x => { x.checked = e.types.includes(x.value); }); etat = {}; maj(); };
     fond.addEventListener("input", e => { if (e.target.name === "aj-lier") etat.lier = e.target.value === "1"; maj(); });
     const fin = v => { removeEventListener("keydown", clavier, true); fond.classList.remove("vu"); setTimeout(() => fond.remove(), 200); ok(v); };
     const clavier = e => { if (e.key === "Escape"){ e.stopPropagation(); fin(null); } };
@@ -22604,6 +22605,38 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
   :root #zone-suivi .imp-ligne > .imp-n{display:none}
   :root #zone-suivi .imp-ligne > :is(.imp-etats, .imp-obs){grid-column:2}
 }
+/* ---------- 16 oct. 2026 : fenêtre « Ajouter depuis Cosium » au style de la fiche client (site et colonne Cosium) ----------
+   Fond noir, liseré dégradé et lueur bleue dans le coin, surtitre bleu, nom en grand, champs alignés à gauche, boutons en pilules. */
+:root:root #zone-suivi:not(#luxe) .dialogue.aj{--dt:var(--pj-bleu, #4C9AFF); position:relative; width:min(480px, 100%); border-radius:28px; background:var(--fond);
+  background-image:radial-gradient(70% 40% at 0% 0%, color-mix(in srgb, var(--dt) 14%, transparent), transparent 70%); box-shadow:0 40px 100px -30px rgba(0,0,0,.7)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj::after{content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; pointer-events:none;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--dt) 55%, transparent), color-mix(in srgb, var(--dt) 7%, transparent) 30%, color-mix(in srgb, var(--dt) 7%, transparent) 70%, color-mix(in srgb, var(--dt) 34%, transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-sur{margin:0; padding:32px 32px 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj h3{padding:0 32px 6px; font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1; color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .intro{padding:0 32px 18px; font-size:.875rem; line-height:1.5}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-exemples{padding:0 32px 14px}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc{margin:0 32px; border:0; border-radius:16px; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc .ld{min-height:48px; align-items:center; border-color:color-mix(in srgb, var(--encre) 7%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc .ld > span{font-size:.875rem; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ{height:36px; padding:0 12px; border-radius:10px; background:color-mix(in srgb, var(--encre) 6%, transparent); font-size:.9375rem; text-align:left}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ:disabled{background:transparent}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ:focus{box-shadow:0 0 0 2px color-mix(in srgb, var(--dt) 60%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc .ld > .aj-champ{max-width:62%}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .tl-sec{margin:22px 32px 8px; padding:0; font-size:.8125rem; font-weight:500; letter-spacing:0; text-transform:none; color:var(--dt)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut{margin:12px 32px 0; padding:12px 14px; border-radius:14px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut b{color:var(--encre); font-weight:500}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.connu{background:color-mix(in srgb, var(--vert) 12%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.connu b{color:var(--vert)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.doublon{background:color-mix(in srgb, var(--orange) 12%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.doublon b{color:var(--orange)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-types{padding:12px 14px 14px}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied{position:sticky; bottom:0; z-index:1; gap:8px; padding:18px 32px 28px; background:linear-gradient(transparent, var(--fond) 18px)}   /* boutons toujours visibles */
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied button{height:48px; border-radius:999px; font-size:.9375rem; font-weight:500}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied .secondaire{flex:0 1 auto; padding:0 22px; background:transparent; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied .secondaire:hover{color:var(--encre); background:color-mix(in srgb, var(--encre) 6%, transparent)}
+@media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue.aj :is(.aj-sur, h3, .intro, .aj-exemples){padding-left:20px; padding-right:20px}
+  :root:root #zone-suivi:not(#luxe) .dialogue.aj :is(.bloc, .aj-statut, .tl-sec){margin-left:20px; margin-right:20px} :root:root #zone-suivi:not(#luxe) .dialogue.aj .pied{padding:20px} }
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
