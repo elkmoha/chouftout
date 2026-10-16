@@ -5045,9 +5045,18 @@ function drawerActivite(){
       ${x.retabli ? `<span class="sub act-fait">Rétabli</span>` : `<button type="button" class="btn small" data-action="act-retablir" data-act="${x.id}">Rétablir</button>`}</li>`).join("")}</ul>`
     : `<p class="sub">Aucun changement pour l’instant. Chaque modification (dossier, commande, chèque, verre, planning, équipe, réglage…) s’affichera ici, avec la possibilité de la rétablir.</p>`;
   /* 16 oct. 2026 : en dessous, l'historique gardé dans la base (toute l'équipe, avant cette session), sans « Rétablir » */
-  histoLire();
-  const H = HISTO_LU.activite.filter(x => new Date(x.t).getTime() < HISTO_DEBUT).slice(0, 150);
-  const histo = DEMO ? "" : `<h4 class="act-histo-titre">Historique${H.length ? "" : HISTO_LU.t ? " : rien avant cette session" : " : lecture…"}</h4>${H.length ? `<ul class="notif-liste act-liste act-histo-base">${H.map(x => `<li class="act-li">
+  histoLire(); histoFiltrer();
+  const filtre = !!(HISTO_F.par || HISTO_F.jour), pret = !filtre || HISTO_F.cle === histoCleF();
+  const H = filtre ? (pret ? HISTO_F.rows : []) : HISTO_LU.activite.filter(x => new Date(x.t).getTime() < HISTO_DEBUT).slice(0, 150);
+  const noms = [...new Set([...activePeople().map(p => p.name), ...HISTO_LU.activite.map(x => (x.par || "").split(" · ")[0])].filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+  if (HISTO_F.par && !noms.includes(HISTO_F.par)) noms.unshift(HISTO_F.par);
+  const etat = filtre ? (!pret ? " : lecture…" : H.length ? ` : ${H.length}${H.length >= 500 ? "+" : ""} changement${H.length > 1 ? "s" : ""}` : " : aucun changement")
+    : H.length ? "" : HISTO_LU.t ? " : rien avant cette session" : " : lecture…";
+  const filtres = `<div class="act-filtres">
+      <label><span>Personne</span><select class="inp" data-histo-f="par" data-key="histo-par"><option value="">Toutes</option>${noms.map(n => `<option${n === HISTO_F.par ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+      <label><span>Jour</span><input class="inp" type="date" data-histo-f="jour" data-key="histo-jour" value="${esc(HISTO_F.jour)}" max="${TODAY_KEY}"></label>
+      ${filtre ? `<button type="button" class="btn small" data-histo-effacer>Effacer</button>` : ""}</div>`;
+  const histo = DEMO ? "" : `<h4 class="act-histo-titre">Historique${etat}</h4>${filtres}${H.length ? `<ul class="notif-liste act-liste act-histo-base">${H.map(x => `<li class="act-li">
       <span class="notif-ico act-ini" aria-hidden="true">${esc(x.par ? x.par.slice(0, 2) : "?")}</span>
       <span class="notif-corps">${x.ou ? `<span class="act-lien">${esc(x.ou)}</span>` : ""}<span class="notif-txt">${esc(x.texte)}</span>
         <span class="sub">${esc((x.par || "Auteur non choisi") + " · " + histoQuand(x.t))}</span></span></li>`).join("")}</ul>` : ""}`;
@@ -9754,6 +9763,24 @@ function histoLire(){
       if (S.drawer && S.drawer.type === "activite" && !$("drawer").hidden) renderDrawer(); if (S.tab === "reglages") render(); })
     .catch(e => console.warn("Historique :", e)).finally(() => { HISTO_LU.en = false; });
 }
+/* 16 oct. 2026 (demande de Mohamed) : filtres de l'historique par personne et par jour, lus dans la base (jusqu'à 500 entrées) */
+const HISTO_F = {par:"", jour:"", cle:"", rows:[], en:false};
+const histoCleF = () => HISTO_F.par + "|" + HISTO_F.jour + "|" + baseMag();
+function histoFiltrer(){
+  if (DEMO || !authLire() || (!HISTO_F.par && !HISTO_F.jour) || HISTO_F.en || HISTO_F.cle === histoCleF()) return;
+  const cle = histoCleF(); HISTO_F.en = true;
+  let q = `historique?select=t,type,par,texte,ou,magasin&type=eq.activite&magasin=in.${encodeURIComponent(`("*","${baseMag()}")`)}&order=t.desc&limit=500`;
+  if (HISTO_F.par) q += `&par=like.${encodeURIComponent(HISTO_F.par + "*")}`;   // « Samy · Chouf 18 » en visite compte aussi
+  if (HISTO_F.jour){ const d = new Date(HISTO_F.jour + "T00:00"), f = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    q += `&t=gte.${encodeURIComponent(d.toISOString())}&t=lt.${encodeURIComponent(f.toISOString())}`; }
+  baseAppel(q).then(r => { HISTO_F.rows = r || []; HISTO_F.cle = cle; })
+    .catch(e => { console.warn("Historique :", e); HISTO_F.rows = []; HISTO_F.cle = cle; })
+    .finally(() => { HISTO_F.en = false; if (S.drawer && S.drawer.type === "activite" && !$("drawer").hidden) renderDrawer(); });
+}
+document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.histoF; if (!k) return;
+  HISTO_F[k] = e.target.value; HISTO_F.cle = ""; renderDrawer(); histoFiltrer(); });
+document.addEventListener("click", e => { if (!e.target.closest || !e.target.closest("[data-histo-effacer]")) return;
+  HISTO_F.par = HISTO_F.jour = ""; HISTO_F.cle = ""; renderDrawer(); });
 const histoQuand = t => new Date(t).toLocaleString("fr-FR", {weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}).replace(":", " h ");
 const baseLocal = () => { const d = sauvegardeData(); delete d.application; delete d.version; delete d.exportLe; delete d.magasin; return d; };
 const baseOccupe = () => { const a = document.activeElement;
@@ -22457,6 +22484,10 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 /* 16 oct. 2026 : historique de la base sous l'Activité récente */
 :root .act-histo-titre{margin:22px 0 8px; font-size:.8125rem; font-weight:600; letter-spacing:.02em; color:var(--second)}
 :root .act-histo-base .act-lien{cursor:default; text-decoration:none}
+:root .act-filtres{display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:0 0 12px}
+:root .act-filtres label{display:grid; gap:4px; font-size:.75rem; color:var(--second); flex:1 1 140px}
+:root .act-filtres .inp{min-height:40px; width:100%}
+:root .act-filtres .btn{min-height:40px}
 /* 15 oct. 2026 : import du suivi Google Sheets (fenêtre large, aperçu ligne par ligne) */
 :root #zone-suivi .dialogue.imp{width:min(1180px, 100%); max-height:calc(92vh / var(--zm, 1)); display:flex; flex-direction:column; overflow:hidden}
 :root #zone-suivi .dialogue.imp .imp-corps{overflow:auto; padding:0 20px 12px; flex:1}
