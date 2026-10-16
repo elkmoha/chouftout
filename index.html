@@ -22670,6 +22670,12 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile > b{font-weight:500}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-suite > h4{margin:28px 0 8px; font-size:.8125rem; font-weight:500; letter-spacing:0; color:var(--dt)}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(.agrandie):not(#luxe) .dt-suite > ol.aide-etapes{margin:0; padding:4px 16px; border-radius:16px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
+/* carré flottant (16 oct. 2026) : comme le carré de la fiche client, titre plein, la tuile devient une ligne à filet dégradé */
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index.dr-flotte:not(.agrandie):not(#luxe) .dr-head h2{font-weight:500; letter-spacing:-.025em; line-height:1.15}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index.dr-flotte:not(.agrandie):not(#luxe) .dt-tuile{min-height:30px; padding:6px 0; border-radius:0; font-size:.875rem;
+  background:linear-gradient(90deg, var(--separateur), transparent) top / 100% 1px no-repeat !important}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index.dr-flotte:not(.agrandie):not(#luxe) .dt-tuile > b{font-size:.875rem}
+:root:root:root body :is(#drawer, .fl-carte).drawer.dr-index.dr-flotte:not(.agrandie):not(#luxe) .dr-pied .dt-fait{border-radius:999px; font-weight:500}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-suite .row .btn{min-height:36px; border:0; border-radius:999px; background:color-mix(in srgb, var(--encre) 7%, transparent)}
 /* Panneaux latéraux de Chouf'Tout (16 oct. 2026) : comme la fiche client. Sous-titre en surtitre bleu au-dessus du titre,
    lignes « libellé / valeur » regroupées en blocs sans bordure, boutons en pilules. Ordinateur, panneau (pas le carré flottant ni la fenêtre agrandie). */
