@@ -22606,43 +22606,60 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
   :root #zone-suivi .imp-ligne > .imp-n{display:none}
   :root #zone-suivi .imp-ligne > :is(.imp-etats, .imp-obs){grid-column:2}
 }
-/* ---------- 16 oct. 2026 : fenêtre « Ajouter depuis Cosium » au style de la fiche client (site et colonne Cosium) ----------
+/* ---------- 16 oct. 2026 : fenêtres du Suivi au style de la fiche client (site et colonne Cosium ; d'abord « Ajouter depuis Cosium », puis toutes sauf l'import) ----------
    Fond noir, liseré dégradé et lueur bleue dans le coin, surtitre bleu, nom en grand, champs alignés à gauche, boutons en pilules. */
-:root:root #zone-suivi:not(#luxe) .dialogue.aj{--dt:var(--pj-bleu, #4C9AFF); position:relative; width:min(480px, 100%); border-radius:28px; background:var(--fond);
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){--dt:var(--pj-bleu, #4C9AFF); position:relative; padding:0 12px;   /* + les 20 px des blocs, y compris ceux écrits en ligne */
+  width:min(480px, 100%); border-radius:28px; background:var(--fond);
   background-image:radial-gradient(70% 40% at 0% 0%, color-mix(in srgb, var(--dt) 14%, transparent), transparent 70%); box-shadow:0 40px 100px -30px rgba(0,0,0,.7)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj::after{content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; pointer-events:none;
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp)::after{content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; pointer-events:none;
   background:linear-gradient(135deg, color-mix(in srgb, var(--dt) 55%, transparent), color-mix(in srgb, var(--dt) 7%, transparent) 30%, color-mix(in srgb, var(--dt) 7%, transparent) 70%, color-mix(in srgb, var(--dt) 34%, transparent));
   -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-sur{margin:0; padding:32px 32px 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj h3{padding:0 32px 6px; font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1; color:var(--encre)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .intro{padding:0 32px 18px; font-size:.875rem; line-height:1.5}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-exemples{padding:0 32px 14px}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc{margin:0 32px; border:0; border-radius:16px; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc .ld{min-height:48px; align-items:center; border-color:color-mix(in srgb, var(--encre) 7%, transparent)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc .ld > span{font-size:.875rem; color:var(--second)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ{height:36px; padding:0 12px; border-radius:10px; background:color-mix(in srgb, var(--encre) 6%, transparent); font-size:.9375rem; text-align:left}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ:disabled{background:transparent}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ:focus{box-shadow:0 0 0 2px color-mix(in srgb, var(--dt) 60%, transparent)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .bloc .ld > .aj-champ{max-width:62%}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .tl-sec{margin:22px 32px 8px; padding:0; font-size:.8125rem; font-weight:500; letter-spacing:0; text-transform:none; color:var(--dt)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut{margin:12px 32px 0; padding:12px 14px; border-radius:14px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut b{color:var(--encre); font-weight:500}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.connu{background:color-mix(in srgb, var(--vert) 12%, transparent)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.connu b{color:var(--vert)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.doublon{background:color-mix(in srgb, var(--orange) 12%, transparent)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-statut.doublon b{color:var(--orange)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-types{padding:12px 14px 14px}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied{position:sticky; bottom:0; z-index:1; gap:8px; padding:18px 32px 28px; background:linear-gradient(transparent, var(--fond) 18px)}   /* boutons toujours visibles */
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied button{height:48px; border-radius:999px; font-size:.9375rem; font-weight:500}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied .secondaire{flex:0 1 auto; padding:0 22px; background:transparent; color:var(--second)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .pied .secondaire:hover{color:var(--encre); background:color-mix(in srgb, var(--encre) 6%, transparent)}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj select.aj-champ{-webkit-appearance:none; appearance:none; padding-right:30px; cursor:pointer;
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-sur{margin:0; padding:32px 20px 8px; font-size:.875rem; font-weight:500; line-height:1.45; color:var(--dt)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) h3{padding:0 20px 6px; font-size:2rem; font-weight:500; letter-spacing:-.035em; line-height:1.1; color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro{padding:0 20px 18px; font-size:.875rem; line-height:1.5}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-exemples{padding:0 20px 14px}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .bloc{margin:0 20px; border:0; border-radius:16px; background:color-mix(in srgb, var(--encre) 4%, transparent); box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .bloc .ld{min-height:48px; align-items:center; border-color:color-mix(in srgb, var(--encre) 7%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .bloc .ld > span{font-size:.875rem; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-champ{height:36px; padding:0 12px; border-radius:10px; background:color-mix(in srgb, var(--encre) 6%, transparent); font-size:.9375rem; text-align:left}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-champ:disabled{background:transparent}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-champ:focus{box-shadow:0 0 0 2px color-mix(in srgb, var(--dt) 60%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .bloc .ld > .aj-champ{max-width:62%}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .tl-sec{margin:22px 20px 8px; padding:0; font-size:.8125rem; font-weight:500; letter-spacing:0; text-transform:none; color:var(--dt)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-statut{margin:12px 20px 0; padding:12px 14px; border-radius:14px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-statut b{color:var(--encre); font-weight:500}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-statut.connu{background:color-mix(in srgb, var(--vert) 12%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-statut.connu b{color:var(--vert)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-statut.doublon{background:color-mix(in srgb, var(--orange) 12%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-statut.doublon b{color:var(--orange)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-types{padding:12px 14px 14px}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{position:sticky; bottom:0; z-index:1; gap:8px; margin:0 -12px; padding:18px 32px 28px; background:linear-gradient(transparent, var(--fond) 18px)}   /* boutons toujours visibles */
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied button{height:48px; border-radius:999px; font-size:.9375rem; font-weight:500}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied .secondaire{flex:0 1 auto; padding:0 22px; background:transparent; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied .secondaire:hover{color:var(--encre); background:color-mix(in srgb, var(--encre) 6%, transparent)}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) select.aj-champ{-webkit-appearance:none; appearance:none; padding-right:30px; cursor:pointer;
   background-image:linear-gradient(45deg, transparent 50%, var(--second) 50%), linear-gradient(135deg, var(--second) 50%, transparent 50%);
   background-position:calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size:5px 5px; background-repeat:no-repeat}   /* duplicata : listes Cabinet et Motif */
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .aj-champ.dp-message{height:auto; min-height:150px; padding:14px 16px; background:transparent; resize:vertical; font-size:.875rem; line-height:1.5}
-:root:root #zone-suivi:not(#luxe) .dialogue.aj .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
-@media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue.aj :is(.aj-sur, h3, .intro, .aj-exemples){padding-left:20px; padding-right:20px}
-  :root:root #zone-suivi:not(#luxe) .dialogue.aj :is(.bloc, .aj-statut, .tl-sec){margin-left:20px; margin-right:20px} :root:root #zone-suivi:not(#luxe) .dialogue.aj .pied{padding:20px} }
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .aj-champ.dp-message{height:auto; min-height:150px; padding:14px 16px; background:transparent; resize:vertical; font-size:.875rem; line-height:1.5}
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .intro.dp-sante{padding-top:10px; padding-bottom:0; font-size:.8125rem}
+@media (max-width:760px){ :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp){padding:0 4px} :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .pied{margin:0 -4px; padding:16px 24px 24px} }
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) > h3:first-child{padding-top:32px}   /* sans surtitre */
+:root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .ld input:not([type=checkbox], [type=radio]):not(.aj-champ), :root:root #zone-suivi:not(#luxe) .dialogue:not(.imp) .ld select:not(.aj-champ){border-radius:10px}
+/* Confirmations (confirmer()) : même fond, liseré et boutons en pilules */
+:root:root #zone-suivi:not(#luxe) .alerte-boite{--dt:var(--pj-bleu, #4C9AFF); position:relative; width:min(360px, 100%); border-radius:24px; text-align:left; background:var(--fond);
+  background-image:radial-gradient(80% 60% at 0% 0%, color-mix(in srgb, var(--dt) 14%, transparent), transparent 70%); -webkit-backdrop-filter:none; backdrop-filter:none; box-shadow:0 40px 100px -30px rgba(0,0,0,.7)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite::after{content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; pointer-events:none;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--dt) 55%, transparent), color-mix(in srgb, var(--dt) 7%, transparent) 30%, color-mix(in srgb, var(--dt) 7%, transparent) 70%, color-mix(in srgb, var(--dt) 34%, transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite h3{padding:28px 28px 8px; font-size:1.5rem; font-weight:500; letter-spacing:-.03em; line-height:1.15; color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite p{padding:0 28px 22px; font-size:.875rem; line-height:1.5}
+:root:root #zone-suivi:not(#luxe) .alerte-boite .btns{display:flex; justify-content:flex-end; gap:8px; padding:0 20px 20px; border:0}
+:root:root #zone-suivi:not(#luxe) .alerte-boite button{height:44px; padding:0 20px; border:0; border-radius:999px; font-size:.9375rem; font-weight:500; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite button + button{border:0; background:var(--encre); color:var(--fond)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite button + button.danger{background:color-mix(in srgb, var(--rouge) 18%, transparent); color:var(--rouge)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite button:hover{background:color-mix(in srgb, var(--encre) 6%, transparent); color:var(--encre)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite button + button:hover{background:var(--encre); color:var(--fond); filter:brightness(1.1)}
+:root:root #zone-suivi:not(#luxe) .alerte-boite button + button.danger:hover{background:color-mix(in srgb, var(--rouge) 28%, transparent); color:var(--rouge); filter:none}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
