@@ -14333,7 +14333,11 @@ function poser(p){
   }
   voile.style.opacity = v;
   /* 12 oct. 2026 (essai) : fiche en index, la page recule derrière elle (ordinateur, hors fenêtre agrandie) */
-  const R = document.documentElement; R.style.setProperty("--fiche", v.toFixed(3)); R.classList.toggle("fi-recul", v > 0 && !enFenetre() && !mobile());
+  /* 16 oct. 2026 : le recul est posé directement sur la barre et la liste ; une variable sur la racine, changée à chaque image,
+     faisait recalculer le style de toute la page (≈ 50 ms par image avec les vrais dossiers : animation saccadée) */
+  const R = document.documentElement, recul = v > 0 && !enFenetre() && !mobile() && !R.classList.contains("mode-cosium") && !reduit.matches && innerWidth > 760;
+  R.classList.toggle("fi-recul", v > 0 && !enFenetre() && !mobile());
+  for (const el of [document.getElementById("barre"), document.querySelector("#zone-suivi > main")]) if (el) el.style.transform = recul ? `scale(${(1 - .02 * v).toFixed(4)})` : "";
 }
 function animerVers(cible, vitessePx = 0){
   anim && anim.stop();
@@ -15557,8 +15561,8 @@ new MutationObserver(() => { if (document.getElementById("zone-suivi").hidden) F
 /* Cascade à l'ouverture du panneau, et centre du recul de la page */
 let entreFin = 0;
 function ficheEntre(){
-  const R = document.documentElement, mi = innerHeight / 2;
-  for (const [n, el] of [["--fi-yb", document.getElementById("barre")], ["--fi-ym", document.querySelector("#zone-suivi > main")]]) if (el) R.style.setProperty(n, Math.round(mi - el.getBoundingClientRect().top) + "px");
+  const mi = innerHeight / 2;   // 16 oct. 2026 : point fixe du recul posé sur l'élément lui-même (plus sur la racine)
+  for (const el of [document.getElementById("barre"), document.querySelector("#zone-suivi > main")]) if (el) el.style.transformOrigin = "50% " + Math.round(mi - el.getBoundingClientRect().top) + "px";
   clearTimeout(entreFin); feuille.classList.remove("fi-entre"); void feuille.offsetWidth; feuille.classList.add("fi-entre");
   entreFin = setTimeout(() => feuille.classList.remove("fi-entre"), 1500);   // retirée ensuite : les rafraîchissements de la fiche ne rejouent pas la cascade
 }
@@ -21128,7 +21132,7 @@ ul.export-liste > li{display:flex; align-items:center; gap:12px; padding:10px 0;
 }
 @media (min-width:761px) and (prefers-reduced-motion: reduce){ :root:root body :is(#drawer, .fl-carte).drawer:is(.dr-index, .dr-fond):not(.agrandie):not(#luxe).dr-entre::after{display:none} }
 @media (min-width:761px) and (prefers-reduced-motion: no-preference){
-  html:has(#drawer:is(.dr-index, .dr-fond):not(.agrandie):not([hidden])) #app:not(#luxe){transform:scale(calc(1 - .02 * var(--volet, 0))); transform-origin:50% var(--volet-y, 50vh)} }
+  /* 16 oct. 2026 : recul de #app posé par luxe-volet-js (reculApp), plus par une variable sur la racine */ }
 @media (prefers-color-scheme: dark){ :root:root:not([data-theme="light"]) body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile{background:color-mix(in srgb, var(--c) 13%, var(--fond))} }
 :root:root[data-theme="dark"] body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-tuile{background:color-mix(in srgb, var(--c) 13%, var(--fond))}
 /* ----- 11 oct. 2026 (essai) : fiche saisie par l'en-tête = carré flottant de 300 px (ordinateur). Le mouvement est dans luxe-volet-js.
@@ -21515,8 +21519,8 @@ body.arming #app:not(#luxe) .pl-tuile[aria-pressed="false"], #app:not(#luxe) .pl
   #zone-suivi:not(#luxe) .ff-carte .ff-ouvrir:hover{filter:brightness(1.08)}
 }
 @media (min-width:761px) and (prefers-reduced-motion: no-preference){
-  :root.fi-recul:not(.mode-cosium) #zone-suivi:not(#luxe) > #barre{transform:scale(calc(1 - .02 * var(--fiche, 0))); transform-origin:50% var(--fi-yb, 50vh)}
-  :root.fi-recul:not(.mode-cosium) #zone-suivi:not(#luxe) > main{transform:scale(calc(1 - .02 * var(--fiche, 0))); transform-origin:50% var(--fi-ym, 50vh)} }
+  /* 16 oct. 2026 : l'échelle est posée par poser() sur les deux éléments ; ici seulement la couche dédiée pendant le recul */
+  :root.fi-recul:not(.mode-cosium) #zone-suivi:not(#luxe) > :is(#barre, main){will-change:transform} }
 @media (prefers-reduced-motion: reduce){ :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre::after{display:none}
   :root:root:not(.mode-cosium) #zone-suivi:not(#luxe) #feuille:not(.agrandie).fi-entre :is(.entete > div:first-child > *, .f-raccourcis, #f-contenu > *){animation:dt-fondu .2s both}
   #zone-suivi:not(#luxe) .ff-carte{transition:none; animation:none !important} }
@@ -22832,6 +22836,12 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
   "use strict";
   const dr = document.getElementById("drawer"); if (!dr) return;
   const voile = document.createElement("div"); voile.className = "voile-volet"; voile.setAttribute("aria-hidden", "true"); dr.before(voile);
+  /* 16 oct. 2026 : la page recule par un style posé sur #app ; une variable sur la racine changée à chaque image (et un html:has())
+     faisaient recalculer le style de toute la page à chaque image : panneaux saccadés */
+  const reduitV = matchMedia("(prefers-reduced-motion: reduce)");
+  const reculApp = v => { const a = document.getElementById("app"); if (!a) return;
+    const ok = v > 0 && innerWidth > 760 && !reduitV.matches && dr.matches(".dr-index, .dr-fond") && !dr.classList.contains("agrandie") && !dr.hidden;
+    a.style.transform = ok ? `scale(${(1 - .02 * v).toFixed(4)})` : ""; a.style.willChange = ok ? "transform" : ""; };
   const mobile = () => matchMedia("(max-width:760px)").matches, reduit = matchMedia("(prefers-reduced-motion: reduce)");
   /* Ressort critique, copie de celui du Suivi : part de la valeur affichée et garde la vitesse */
   const ressort = ({de, vers, vitesse = 0, reponse = 0.38, amorti = 1, maj, fin}) => {
@@ -22858,7 +22868,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
     if (enFenetre()){ dr.style.transform = `scale(${1 - 0.06 * Math.min(1, p)})`; dr.style.opacity = v; }
     else { dr.style.transform = mobile() ? `translateY(${p * taille()}px)` : `translateX(${p * taille()}px)`; dr.style.opacity = ""; }
     voile.style.opacity = v;
-    document.documentElement.style.setProperty("--volet", v.toFixed(3));   // 11 oct. 2026 : la page recule derrière la fiche en index
+    reculApp(v);   // 11 oct. 2026 : la page recule derrière la fiche en index
   };
   const fini = () => { if (!ouvert && apres){ const f = apres; apres = null; dr.style.transform = dr.style.opacity = dr.style.transition = dr.style.pointerEvents = ""; f(); } };
   const animerVers = (cible, vitessePx = 0) => {
@@ -22883,7 +22893,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
   const libelle = t => { const b = dr.querySelector(".dr-agrandir"); if (b){ b.setAttribute("aria-label", t); b.title = t; } };
   const detacher = (x, y) => {
     anim && anim.stop(); flotte = {x, y}; borner();
-    dr.classList.add("dr-flotte"); pos = 0; voile.style.opacity = 0; racine.style.setProperty("--volet", "0");
+    dr.classList.add("dr-flotte"); pos = 0; voile.style.opacity = 0; reculApp(0);
     poserFlotte(); libelle("Rouvrir en panneau");
   };
   const amarrer = () => {
@@ -22894,7 +22904,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
     if (reduit.matches){ poser(0); return; }
     anim = ressort({de:1000, vers:0, reponse:0.4, fin:() => poser(0), maj:k => {
       const v = Math.max(0, Math.min(1, 1 - k / 1000));
-      dr.style.transform = `translate(${tx * k / 1000}px, ${ty * k / 1000}px)`; voile.style.opacity = v; racine.style.setProperty("--volet", v.toFixed(3)); }});
+      dr.style.transform = `translate(${tx * k / 1000}px, ${ty * k / 1000}px)`; voile.style.opacity = v; reculApp(v); }});
   };
   /* 11 oct. 2026 (essai) : plusieurs fiches flottantes. Les autres (.fl-carte dans #flottes, rendues par renderFlottes()) gardent leur place dans _p. */
   const zone = document.getElementById("flottes"), cartes = () => zone ? [...zone.children] : [];
@@ -22965,7 +22975,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
     posDe: k => { const c = carteDe(k); return c && c._p ? {x:c._p.x, y:c._p.y} : null; },
     flotterEn(p, arrive){   // le panneau prend la forme du carré, à cette place
       anim && anim.stop(); flotte = {x:p.x, y:p.y}; borner();
-      dr.classList.add("dr-flotte"); pos = 0; voile.style.opacity = 0; racine.style.setProperty("--volet", "0");
+      dr.classList.add("dr-flotte"); pos = 0; voile.style.opacity = 0; reculApp(0);
       if (arrive) jouer(dr, "fl-arrive");
       devant(dr);
     },
@@ -22980,7 +22990,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
       }
       voile.classList.toggle("fort", dr.classList.contains("agrandie"));
       dr.style.pointerEvents = "";
-      if (!ouvert) document.documentElement.style.setProperty("--volet-y", Math.round(scrollY + innerHeight / 2) + "px");   // centre du recul de la page (fiche en index)
+      if (!ouvert){ const a = document.getElementById("app"); if (a) a.style.transformOrigin = "50% " + Math.round(scrollY + innerHeight / 2) + "px"; }   // centre du recul de la page (fiche en index)
       if (ouvert){ if (!anim || pos === 0) poser(pos); return; }
       ouvert = true; apres = null;
       if (reduit.matches){ dr.style.transition = ""; dr.style.opacity = ""; }
