@@ -22676,6 +22676,12 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
   background:linear-gradient(90deg, var(--separateur), transparent) top / 100% 1px no-repeat !important}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index.dr-flotte:not(.agrandie):not(#luxe) .dt-tuile > b{font-size:.875rem}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index.dr-flotte:not(.agrandie):not(#luxe) .dr-pied .dt-fait{border-radius:999px; font-weight:500}
+/* fenêtre agrandie (16 oct. 2026) : titre à la taille de la fiche client agrandie, étapes dans un bloc, plus de trait entre les colonnes */
+:root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dr-head h2, :root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-fiche h2{font-size:2rem; letter-spacing:-.035em; line-height:1.1}
+:root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-quand{font-size:1.0625rem}
+:root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-suite{border-left:0 !important; box-shadow:none !important; background-image:none !important}   /* le trait était un dégradé de fond */
+:root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-suite::before{display:none}
+:root:root:root:root body #drawer.drawer.dr-index.agrandie:not(#luxe) .dt-suite > ol.aide-etapes{margin:0; padding:6px 20px; border-radius:18px; background:color-mix(in srgb, var(--encre) 4%, transparent)}
 :root:root:root body :is(#drawer, .fl-carte).drawer.dr-index:not(#luxe) .dt-suite .row .btn{min-height:36px; border:0; border-radius:999px; background:color-mix(in srgb, var(--encre) 7%, transparent)}
 /* Panneaux latéraux de Chouf'Tout (16 oct. 2026) : comme la fiche client. Sous-titre en surtitre bleu au-dessus du titre,
    lignes « libellé / valeur » regroupées en blocs sans bordure, boutons en pilules. Ordinateur, panneau (pas le carré flottant ni la fenêtre agrandie). */
