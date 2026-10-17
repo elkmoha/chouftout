@@ -23121,6 +23121,16 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .dr-head .sub:empty{display:none}
 /* 17 oct. 2026 : tâche du jour, « Confiée à » : le prénom (menu d'attribution) se touche sur 40 px */
 @media (max-width:760px){ :is(#drawer, .fl-carte) .dt-tuile :is(.dt-qui, .dt-libre):not(#luxe){min-height:40px;display:inline-flex;align-items:center} }
+/* 17 oct. 2026 : écrans sur téléphone : boutons des listes, menus d'état des dossiers et cases à cocher à taille de doigt */
+@media (max-width:760px){
+  :root:root:root body #app .view:not(#luxe) .btn{min-height:40px}
+  :root:root:root body #zone-suivi:not(#luxe) :is(.pastille, .etat, .sv-etat) > select, :root:root:root body #zone-suivi:not(#luxe) .cellule select{min-height:34px}
+  :root:root:root body #zone-suivi:not(#luxe) .act-coche{width:28px;height:28px;min-width:28px}
+  :root:root:root body #app .view:not(#luxe) .fav-btn{min-width:40px;min-height:40px}
+  :root:root:root body #app .view:not(#luxe) :is(.rp-cb, .rp-plus, .aide-btn){width:36px;height:36px;min-width:36px}
+  :root:root:root body #app .view:not(#luxe) .rp-nom{min-height:32px;display:inline-flex;align-items:center}
+  :root:root:root body #app .view:not(#luxe) .rp-fermer{min-height:36px;padding-inline:10px}
+}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
