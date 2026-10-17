@@ -2383,7 +2383,7 @@ body{background:var(--fond); color:var(--encre); font:100%/1.47 -apple-system, B
 #zone-suivi .source{display:flex; align-items:center; gap:6px; font-size:.8125rem; color:var(--second); letter-spacing:0}
 #zone-suivi .source i{width:7px; height:7px; border-radius:50%; background:var(--vert); flex:none}
 #zone-suivi .ld .valeur{display:inline-flex; align-items:center; gap:8px; font-weight:500; text-align:right}
-#zone-suivi .ld .valeur.vide{color:var(--tert); font-weight:400}
+#zone-suivi .ld .valeur.vide{color:var(--tert); font-weight:400; padding:0; text-align:inherit}   /* 17 oct. 2026 : sans la marge des messages « liste vide » (.vide), qui rendait la ligne haute de 137 px */
 #zone-suivi .ld .valeur:has(.eq-code){flex-wrap:wrap; justify-content:flex-end; row-gap:2px}   /* 9 oct. 2026 : équipement lu dans Cosium */
 #zone-suivi .ld .eq-code{flex-basis:100%; text-align:right; color:var(--second); font-size:12px; font-weight:400}
 #zone-suivi .pastille-lu{width:7px; height:7px; border-radius:50%; flex:none; background:var(--vert)}
