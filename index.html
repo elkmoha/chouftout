@@ -3581,19 +3581,31 @@ const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
    catalogue, tarifs, process, comptes et réglages sont communs. S.magasin : le magasin affiché. p.mag : magasin de rattachement d'une personne.
    Hors démonstration (base partagée), rien ne change : un seul magasin. */
 const MULTI = new URLSearchParams(location.search).get("cosium") !== "1";   // 14 oct. 2026 : deux magasins aussi sur les vraies données (pas dans l'extension Cosium)
-const MAGASINS = [{id:"18", nom:"Chouf 18", lieu:"Montmartre", c:"var(--pj-bleu)"}, {id:"5", nom:"Chouf 5", lieu:"Quartier latin", c:"var(--pj-or)"}];
+const MAGASINS = [{id:"18", nom:"Chouf 18", lieu:"La Chapelle", c:"var(--pj-bleu)"}, {id:"5", nom:"Chouf 5", lieu:"Grande Mosquée", c:"var(--pj-or)"}];
 const magDe = id => MAGASINS.find(m => m.id === id) || MAGASINS[0];
-/* 14 oct. 2026 : un dôme par magasin, tracé au fil comme le néon de la marque (Sacré-Cœur pour le 18e, Panthéon pour le 5e). Repère 120 × 100. */
+/* 14 oct. 2026 : un monument par magasin, tracé au fil comme le néon de la marque. Repère 120 × 100.
+   18 oct. 2026 (demande de Mohamed) : métro aérien de La Chapelle pour le 18e, minaret de la Grande Mosquée (avec son croissant) pour le 5e. */
 const MAG_DOMES = {
-  "18":["M14,92 L106,92", "M18,92 L18,74 L102,74 L102,92", "M52,92 L52,83 C52,76 68,76 68,83 L68,92", "M22,74 C22,61 26,55 31,51 C36,55 40,61 40,74", "M80,74 C80,61 84,55 89,51 C94,55 98,61 98,74",
-    "M31,51 L31,45", "M89,51 L89,45", "M43,74 L43,60 L77,60 L77,74", "M45,60 C45,35 51,22 60,15 C69,22 75,35 75,60", "M57,15 L57,9 L63,9 L63,15", "M60,9 L60,2"],
-  "5":["M22,92 L98,92", "M30,92 L30,73", "M40,92 L40,73", "M50,92 L50,73", "M60,92 L60,73", "M70,92 L70,73", "M80,92 L80,73", "M90,92 L90,73", "M25,73 L60,60 L95,73 Z",
-    "M36,60 L84,60", "M40,60 L40,45 M48,60 L48,45 M56,60 L56,45 M64,60 L64,45 M72,60 L72,45 M80,60 L80,45", "M36,45 L84,45", "M41,45 C41,28 50,20 60,20 C70,20 79,28 79,45", "M56,20 L56,12 L64,12 L64,20", "M60,12 L60,5"]
+  "18":["M8,92 L112,92",
+    "M22,58 L22,92 M27,58 L27,92", "M57,58 L57,92 M62,58 L62,92", "M93,58 L93,92 M98,58 L98,92",
+    "M27,68 C35,59 49,59 57,68", "M62,68 C70,59 85,59 93,68",
+    "M4,58 L116,58", "M4,51 L116,51",
+    "M4,58 L11,51 L18,58 L25,51 L32,58 L39,51 L46,58 L53,51 L60,58 L67,51 L74,58 L81,51 L88,58 L95,51 L102,58 L109,51 L116,58",
+    "M22,48 L22,31 Q22,26 27,26 L88,26 Q95,26 99,32 L104,48 Z",
+    "M30,32 L42,32 L42,40 L30,40 Z M48,32 L60,32 L60,40 L48,40 Z M66,32 L78,32 L78,40 L66,40 Z",
+    "M84,32 L93,32 L97,40 L84,40 Z"],
+  "5":["M8,92 L112,92",
+    "M12,92 L12,72 L52,72", "M68,72 L108,72 L108,92", "M9,72 L14,66 L52,66", "M68,66 L106,66 L111,72",
+    "M27,92 L27,84 C22,73 42,73 37,84 L37,92", "M83,92 L83,84 C78,73 98,73 93,84 L93,92",
+    "M52,92 L52,27 M68,92 L68,27", "M52,32 L68,32",
+    "M57,62 L57,55 C57,50 63,50 63,55 L63,62", "M57,45 L57,39 C57,35 63,35 63,39 L63,45",
+    "M50,27 L70,27 M50,27 L50,22 L54,22 L54,25 L58,25 L58,22 L62,22 L62,25 L66,25 L66,22 L70,22 L70,27",
+    "M56,22 L56,13 L64,13 L64,22", "M56,13 C56,8 64,8 64,13", "M60,8 L60,3.5", "M55,-2.5 A5,5 0 0 0 65,-2.5 A6.2,6.2 0 0 1 55,-2.5 Z"]
 };
-/* Les mêmes dômes en quelques traits, pour le sélecteur de la barre du haut (24 px) */
+/* Les mêmes monuments en quelques traits, pour le sélecteur de la barre du haut (24 px) */
 const MAG_DOMES_MINI = {
-  "18":["M10,92 L110,92", "M22,92 L22,74 C22,60 27,54 32,50 C37,54 42,60 42,74", "M78,74 C78,60 83,54 88,50 C93,54 98,60 98,74 L98,92", "M42,92 L42,60 C42,34 50,20 60,12 C70,20 78,34 78,60 L78,92", "M60,12 L60,1"],
-  "5":["M12,92 L108,92", "M26,92 L26,72 M48,92 L48,72 M72,92 L72,72 M94,92 L94,72", "M18,72 L60,54 L102,72 Z", "M38,54 C38,31 48,21 60,21 C72,21 82,31 82,54", "M60,21 L60,5"]
+  "18":["M8,92 L112,92", "M24,56 L24,92 M60,56 L60,92 M96,56 L96,92", "M24,72 C34,58 50,58 60,72 C70,58 86,58 96,72", "M4,56 L116,56", "M24,56 L24,32 L94,32 L104,56"],
+  "5":["M10,92 L110,92", "M16,92 L16,74 L50,74 M70,74 L104,74 L104,92", "M50,92 L50,30 L70,30 L70,92", "M46,30 L74,30", "M55,30 L55,16 L65,16 L65,30", "M60,16 L60,10", "M52,0 A8,8 0 0 0 68,0"]
 };
 const magDome = (id, cls, mini) => `<svg class="mag-dome ${cls || ""}" viewBox="0 0 120 100" aria-hidden="true">${((mini ? MAG_DOMES_MINI : MAG_DOMES)[id] || []).map((d, k) => `<path pathLength="1" style="--k:${k}" d="${d}"/>`).join("")}</svg>`;
 const magPers = p => (p && p.mag) || MAGASINS[0].id;
