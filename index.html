@@ -14509,14 +14509,15 @@ function rendreCosium(idx){
     <p class="tl-sec">Complémentaire</p>
     ${avisMut(c)}<div class="bloc">
       ${muts.length ? muts.map((m, j) => champ(muts.length > 1 ? `Mutuelle ${j + 1}` : "Mutuelle", champMut(LIGNES.indexOf(m), "nom") + copieIco(m.mut.nom, "Mutuelle"), true) + champ("Réseau", champMut(LIGNES.indexOf(m), "reseau") + copieIco(m.mut.reseau, "Réseau"), true)).join("")
+        : k.mutCosium ? champ("Mutuelle (lue dans Cosium)", cp(k.mutCosium, "Mutuelle"), true) + champ("Réseau", k.gestCosium ? cp(k.gestCosium, "Réseau") : "Gestionnaire non lu", true)   // 17 oct. 2026 : fiche sans dossier, ou dossiers sans tiers payant
         : champ("Mutuelle", "Aucune (sans tiers payant)", true)}
-      ${muts.length ? champ("N° d’adhérent", cp(k.adherent, "N° d’adhérent"), false) + champ("Fin de droits", cp(k.finDroits, "Fin de droits"), false) : ""}
+      ${muts.length || k.mutCosium ? champ("N° d’adhérent", cp(k.adherent, "N° d’adhérent"), false) + champ("Fin de droits", cp(k.finDroits, "Fin de droits"), false) : ""}
     </div>
 
     <p class="tl-sec">Contact</p>
     <div class="bloc">
-      ${champ("Portable", copiable(k.tel, "Numéro de téléphone"), false)}
-      ${champ("E-mail", copiable(k.email, "Adresse e-mail"), false)}${champ("Adresse", cp(k.adresse, "Adresse"), false)}
+      ${champ("Portable", cp(k.tel, "Numéro de téléphone"), false)}
+      ${champ("E-mail", cp(k.email, "Adresse e-mail"), false)}${champ("Adresse", cp(k.adresse, "Adresse"), false)}
     </div>
 
     <div class="legende"><span><i class="pastille-lu"></i>Lu par l’extension aujourd’hui</span><span><i class="pastille-lu non"></i>À ajouter à l’extension</span></div>
@@ -16840,7 +16841,9 @@ function rendreBarre(){
     ${ls.length ? `<button type="button" data-bs-replier>${BARRE_REPLIEE ? "Déplier" : "Replier"}</button>` : ""}</div>`;
   if (!ls.length){
     const ps = LIGNES.filter(l => l.c === c && !l.fiche && (l.archive || clos(l))).length, prog = LIGNES.find(l => l.c === c && estProgramme(l));
-    z.innerHTML = tete + `<div class="bs-vide"><span><b>Aucun dossier en cours dans le suivi.</b> <span class="petit">${ps ? `${ps} dossier${ps > 1 ? "s" : ""} clôturé${ps > 1 ? "s" : ""} ou archivé${ps > 1 ? "s" : ""}` : "Jamais suivi"}${prog ? ` · renouvellement programmé le ${dateISO(prog.debut, "short")}` : ""}</span></span>
+    const fs = EN_COSIUM && c.dossier ? ` data-fs-ouvrir="${esc(c.dossier)}" title="Ouvrir la fiche"` : "";   // 17 oct. 2026 : le client en tête, comme avec un dossier
+    z.innerHTML = tete + (COTE ? `<div class="ct-client"><div class="ct-tete"${fs}><div class="ct-sur">Dossier ${esc(c.dossier || "à relier")}</div>
+      <div class="ct-nom"><span>${esc((c.nom || "").toUpperCase())}</span> <span>${esc(c.prenom || "")}</span></div></div></div>` : "") + `<div class="bs-vide"><span><b>Aucun dossier en cours dans le suivi.</b> <span class="petit">${ps ? `${ps} dossier${ps > 1 ? "s" : ""} clôturé${ps > 1 ? "s" : ""} ou archivé${ps > 1 ? "s" : ""}` : "Jamais suivi"}${prog ? ` · renouvellement programmé le ${dateISO(prog.debut, "short")}` : ""}</span></span>
       ${EN_COSIUM ? mutLue() : ""}${EN_COSIUM && c.dossier ? `<button type="button" class="bs-ouvrir second" data-fs-ouvrir="${esc(c.dossier)}">Ouvrir la fiche</button>` : ""}<button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>${coteRacc(c)}`;
     return;
   }
