@@ -6830,8 +6830,8 @@ function drawerAtelier(f){
   const liens = (f.statut === "editee" && peutAtelier() ? `<button type="button" data-action="atl-corriger" data-fa="${f.id}">Corriger</button>` : "")
     + (cle && suviOk() ? `<button type="button" data-action="ouvrir-client-suvi" data-cle="${esc(cle)}">Ouvrir le dossier ›</button>` : "");
   if (princ || liens) corps += `<div class="fiche-gestes" style="margin:0 0 12px">${princ ? `<div class="gestes-principal">${princ}</div>` : ""}${liens ? `<div class="gestes-liens">${liens}</div>` : ""}</div>`;
-  if (!brouillon) corps += `<p class="sub" style="margin:-4px 0 12px;font-size:.75rem">Simulation : si la fenêtre d’impression ne s’ouvre pas, c’est la visionneuse qui la bloque. Dans la vraie version, la fiche part à l’imprimante.</p>`;
   corps += `<div class="fiche-apercu atl-apercu">${ficheAtelierHtml(f)}</div>`;
+  if (!brouillon) corps += `<p class="sub atl-note-impr">Si la fenêtre d’impression ne s’ouvre pas, c’est la visionneuse qui la bloque (simulation).</p>`;   // 17 oct. 2026 : sous l'aperçu, en petit
   const cmds = f.equip.filter(e => e.cmdId && cmdOf(e.cmdId)).map(e => cmdOf(e.cmdId));
   if (cmds.length && canSeeCmd()) corps += `<h4>Montures dans l’onglet Commandes</h4><ul class="list-plain proc-liens">${cmds.map(c => `<li><button type="button" class="lien" data-action="open-commande" data-cmd="${c.id}">${esc(c.marque + " " + c.modele)} ›</button> <span class="sub">${esc(etatOf(c.statut).label.toLowerCase())}</span></li>`).join("")}</ul>`;
   if (eds.length > 1) corps += `<h4>Éditions de la fiche n° ${numAtl(f)}</h4><ul class="list-plain proc-liens">${eds.map(x => `<li>${x.id === f.id ? "<b>" : ""}${ordinal(x.edition)} édition, le ${esc(fmtLong.format(parseKey(x.editeeLe)))} à ${esc(x.editeeA)} par ${esc(quiNom(x.par))}${x.id === f.id ? "</b>" : ` <button type="button" class="lien" data-action="open-atelier" data-fa="${x.id}"><b>Voir ›</b></button>`}${x.statut === "remplacee" ? ` <span class="sub">remplacée</span>` : ` <span class="sub">en vigueur</span>`}</li>`).join("")}</ul>`;
@@ -23061,6 +23061,7 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 :is(#drawer, #app, #feuille) .gestes-liens > label:not(#luxe):hover{text-decoration:underline;text-underline-offset:3px}
 :is(#drawer, #app, #feuille) .fm-etape-gestes:not(#luxe){display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
 @media (max-width:760px){ :is(#drawer, #app, #feuille) .gestes-liens > label:not(#luxe){min-height:44px} }
+#drawer .atl-note-impr:not(#luxe){margin:8px 0 0;font-size:12px;line-height:1.4}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
