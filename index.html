@@ -7122,8 +7122,8 @@ async function partagerPj(d){
 }
 function boutonsPj(d){
   if (!d.fichier || !dupOuverte(d) || !peutDup()) return "";
-  return `<button type="button" class="btn small" data-action="dup-telecharger" data-dup="${d.id}">Télécharger</button>`
-    + (peutPartagerFichier() ? `<button type="button" class="btn small" data-action="dup-partager" data-dup="${d.id}">Partager</button>` : "");
+  return `<button type="button" data-action="dup-telecharger" data-dup="${d.id}">Télécharger</button>`
+    + (peutPartagerFichier() ? `<button type="button" data-action="dup-partager" data-dup="${d.id}">Partager</button>` : "");
 }
 
 /* ---------- Message à copier pour le cabinet (v67) ----------
@@ -7270,9 +7270,10 @@ function drawerDuplicata(d){
     corps += dupMsgPanneau(d);
   } else if (d.msgSupprimeLe) corps += `<p class="sub dup-pj-sup">Message (naissance, n° de sécu, corrections) effacé le ${esc(fmtLong.format(parseKey(d.msgSupprimeLe)))}, à l’envoi.</p>`;
   corps += `<h4>Ordonnance jointe</h4>` + pieceJointeHtml(d.fichier, d.fichierSupprimeLe);
-  if (boutonsPj(d)) corps += `<div class="row dup-pj-boutons">${boutonsPj(d)}</div>`;
-  if (gerer && dupOuverte(d)) corps += `<div class="row" style="margin-top:8px;gap:8px"><label class="btn small dup-joindre"><span>${d.fichier ? "Remplacer la pièce jointe" : "Joindre l’ordonnance"}</span><input type="file" accept="image/*,application/pdf" data-edit="dup-fichier-req" data-dup="${d.id}" hidden></label>
-    ${d.fichier ? `<button type="button" class="btn small danger" data-action="dup-fichier-del" data-dup="${d.id}">Retirer</button>` : ""}</div>`;
+  /* 17 oct. 2026 : gestes de la pièce jointe en liens (petits boutons de 30 px sur téléphone), retrait en rouge à droite */
+  { const joindre = gerer && dupOuverte(d) ? `<label class="dup-joindre"><span>${d.fichier ? "Remplacer" : "+ Joindre l’ordonnance"}</span><input type="file" accept="image/*,application/pdf" data-edit="dup-fichier-req" data-dup="${d.id}" hidden></label>` : "";
+    const liens = boutonsPj(d) + joindre, retirer = gerer && dupOuverte(d) && d.fichier ? `<button type="button" data-action="dup-fichier-del" data-dup="${d.id}">Retirer</button>` : "";
+    if (liens || retirer) corps += `<div class="fm-etape-gestes dup-pj-gestes">${liens ? `<div class="gestes-liens">${liens}</div>` : ""}${retirer ? `<div class="gestes-danger" style="border:0;padding-top:0">${retirer}</div>` : ""}</div>`; }
   /* 17 oct. 2026 : rangée comme les fiches chèque et commande (geste principal, liens, annulation à part) */
   const princ = gerer && dupOuverte(d) ? (d.statut === "a_envoyer" ? `<button type="button" class="btn primary" data-action="dup-etat" data-dup="${d.id}" data-etat="envoyee">Marquer envoyée</button>`
     : d.statut === "envoyee" ? `<button type="button" class="btn primary" data-action="dup-etat" data-dup="${d.id}" data-etat="recue">Duplicata reçu</button>` : "") : "";
@@ -23055,6 +23056,11 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .chq-factures:not(#luxe) .cf-total:has(+ .cf-ecart){padding-bottom:0}
 #drawer .chq-factures:not(#luxe) .cf-ecart{color:var(--warn)}
 @media (max-width:760px){ #drawer .chq-factures:not(#luxe) .cf-retirer{width:44px;height:44px;margin:-12px 0 -12px 0} #drawer .chq-factures:not(#luxe) .cf-place{width:44px} }
+/* 17 oct. 2026 : pièce jointe d'un duplicata, gestes en liens (label du fichier compris) */
+:is(#drawer, #app, #feuille) .gestes-liens > label:not(#luxe){display:inline-flex;align-items:center;min-height:36px;font-size:14px;font-weight:500;color:var(--bleu);cursor:pointer;border-radius:6px}
+:is(#drawer, #app, #feuille) .gestes-liens > label:not(#luxe):hover{text-decoration:underline;text-underline-offset:3px}
+:is(#drawer, #app, #feuille) .fm-etape-gestes:not(#luxe){display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
+@media (max-width:760px){ :is(#drawer, #app, #feuille) .gestes-liens > label:not(#luxe){min-height:44px} }
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
