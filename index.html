@@ -8321,14 +8321,16 @@ function verifTxt(t){
   const txt = fmtDay.format(parseKey(t.verifieLe));
   return tarifPerime(t) ? `<span class="abs">${esc(txt)}, à revérifier</span>` : `<span class="sub">${esc(txt)}</span>`;
 }
-function actionsTarif(t, i, g, gerer, proposer){
-  return `<span class="skill-row sv-actions">
-    ${proposer && !t.signal ? `<button type="button" class="btn small" data-action="tarif-signal" data-tarif="${t.id}">Signaler</button>` : ""}
-    ${t.signal ? `<span class="abs">signalé</span>` : ""}
-    ${gerer ? `<button type="button" class="btn small" data-action="tarif-modifier" data-tarif="${t.id}">Modifier</button>
-      <button type="button" class="btn small" data-action="tarif-up" data-tarif="${t.id}" ${i === 0 ? "disabled" : ""} aria-label="Monter">↑</button>
-      <button type="button" class="btn small" data-action="tarif-down" data-tarif="${t.id}" ${i === g.items.length - 1 ? "disabled" : ""} aria-label="Descendre">↓</button>
-      <button type="button" class="btn small danger" data-action="tarif-del" data-tarif="${t.id}" aria-label="Retirer">×</button>` : ""}</span>`;
+/* 17 oct. 2026 : fiche d'un prix rangée comme les autres fiches (geste principal, liens, retrait à part) */
+function actionsTarif(t, i, g, gerer, proposer, pr){
+  const signaler = proposer && !t.signal ? `<button type="button" class="btn${gerer ? "" : " primary"}" data-action="tarif-signal" data-tarif="${t.id}">Signaler</button>` : "";
+  const princ = gerer ? `<button type="button" class="btn" data-action="tarif-modifier" data-tarif="${t.id}">Modifier</button>` : signaler;
+  const liens = (pr ? `<button type="button" data-action="open-produit" data-prod="${pr.id}">Voir le verre au catalogue ›</button>` : "")
+    + (gerer && proposer && !t.signal ? `<button type="button" data-action="tarif-signal" data-tarif="${t.id}">Signaler</button>` : "")
+    + (gerer && i > 0 ? `<button type="button" data-action="tarif-up" data-tarif="${t.id}">Monter dans la grille ↑</button>` : "")
+    + (gerer && i < g.items.length - 1 ? `<button type="button" data-action="tarif-down" data-tarif="${t.id}">Descendre ↓</button>` : "");
+  return `<div class="fiche-gestes">${princ ? `<div class="gestes-principal">${princ}</div>` : ""}${liens ? `<div class="gestes-liens">${liens}</div>` : ""}
+    ${gerer ? `<div class="gestes-danger"><button type="button" data-action="tarif-del" data-tarif="${t.id}">Retirer de la grille</button></div>` : ""}</div>`;
 }
 /* 13 oct. 2026 (essai) : la ligne ne montre que le verre, son prix limite et ce qui cloche ; code, date de vérification, remarque et actions sont dans le panneau (drawerTarif) */
 const etatTarif = t => (tarifPerime(t) ? `<span class="abs">à revérifier</span>` : "") + (t.signal ? ` <span class="abs">signalé</span>` : "");
@@ -8360,8 +8362,8 @@ function drawerTarif(t){
     ${t.signal ? ligneInfo("Signalement", `<span class="abs">signalé, à vérifier</span>`) : ""}
     ${voitMarge() ? ligneInfo("PA par unité", pr ? `<button type="button" class="lien" data-action="open-produit" data-prod="${pr.id}">${pr.achat == null ? "—" : eur(pr.achat)} <span class="sub">catalogue</span></button>` : (achatV == null ? "" : eur(achatV))) : ""}
     ${voitPA() && cout != null ? ligneInfo("Coût du dossier", eur(cout)) : ""}
-    ${voitMarge() && marge != null ? ligneInfo("Marge", `<b style="color:${marge > 0 ? "var(--good)" : "var(--warn)"}">${eur(marge)}</b>`) : ""}`,
-    pied:gerer || proposer || t.signal ? actionsTarif(t, i, {items}, gerer, proposer) : ""};
+    ${voitMarge() && marge != null ? ligneInfo("Marge", `<b style="color:${marge > 0 ? "var(--good)" : "var(--warn)"}">${eur(marge)}</b>`) : ""}
+    ${actionsTarif(t, i, {items}, gerer, proposer, pr)}`};
 }
 function rechercheInverse(q, gerer){
   const trouves = tarifsValides().filter(t => sansAccent(t.produit).includes(q) || sansAccent(t.code || "").includes(q))
@@ -22996,7 +22998,7 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 /* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
 :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
 
-/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour, produit) (demande de Mohamed : « trop fouillis ») =====
+/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour, produit, prix) (demande de Mohamed : « trop fouillis ») =====
    facture à rattacher repliée, geste principal seul, liens discrets, annuler et supprimer à part */
 #drawer .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
 #drawer .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
