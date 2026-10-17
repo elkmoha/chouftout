@@ -24133,10 +24133,15 @@ html.mode-cosium.cosium-cote .ct-lien b{font-weight:500; font-variant-numeric:ta
 html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 /* 17 oct. 2026 : téléphone, la bande du haut descend sous l'heure et la batterie (viewport-fit=cover : la page passe dessous ; Safari y floute le haut) */
 @media (max-width:760px){
-  :root{--tel-sur:calc(env(safe-area-inset-top, 0px) + min(env(safe-area-inset-top, 0px), 12px)); --tel-haut:calc(52px + var(--tel-sur))}   /* 18 oct. : 12 px de plus sous la zone de l'heure quand elle existe (le haut paraissait collé au fondu) */
+  :root{--tel-sur:env(safe-area-inset-top, 0px); --tel-haut:calc(52px + var(--tel-sur))}
   :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-marque{top:calc(10px + var(--tel-sur))}
   :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-compte{top:calc(7px + var(--tel-sur))}
   :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-mag{top:calc(10px + var(--tel-sur))}
+}
+</style>
+<style id="bande-sous-heure">/* 18 oct. 2026 : iPhone (Safari 26 et écran d'accueil), la page défile sous l'heure et la batterie, au-dessus du haut de la fenêtre : le fond de la bande remonte de 150 px pour la masquer (plus de texte ni de fondu derrière l'heure) */
+@media (max-width:760px){
+  html[data-ecran]::before, html[data-ecran]:has(#barreCT .segmente)::before, html[data-ecran]:has(body.mode-dossiers)::before{top:-150px; height:calc(var(--tel-haut) + 150px)}
 }
 </style>
 <style id="champs-16-tactile">/* 18 oct. 2026 : écran tactile, champs en 16 px (sinon iOS agrandit la page au toucher) */
