@@ -9264,7 +9264,8 @@ function drawerConge(){
   if (!can("conges.demander") || !moi) return null;
   const miennes = S.conges.filter(c => c.pid === moi).sort((x, y) => y.demandeLe.localeCompare(x.demandeLe));
   return {titre:gerer ? "Poser un congé" : "Demander un congé",
-    sous:gerer ? "Tu gères les congés : les tiens sont enregistrés directement, sans demande, et le planning se met à jour." : "La demande n’apparaît dans le planning qu’une fois acceptée par la direction.", corps:`
+    sous:gerer ? "Enregistré directement" : "Demande à la direction", corps:`
+    <p class="sub" style="margin:0 0 12px">${gerer ? "Tu gères les congés : les tiens sont enregistrés directement, sans demande, et le planning se met à jour." : "La demande n’apparaît dans le planning qu’une fois acceptée par la direction."}</p>
     <form class="fiche-form fiche-form-seule" data-form="add-conge">
       <label class="dp-champ"><span>Du</span><input class="inp" type="date" name="from" required></label>
       <label class="dp-champ"><span>Au</span><input class="inp" type="date" name="to" required></label>
@@ -11299,6 +11300,8 @@ function renderDrawer(){
 }
 /* 11 oct. 2026 (essai) : gabarit commun au panneau et aux fiches flottantes (fl = clé de la fiche flottante) */
 const drawerHTML = (contenu, fl) => {
+  // 17 oct. 2026 : un sous-titre qui est une phrase (plus de 50 signes) ne va pas en surtitre : il devient l'introduction du contenu
+  if ((contenu.sous || "").length > 50 && !contenu.introFaite) contenu = Object.assign({}, contenu, {sous:"", introFaite:true, corps:`<p class="sub dr-intro">${esc(contenu.sous)}</p>` + contenu.corps});
   const ag = fl ? "Rouvrir en panneau" : S.drAgrandi ? "Réduire sur le côté" : "Agrandir en fenêtre", cible = fl ? ` data-fl="${esc(fl)}"` : "";
   return `<div class="poignee" aria-hidden="true"></div><header class="dr-head"><div><h2>${contenu.titreCopie ? copiable(contenu.titre) : esc(contenu.titre)}</h2><p class="sub">${esc(contenu.sous)}</p></div>
     <div class="dr-boutons"><button type="button" class="rond rond-petit dr-agrandir" data-action="${fl ? "flotte-panneau" : "drawer-agrandir"}"${cible} aria-pressed="${!fl && !!S.drAgrandi}" aria-label="${ag}" title="${ag}">
@@ -23114,6 +23117,10 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 }
 #drawer.agrandie .dr-pied > .fiche-gestes:not(#luxe){width:100%;margin:0}
 @media (min-width:761px){ :root:root:root body #drawer.drawer.dr-fond.agrandie:not(#luxe) .dr-pied:has(> .fiche-gestes){grid-row:2;align-self:start;flex-direction:column;gap:14px;padding:28px 40px 40px} }
+#drawer .dr-intro:not(#luxe){margin:0 0 14px;font-size:.875rem;line-height:1.45;color:var(--second)}
+#drawer .dr-head .sub:empty{display:none}
+/* 17 oct. 2026 : tâche du jour, « Confiée à » : le prénom (menu d'attribution) se touche sur 40 px */
+@media (max-width:760px){ :is(#drawer, .fl-carte) .dt-tuile :is(.dt-qui, .dt-libre):not(#luxe){min-height:40px;display:inline-flex;align-items:center} }
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
