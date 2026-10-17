@@ -23099,6 +23099,13 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   #app:not(#luxe) .fm-infos .dr-l:first-child{border-top:0}
   #app:not(#luxe) .fm-infos .dr-l span{font-size:.8125rem}
 }
+/* 17 oct. 2026 : fiche client sur téléphone : dates à libellé long empilées (aide lisible, à gauche), étapes du parcours plus hautes au doigt */
+@media (max-width:760px){
+  :root:root:root body #feuille .ld:has(> input[type=date]):not(#luxe){flex-direction:column;align-items:stretch;gap:8px}
+  :root:root:root body #feuille .ld:has(> input[type=date]):not(#luxe) .petit{display:block;text-align:left;margin-top:4px;font-size:.8125rem;line-height:1.4}
+  :root:root:root body #feuille .ld:has(> input[type=date]):not(#luxe) > input[type=date]{align-self:flex-start;min-height:44px}
+  :root:root:root body #feuille ol.parcours:not(#luxe) .etape-btn{min-height:36px}
+}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
