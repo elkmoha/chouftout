@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>/* 18 oct. 2026 : iPhone, pas d'agrandissement automatique en touchant un champ (le pincement reste possible sur iOS) */
+if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) document.querySelector('meta[name="viewport"]').content += ", maximum-scale=1";</script>
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Chouf’Tout bêta</title>
@@ -24131,11 +24133,14 @@ html.mode-cosium.cosium-cote .ct-lien b{font-weight:500; font-variant-numeric:ta
 html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 /* 17 oct. 2026 : téléphone, la bande du haut descend sous l'heure et la batterie (viewport-fit=cover : la page passe dessous ; Safari y floute le haut) */
 @media (max-width:760px){
-  :root{--tel-sur:env(safe-area-inset-top, 0px); --tel-haut:calc(52px + var(--tel-sur))}
+  :root{--tel-sur:calc(env(safe-area-inset-top, 0px) + min(env(safe-area-inset-top, 0px), 12px)); --tel-haut:calc(52px + var(--tel-sur))}   /* 18 oct. : 12 px de plus sous la zone de l'heure quand elle existe (le haut paraissait collé au fondu) */
   :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-marque{top:calc(10px + var(--tel-sur))}
   :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-compte{top:calc(7px + var(--tel-sur))}
   :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-mag{top:calc(10px + var(--tel-sur))}
 }
+</style>
+<style id="champs-16-tactile">/* 18 oct. 2026 : écran tactile, champs en 16 px (sinon iOS agrandit la page au toucher) */
+@media (pointer:coarse){ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea{font-size:max(16px, 1em) !important} }
 </style>
 <script id="charge-js">document.documentElement.classList.add("charge");   // 16 oct. 2026 : tous les styles sont lus, la page peut s'afficher</script>
 </body>
