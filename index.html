@@ -14018,22 +14018,27 @@ benali.avoirs = [{montant:150, motif:"Geste commercial sur les lentilles (septem
 const moi = () => auteur();
 // Un dossier clôturé (équipement clôturé, ou tout payé/annulé) ou archivé ne s'affiche que dans la vue « Clôturés »
 const enCours = l => !l.archive && !estProgramme(l) && !clos(l);
+// 17 oct. 2026 : tous les équipements (hors annulés) facturés ou payés, au moins un pas encore payé ; ces dossiers ne sont que dans « Facturés »
+const factureTout = l => { const its = l.items.filter(i => i.a !== "annule"); return its.length > 0 && its.every(i => ["facture", "s_facture", "paye", "s_paye"].includes(i.a)) && its.some(i => i.a === "facture" || i.a === "s_facture"); };
+const aSuivre = l => enCours(l) && !factureTout(l);
 const RAPIDES = [
-  {k:"tous", lib:"Tous", test:enCours},
-  {k:"mes", lib:"Mes dossiers", test:l => enCours(l) && !!moi() && l.c.conseiller === moi()},
+  {k:"tous", lib:"Tous", test:aSuivre},
+  {k:"mes", lib:"Mes dossiers", test:l => aSuivre(l) && !!moi() && l.c.conseiller === moi()},
   {k:"relancer", lib:"En retard", urgent:true, get aide(){ return `Action en retard, aucun mouvement depuis plus de ${REGLAGES.immobile} jours, client prévenu qui ne vient pas, ou essai de lentilles sans retour`; },
-    test:l => enCours(l) && (vieux(l) || acts(l).some(a => a.echeance && a.echeance < isoJour()) || essaiDepasse(l) || prevenuARelancer(l))},
-  {k:"perime", lib:"Bientôt périmé", urgent:true, get aide(){ return `Accord de prise en charge qui expire dans les ${REGLAGES.perime} jours, ou déjà expiré : à facturer en priorité`; }, test:l => enCours(l) && accordsEnJeu(l).length > 0},
-  {k:"livrer", lib:"Prêts à livrer", aide:"Équipement prêt, à remettre au client", test:l => enCours(l) && l.equip === "pret"},
+    test:l => aSuivre(l) && (vieux(l) || acts(l).some(a => a.echeance && a.echeance < isoJour()) || essaiDepasse(l) || prevenuARelancer(l))},
+  {k:"perime", lib:"Bientôt périmé", urgent:true, get aide(){ return `Accord de prise en charge qui expire dans les ${REGLAGES.perime} jours, ou déjà expiré : à facturer en priorité`; }, test:l => aSuivre(l) && accordsEnJeu(l).length > 0},
+  {k:"livrer", lib:"Prêts à livrer", aide:"Équipement prêt, à remettre au client", test:l => aSuivre(l) && l.equip === "pret"},
   {k:"livres", lib:"Livrés incomplets", urgent:true, aide:"Équipement déjà livré alors que le BL n’est pas commandé, ou qu’un équipement n’a pas encore sa prise en charge (avant PEC OK) ou l’accord du client",
-    test:l => enCours(l) && l.equip === "livre" && l.items.some(i => i.bl === "non" || ["a_traiter", "devis", "instance", "s_traiter"].includes(i.a))},
+    test:l => aSuivre(l) && l.equip === "livre" && l.items.some(i => i.bl === "non" || ["a_traiter", "devis", "instance", "s_traiter"].includes(i.a))},
   /* 16 oct. 2026 (demande de Mohamed) : les étapes du parcours, regroupées en 4 cartes (plus Tous et À facturer) */
-  {k:"traiter", lib:"À traiter", aide:"Prise en charge ou devis à faire, devis en attente du client, refus à résoudre", test:l => enCours(l) && l.items.some(i => ["a_traiter", "s_traiter", "devis", "refuse"].includes(i.a))},
-  {k:"mutuelle", lib:"Attente mutuelle", aide:"Demande de prise en charge envoyée, pas encore de réponse", test:l => enCours(l) && l.items.some(i => i.a === "instance")},
-  {k:"commander", lib:"À commander", aide:"PEC OK ou accord du client, BL pas encore commandé", test:l => enCours(l) && l.equip !== "livre" && l.items.some(i => ["pec_ok", "accord"].includes(i.a) && i.bl === "non")},
-  {k:"encours", lib:"En cours", aide:"BL en commande, BL reçu à monter, ou équipement prêt à livrer", test:l => enCours(l) && (l.equip === "pret" || l.items.some(i => i.bl === "cours") || (l.equip === "prep" && l.items.some(i => i.bl === "recu" && !["refuse", "annule"].includes(i.a))))},
+  {k:"traiter", lib:"À traiter", aide:"Prise en charge ou devis à faire, devis en attente du client, refus à résoudre", test:l => aSuivre(l) && l.items.some(i => ["a_traiter", "s_traiter", "devis", "refuse"].includes(i.a))},
+  {k:"mutuelle", lib:"Attente mutuelle", aide:"Demande de prise en charge envoyée, pas encore de réponse", test:l => aSuivre(l) && l.items.some(i => i.a === "instance")},
+  {k:"commander", lib:"À commander", aide:"PEC OK ou accord du client, BL pas encore commandé", test:l => aSuivre(l) && l.equip !== "livre" && l.items.some(i => ["pec_ok", "accord"].includes(i.a) && i.bl === "non")},
+  {k:"encours", lib:"En cours", aide:"BL en commande, BL reçu à monter, ou équipement prêt à livrer", test:l => aSuivre(l) && (l.equip === "pret" || l.items.some(i => i.bl === "cours") || (l.equip === "prep" && l.items.some(i => i.bl === "recu" && !["refuse", "annule"].includes(i.a))))},
   {k:"facturer", lib:"À facturer", aide:"Livré, prise en charge ou accord obtenu, pas encore facturé",
-    test:l => enCours(l) && l.equip === "livre" && l.items.some(i => i.a === "pec_ok" || (i.a === "accord" && !bloque(l)))},
+    test:l => aSuivre(l) && l.equip === "livre" && l.items.some(i => i.a === "pec_ok" || (i.a === "accord" && !bloque(l)))},
+  /* 17 oct. 2026 (demande de Mohamed) : dossier dont tous les équipements sont facturés : isolé ici, retiré des autres vues de suivi */
+  {k:"factures", lib:"Facturés", aide:"Tous les équipements du dossier sont facturés : en attente du paiement de la mutuelle ou du client", test:l => enCours(l) && factureTout(l)},
   {k:"encaisser", lib:"Reste à encaisser", aide:"Le récapitulatif a un reste à charge à encaisser ou à reporter", test:l => enCours(l) && soldeClient(l.c)?.cl === "du"},
   /* 14 oct. 2026 (essai, deux magasins) : dossiers confiés à l'autre magasin ; il les traite, la vente reste comptée dans le magasin du dossier */
   {k:"confie", get lib(){ const m = magInfo(); return m && m.autre ? "Confiés à " + (m.visite ? m.de : m.autre.nom) : "Confiés"; },
@@ -14070,9 +14075,9 @@ const magInfo = () => window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufA
 const RAPIDES_PLUS = ["mes", "relancer", "perime", "livres", "encaisser", "confie", "livrer", "prog", "renouv", "clos"];   // 16 oct. 2026 : tout ce qui n'a pas de carte, dans « Autres vues »
 /* 11 oct. 2026 (essai) : sur ordinateur, les vues sont des tuiles teintées dans une bande qui déborde ; toutes y sont, sans « Plus » */
 const BANDE_VUES = matchMedia("(min-width:1px)");   // 12 oct. 2026 : tuiles aussi sur téléphone
-const RAPIDE_C = {traiter:"--pj-bleu", mutuelle:"--pj-rose", commander:"--pj-or", encours:"--vert", tous:"--pj-bleu", mes:"--pj-cyan", relancer:"--rouge", perime:"--orange", livrer:"--vert", livres:"--pj-rose", facturer:"--violet", encaisser:"--pj-or", prog:"--pj-cyan", renouv:"--pj-or", clos:"--second", confie:"--pj-cyan"};
+const RAPIDE_C = {traiter:"--pj-bleu", mutuelle:"--pj-rose", commander:"--pj-or", encours:"--vert", tous:"--pj-bleu", mes:"--pj-cyan", relancer:"--rouge", perime:"--orange", livrer:"--vert", livres:"--pj-rose", facturer:"--violet", factures:"--pj-cyan", encaisser:"--pj-or", prog:"--pj-cyan", renouv:"--pj-or", clos:"--second", confie:"--pj-cyan"};
 const RAPIDE_SOUS = {traiter:"PEC, devis, refus", mutuelle:"demande envoyée", commander:"BL pas commandé", encours:"commande, montage, prêt", confie:"traités par l’autre magasin", tous:"en cours de suivi", mes:"ceux que je suis", relancer:"action en retard ou sans mouvement", perime:"accords à facturer vite", livrer:"équipement prêt, à remettre",
-  livres:"BL ou prise en charge à régulariser", facturer:"livrés, accord obtenu", encaisser:"reste à charge à régler", prog:"renouvellements en attente", renouv:"clients à rappeler", clos:"payés, annulés ou archivés"};
+  livres:"BL ou prise en charge à régulariser", facturer:"livrés, accord obtenu", factures:"attente du paiement", encaisser:"reste à charge à régler", prog:"renouvellements en attente", renouv:"clients à rappeler", clos:"payés, annulés ou archivés"};
 function visibles(){
   const q = plat(filtre.q.trim()), R = RAPIDES.find(r => r.k === filtre.rapide) || RAPIDES[0];
   const cles = new Map(clientsDe().map(c => [c, cleTri(c)]));
@@ -14096,7 +14101,7 @@ function rendreFiltres(){
     return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.aide ? ` title="${r.aide}"` : r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${RAPIDE_SOUS[r.k]}</small></button>`; };
   // « Programmés » sort de « Plus » tant qu'un renouvellement attend d'être activé
   /* 16 oct. 2026 (demande de Mohamed) : six cartes dans l'ordre du parcours ; les alertes en pastille orange sur leur carte ; le reste dans « Autres vues » */
-  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer"];
+  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer", "factures"];
   const PASTILLES = {tous:["relancer", "livres"], facturer:["perime", "encaisser"]};   // « confiés » : déjà le bandeau sous les cartes
   const PAST_LIB = {relancer:"en retard", livres:"incomplets", perime:"périmés", encaisser:"à encaisser"};
   const parcours = ORDRE_VUES.map(k => RAPIDES.find(r => r.k === k)).filter(Boolean);
@@ -17019,7 +17024,7 @@ const coteLarge = () => {
 };
 /* Aucun client ouvert dans Cosium : les indicateurs du suivi, comme les vues rapides de Dossiers (9 oct. 2026, demande de Mohamed) */
 /* 16 oct. 2026 : les six cartes des Dossiers ; les alertes en pastilles orange, seulement s'il y en a */
-const COTE_KPI = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer"], COTE_ALERTES = ["relancer", "livres", "perime", "encaisser"];
+const COTE_KPI = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer", "factures"], COTE_ALERTES = ["relancer", "livres", "perime", "encaisser"];
 const coteKpi = () => { const nb = k => { const r = RAPIDES.find(x => x.k === k); return r ? LIGNES.filter(r.test).length : 0; };
   const al = COTE_ALERTES.map(k => [k, nb(k), RAPIDES.find(x => x.k === k)]).filter(([, n, r]) => n && r);
   return `<div class="ct-client"><div class="ct-sur">Suivi du magasin</div><div class="ct-nom">Dossiers</div></div>
