@@ -23164,8 +23164,35 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 /* Planning : les points de présence (9 px) se touchent sur 25 px de haut, sans changer leur aspect (en largeur, jusqu'au point voisin) */
 #app:not(#luxe) .rp-pt{position:relative}
 #app:not(#luxe) .rp-pt::before{content:"";position:absolute;inset:-8px -1.5px}
-/* Téléphone : pages de la fiche client, fiche et Réglages à taille de doigt */
-@media (max-width:760px){
+/* 17 oct. 2026 : tablette. Entre 761 et 1 180 px, la ligne d'un duplicata (4 colonnes, ≈ 1 080 px au minimum) débordait de l'écran : deux rangées */
+@media (min-width:761px) and (max-width:1180px){
+  #app:not(#luxe) .dup-entete{display:none}
+  #app:not(#luxe) .dup-liste .dup-card{grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); grid-template-areas:"client actions" "cab quand" "tags tags"; padding:16px 20px}
+  #app:not(#luxe) .dup-liste .dup-card > .dup-actions{flex-wrap:wrap}
+}
+/* 17 oct. 2026 : Planning sur téléphone, le jour choisi gardait son texte blanc sur le fond à 6 % des « restes de l'ancien design » (illisible en clair) */
+:root:root:root body .rp-onglet[aria-selected="true"]:not(#luxe):not(#luxe-b){background-color:var(--primaire)}
+:root:root:root body .rp-onglet[aria-selected="true"]:not(#luxe):not(#luxe-b) :is(span, b){color:var(--sur-primaire)}
+:root #app:not(#luxe) .rp-onglet.closed:not([aria-selected="true"]) b{color:var(--second)}   /* jour fermé : 2,9:1 avec --tert */
+/* Barre du haut, sous ≈ 1 400 px (portable, tablette) : la 1re colonne pouvait rétrécir sous la largeur du sélecteur de magasin ; la pilule des écrans recouvrait alors « 5 » (impossible à cliquer). Elle garde sa largeur, les écrans en trop passent dans « Plus » */
+@media (min-width:761px){ :root:root:root:root:root #app:not(#luxe) .nav-globale .nav-int{grid-template-columns:minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr)} }
+/* Écran tactile plus large qu'un téléphone (iPad) : boutons et cases à taille de doigt, comme sur téléphone ; à la souris, rien ne change */
+@media (min-width:761px) and (pointer:coarse){
+  :root:root:root body #app .view:not(#luxe) .btn{min-height:40px}
+  :root:root:root body #app:not(#luxe) .nav-sortir{min-width:40px;min-height:40px}
+  :root:root:root body #app .view:not(#luxe) .mini{min-width:36px;min-height:36px}
+  :root:root:root body #zone-suivi:not(#luxe) .act-coche{width:28px;height:28px;min-width:28px}
+  :root:root:root body #app .view:not(#luxe) .fav-btn{min-width:40px;min-height:40px}
+  :root:root:root body #app .view:not(#luxe) :is(.rp-cb, .rp-plus, .rp-add, .aide-btn){width:36px;height:36px;min-width:36px}
+  :root:root:root body #app .view:not(#luxe) .rp-nom{min-height:32px;display:inline-flex;align-items:center}
+  :root:root:root body #app .view:not(#luxe) .rp-fermer{min-height:36px;padding-inline:10px}
+  :root:root:root body :is(#app, #zone-suivi):not(#luxe) .lien-client{min-height:36px}
+  :root:root:root body #feuille ol.parcours:not(#luxe) .etape-btn{min-height:36px}
+  :root:root:root body #zone-suivi:not(#luxe) .act-coche{width:28px;height:28px;min-width:28px}
+  :root:root:root body .settings-layout:not(#luxe) .pastille-accent{width:36px;height:36px}
+}
+/* Téléphone (et écran tactile plus large, iPad) : pages de la fiche client, fiche et Réglages à taille de doigt */
+@media (max-width:760px), (pointer:coarse){
   :root:root:root body #feuille:not(#luxe) .retour{min-height:44px}
   :root:root:root body #feuille:not(#luxe) .copiable:not(.copie-ico){min-height:44px;margin-top:-8px;margin-bottom:-8px;display:inline-flex;align-items:center}
   :root:root:root body #feuille:not(#luxe) :is(.copie-ico, #voirSecu){min-width:40px;min-height:40px}
@@ -23184,6 +23211,12 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   :root:root:root body #feuille:not(#luxe) .ld > .montant-champ{min-height:40px;align-items:center}
   :root:root:root body #feuille:not(#luxe) button.rc-coche{width:36px;height:36px}
   :root:root:root body #feuille:not(#luxe) .rg-suppr{width:40px;height:40px}   /* « × » d'un règlement encaissé */
+  :root:root:root:root:root #app:not(#luxe) .nav-globale .mag-seg{height:36px;min-width:36px;justify-content:center}   /* « 18 | 5 » */
+  :root:root:root body #app:not(#luxe) .btn.icon{min-width:40px;min-height:40px}
+  :root:root:root body #app .view:not(#luxe) .lien.sub{min-height:40px}
+  :root:root:root body #app .view:not(#luxe) button.cb{position:relative}
+  :root:root:root body #app .view:not(#luxe) button.cb::before{content:"";position:absolute;inset:-10px}   /* case « faite » : touchable sur 40 px, même aspect */
+  :root:root:root body :is(#app, #zone-suivi):not(#luxe) .lien-client{min-height:36px}
   :root:root:root body #feuille:not(#luxe) .info-aide{position:relative}
   :root:root:root body #feuille:not(#luxe) .info-aide::before{content:"";position:absolute;inset:-8px}
 }
