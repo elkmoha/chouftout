@@ -23089,6 +23089,16 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 :root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes > li::before{content:counter(etape, decimal-leading-zero);position:absolute;left:0;top:18px;font-size:.75rem;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--second)}
 :root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes > li + li{background:linear-gradient(90deg, var(--separateur), transparent) top / 100% 1px no-repeat}
 #drawer .proc-liens-gestes:not(#luxe){margin-top:14px}
+/* 17 oct. 2026 : fiche mutuelle sur téléphone : « ? » à côté du choix, informations dans un bloc compact */
+@media (max-width:760px){
+  #app:not(#luxe) .ct-cherche-rang:has(.ct-fiche-choix):not(:has([data-action="fiche-edit"])){flex-wrap:nowrap;gap:8px}
+  #app:not(#luxe) .ct-cherche-rang:has(.ct-fiche-choix):not(:has([data-action="fiche-edit"])) .ct-fiche-choix{flex:1 1 auto}
+  #app:not(#luxe) .ct-cherche-rang:has([data-action="fiche-edit"]) .ct-fiche-choix{flex:1 1 100%}
+  #app:not(#luxe) .fm-infos{border-radius:16px;padding:4px 16px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+  #app:not(#luxe) .fm-infos .dr-l{gap:2px;padding:12px 0}
+  #app:not(#luxe) .fm-infos .dr-l:first-child{border-top:0}
+  #app:not(#luxe) .fm-infos .dr-l span{font-size:.8125rem}
+}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
