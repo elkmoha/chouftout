@@ -9891,7 +9891,8 @@ function magBlocPersonne(p, g){
   const chez = magDe(magPers(p)), autre = MAGASINS.find(m => m.id !== chez.id), ici = chez.id === S.magasin, rf = (p.renforts || []).filter(r => r.to >= TODAY_KEY);
   return `<h4>Magasin</h4>
     <div class="dp-mag" style="--mag:${chez.c}">${magDome(chez.id, "", true)}<span><b>${esc(chez.nom)}</b><small>Magasin de rattachement · sa paie y reste</small></span>
-      ${g && ici && !p.archived ? `<button type="button" class="btn" data-action="pers-mag" data-person="${p.id}" data-mag="${autre.id}">Rattacher à ${esc(autre.nom)}</button>` : ""}</div>
+</div>
+    ${g && ici && !p.archived ? `<div class="gestes-liens"><button type="button" data-action="pers-mag" data-person="${p.id}" data-mag="${autre.id}">Rattacher à ${esc(autre.nom)}</button></div>` : ""}
     ${(p.magHisto || []).map(h => `<p class="sub dp-mag-histo">Depuis le ${fmtDay.format(parseKey(h.le))} · avant : ${esc(magDe(h.de).nom)}</p>`).join("")}
     <div class="dp-abs">${rf.length ? rf.map(r => `<span class="pill">Renfort à ${esc(magDe(r.mag).nom)} ${txtRenfort(r)}${g && ici ? `<button type="button" data-action="del-renfort" data-person="${p.id}" data-renfort="${r.id}" aria-label="Retirer ce renfort">×</button>` : ""}</span>`).join("") : `<span class="sub">Aucun renfort prévu à ${esc(autre.nom)}</span>`}</div>
     ${g && ici && !p.archived ? `<details class="fiche-repli"><summary>+ Ajouter un renfort à ${esc(autre.nom)}</summary><form class="fiche-form" data-form="add-renfort" data-person="${p.id}" data-mag="${autre.id}">
@@ -10129,7 +10130,7 @@ function renderLates(){
 /* ---------- Équipe (admin) ---------- */
 function typicalEditor(p){
   const total = p.typical.reduce((s, t) => s + (t ? shiftMin(t) : 0), 0);
-  return `<details class="typ" ${openAttr("typ-" + p.id)}><summary>Horaires types : ${fmtDur(total)} par semaine (contrat ${p.contract} h)</summary>
+  return `<details class="typ fiche-repli" ${openAttr("typ-" + p.id)}><summary>Horaires types : ${fmtDur(total)} par semaine (contrat ${p.contract} h)</summary>
     <table class="typ-table"><thead><tr><th>Jour</th><th>Type</th><th>Début</th><th>Fin</th><th>Pause</th></tr></thead><tbody>
     ${DAYS.map((dn, d) => { const t = p.typical[d]; const type = !t ? "rest" : t.absence === "École" ? "school" : "work";
       return `<tr><td>${DAYS_SHORT[d]}</td>
@@ -10169,7 +10170,7 @@ function drawerPersonne(p){
     <div class="dp-champs">
       ${g ? `<label class="dp-champ"><span>Statut</span><select class="inp" data-edit="status" data-person="${p.id}" data-key="st-${p.id}">${STATUSES.map(x => `<option ${p.status === x ? "selected" : ""}>${x}</option>`).join("")}</select></label>` : ""}
       <label class="dp-champ"><span>Couleur</span><select class="inp" data-edit="color" data-person="${p.id}" data-key="co-${p.id}">${[0,1,2,3,4,5,6,7].map(n => `<option value="${n}" ${p.color === n ? "selected" : ""}>Couleur ${n + 1}</option>`).join("")}</select></label>
-      <label class="dp-champ"><span>Contrat</span><span class="inline"><input class="inp" type="number" min="1" max="48" step="0.5" style="width:80px" value="${p.contract}" data-edit="contract" data-person="${p.id}" data-key="ct-${p.id}"> h par semaine</span></label>
+      <label class="dp-champ"><span>Contrat, heures par semaine</span><input class="inp" type="number" min="1" max="48" step="0.5" inputmode="decimal" value="${p.contract}" data-edit="contract" data-person="${p.id}" data-key="ct-${p.id}"></label>
     </div>
     ${MULTI && S.magasin ? magBlocPersonne(p, g) : ""}
     <h4>Horaires</h4>${typicalEditor(p)}
@@ -23062,6 +23063,8 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 :is(#drawer, #app, #feuille) .fm-etape-gestes:not(#luxe){display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
 @media (max-width:760px){ :is(#drawer, #app, #feuille) .gestes-liens > label:not(#luxe){min-height:44px} }
 #drawer .atl-note-impr:not(#luxe){margin:8px 0 0;font-size:12px;line-height:1.4}
+/* 17 oct. 2026 : fiche d'une personne, horaires types repliés comme le reste, libellé du contrat avec son unité */
+#drawer .typ.fiche-repli:not(#luxe) > .typ-table{margin:0 12px 12px;width:calc(100% - 24px)}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
