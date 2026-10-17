@@ -24142,6 +24142,8 @@ html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 <style id="bande-sous-heure">/* 18 oct. 2026 : iPhone (Safari 26 et écran d'accueil), la page défile sous l'heure et la batterie, au-dessus du haut de la fenêtre : le fond de la bande remonte de 150 px pour la masquer (plus de texte ni de fondu derrière l'heure) */
 @media (max-width:760px){
   html[data-ecran]::before, html[data-ecran]:has(#barreCT .segmente)::before, html[data-ecran]:has(body.mode-dossiers)::before{top:-150px; height:calc(var(--tel-haut) + 150px)}
+  /* même chose en bas : la page défile aussi sous la barre des écrans, dans la zone de la barre d'accueil (signalé par Mohamed, 18 oct.) ; fond plein à partir du milieu de la barre */
+  html[data-ecran]::after{content:""; position:fixed; left:0; right:0; top:calc(100dvh - 38px - env(safe-area-inset-bottom, 0px)); height:200px; background:var(--fond); z-index:12; pointer-events:none}
 }
 </style>
 <style id="champs-16-tactile">/* 18 oct. 2026 : écran tactile, champs en 16 px (sinon iOS agrandit la page au toucher) */
