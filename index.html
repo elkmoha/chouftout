@@ -5573,6 +5573,9 @@ function renderProcess(){
       ${voitMut ? `<button type="button" class="fchip" data-action="proc-rub" data-rub="mutuelles" aria-pressed="${S.procRub === "mutuelles"}">Mutuelles et plateformes <span>${nbMut}</span></button>` : ""}
     </div>
   </div>`;
+  /* 17 oct. 2026 : guide d'utilisation en PDF (publié à côté de index.html) */
+  if (!S.procRub && (!q || "guide utilisation chouftout mode d emploi pdf".includes(q))) html += `<div class="proc-liste"><a class="card proc-card" href="guide-chouftout.pdf" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><span class="proc-titre">Guide d’utilisation de Chouf’Tout</span>
+    <span class="sub">PDF, 26 pages : tous les écrans expliqués, sommaire cliquable</span></a></div>`;
   const groupes = rubriques().map(r => ({id:r.id, nom:r.nom, items:liste.filter(p => p.rubrique === r.id)})).filter(g => g.items.length);
   const orphelins = liste.filter(p => !rubriques().some(r => r.id === p.rubrique));
   if (orphelins.length) groupes.push({id:"sans", nom:"Sans rubrique", items:orphelins});
