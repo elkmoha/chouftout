@@ -6820,19 +6820,19 @@ function drawerAtelier(f){
   if (brouillon) corps += `<p class="sub" style="margin:0 0 12px">Brouillon commencé le ${esc(fmtLong.format(parseKey(f.creeLe)))}${f.par ? " par " + esc(quiNom(f.par)) : ""} : pas encore imprimé.</p>`;
   if (suivante) corps += `<div class="proc-box warn" style="margin:0 0 12px"><b>Édition remplacée</b><p>Remplacée le ${esc(fmtLong.format(parseKey(suivante.editeeLe)))} par la ${ordinal(suivante.edition)} édition.
     <button type="button" class="lien" data-action="open-atelier" data-fa="${suivante.id}"><b>Voir la fiche en vigueur ›</b></button></p></div>`;
-  const boutons = [];
-  if (brouillon && peutAtelier()){
-    boutons.push(`<button type="button" class="btn primary" data-action="atl-reprendre" data-fa="${f.id}">Reprendre</button>`);
-    boutons.push(`<button type="button" class="btn danger" data-action="atl-supprimer" data-fa="${f.id}">Supprimer le brouillon</button>`);
-  }
-  if (!brouillon) boutons.push(`<button type="button" class="btn${suivante ? "" : " primary"}" data-action="atl-imprimer" data-fa="${f.id}">Imprimer</button>`);
-  if (f.statut === "editee" && peutAtelier()) boutons.push(`<button type="button" class="btn" data-action="atl-corriger" data-fa="${f.id}">Corriger</button>`);
-  if (boutons.length) corps += `<div class="row" style="margin:0 0 12px">${boutons.join("")}</div>`;
+  /* 17 oct. 2026 : rangée comme les fiches chèque, commande et duplicata ; l'aperçu étant long, les gestes restent en haut et la suppression va tout en bas */
+  const princ = brouillon ? (peutAtelier() ? `<button type="button" class="btn primary" data-action="atl-reprendre" data-fa="${f.id}">Reprendre</button>` : "")
+    : `<button type="button" class="btn${suivante ? "" : " primary"}" data-action="atl-imprimer" data-fa="${f.id}">Imprimer</button>`;
+  const cle = (f.dossier || "").trim() ? "d" + f.dossier.trim() : "";
+  const liens = (f.statut === "editee" && peutAtelier() ? `<button type="button" data-action="atl-corriger" data-fa="${f.id}">Corriger</button>` : "")
+    + (cle && suviOk() ? `<button type="button" data-action="ouvrir-client-suvi" data-cle="${esc(cle)}">Ouvrir le dossier ›</button>` : "");
+  if (princ || liens) corps += `<div class="fiche-gestes" style="margin:0 0 12px">${princ ? `<div class="gestes-principal">${princ}</div>` : ""}${liens ? `<div class="gestes-liens">${liens}</div>` : ""}</div>`;
   if (!brouillon) corps += `<p class="sub" style="margin:-4px 0 12px;font-size:.75rem">Simulation : si la fenêtre d’impression ne s’ouvre pas, c’est la visionneuse qui la bloque. Dans la vraie version, la fiche part à l’imprimante.</p>`;
   corps += `<div class="fiche-apercu atl-apercu">${ficheAtelierHtml(f)}</div>`;
   const cmds = f.equip.filter(e => e.cmdId && cmdOf(e.cmdId)).map(e => cmdOf(e.cmdId));
   if (cmds.length && canSeeCmd()) corps += `<h4>Montures dans l’onglet Commandes</h4><ul class="list-plain proc-liens">${cmds.map(c => `<li><button type="button" class="lien" data-action="open-commande" data-cmd="${c.id}">${esc(c.marque + " " + c.modele)} ›</button> <span class="sub">${esc(etatOf(c.statut).label.toLowerCase())}</span></li>`).join("")}</ul>`;
   if (eds.length > 1) corps += `<h4>Éditions de la fiche n° ${numAtl(f)}</h4><ul class="list-plain proc-liens">${eds.map(x => `<li>${x.id === f.id ? "<b>" : ""}${ordinal(x.edition)} édition, le ${esc(fmtLong.format(parseKey(x.editeeLe)))} à ${esc(x.editeeA)} par ${esc(quiNom(x.par))}${x.id === f.id ? "</b>" : ` <button type="button" class="lien" data-action="open-atelier" data-fa="${x.id}"><b>Voir ›</b></button>`}${x.statut === "remplacee" ? ` <span class="sub">remplacée</span>` : ` <span class="sub">en vigueur</span>`}</li>`).join("")}</ul>`;
+  if (brouillon && peutAtelier()) corps += `<div class="fiche-gestes"><div class="gestes-danger"><button type="button" data-action="atl-supprimer" data-fa="${f.id}">Supprimer le brouillon</button></div></div>`;
   return {titre:brouillon ? "Brouillon de fiche atelier" : "Fiche atelier n° " + numAtl(f) + (f.edition > 1 ? ", " + ordinal(f.edition) + " édition" : ""), sous:f.client.trim() || "Client à préciser", corps};
 }
 
