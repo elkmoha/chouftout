@@ -8071,7 +8071,8 @@ function drawerCheque(c){
     ${chqRetard(c) ? `<p class="banner" style="margin-top:8px">Attendu depuis ${chqJours(c)} jours.</p>` : ""}
     ${chqComplet(c) ? ligneInfo("Relance client", chqARelancer(c) ? `<b style="color:var(--orange)">à faire</b>` : `le ${esc(fmtLong.format(parseKey(chqProchaineRelance(c))))}`)
       + (c.relances && c.relances.length ? ligneInfo("Déjà relancé", esc(c.relances.map(r => fmtDay.format(parseKey(r.date))).join(", "))) : "")
-      + (gerer ? `<div class="row" style="margin-top:8px"><button type="button" class="btn small${chqARelancer(c) ? " primary" : ""}" data-action="chq-relance" data-cheque="${c.id}">Client relancé aujourd’hui</button></div>` : "") : ""}
+      + (gerer ? (chqARelancer(c) ? `<div class="gestes-principal" style="margin-top:10px"><button type="button" class="btn" data-action="chq-relance" data-cheque="${c.id}">Client relancé aujourd’hui</button></div>`
+        : `<div class="gestes-liens" style="margin-top:6px"><button type="button" data-action="chq-relance" data-cheque="${c.id}">Client relancé aujourd’hui</button></div>`) : "") : ""}
     ${c.note ? `<p class="obs" style="margin-top:12px">${esc(c.note)}</p>` : ""}
     <h4>Factures réglées (${c.factures.length})</h4>
     ${c.factures.length ? `<ul class="chq-factures">${c.factures.slice().sort((a, b) => a.date.localeCompare(b.date)).map(f => `<li>
