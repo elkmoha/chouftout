@@ -16957,7 +16957,7 @@ addEventListener("message", e => {
   if (!(/^chrome-extension:\/\//.test(e.origin) || (e.origin === location.origin && e.source !== window)) || !e.data || e.data.chouf !== "cosium" || !e.data.demande) return;
   if (EN_COSIUM && e.data.demande.quoi === "suivre"){ bandeauSuivre(e.data.demande); return; }
   if (EN_COSIUM && e.data.demande.quoi === "ordonnance"){ ORDO_ATTENTE = e.data.demande; bandeauOrdo(); return; }
-  if (EN_COSIUM && e.data.demande.quoi === "recap"){ RECAP_ATTENTE = e.data.demande; bandeauRecap(); return; }   // 16 oct. 2026 : onglet Notes de Cosium
+  if (EN_COSIUM && e.data.demande.quoi === "recap"){ console.info("Chouf'Tout : demande de récap reçue", e.data.demande.dossier); RECAP_ATTENTE = e.data.demande; bandeauRecap(); return; }   // 16 oct. 2026 : onglet Notes de Cosium
   if (EN_COSIUM && e.data.demande.quoi === "duplicata"){ DUP_ATTENTE = e.data.demande; bandeauDuplicata(); return; }
   if (EN_COSIUM && e.data.demande.quoi === "pec"){ PEC_ATTENTE = e.data.demande; bandeauPec(); return; }   // 16 oct. 2026
   DEMANDE_COSIUM = e.data.demande; traiterDemandeCosium();
@@ -17142,10 +17142,12 @@ let ORDO_ATTENTE = null, DUP_ATTENTE = null, RECAP_ATTENTE = null, PEC_ATTENTE =
 function bandeauRecap(){   // en attente tant que le compte et la base ne sont pas prêts (relancée toutes les 250 ms)
   const d = RECAP_ATTENTE, ch = window.ChoufAPI; if (!d || !ch || !ch.moi() || !ch.basePrete()) return;
   RECAP_ATTENTE = null;
-  if (document.querySelector(".dialogue-fond, .alerte-fond")) return;
-  const a = document.activeElement; if (ouverte && a && a.matches("input, textarea, select, [contenteditable]")) return;
-  const c = clientCosium(d.dossier); if (!c) return;
-  const ls = LIGNES.filter(l => l.c === c), l = ls.find(x => ilEstEnCours(x)) || ls[ls.length - 1]; if (!l) return;
+  const non = pourquoi => console.info("Chouf'Tout : récap non ouvert (" + pourquoi + ")", d.dossier);   // 17 oct. 2026 : diagnostic
+  if (document.querySelector(".dialogue-fond, .alerte-fond")) return non("fenêtre ouverte");
+  const a = document.activeElement; if (ouverte && a && a.matches("input, textarea, select, [contenteditable]")) return non("saisie en cours");
+  const c = clientCosium(d.dossier); if (!c) return non("client pas suivi");
+  const ls = LIGNES.filter(l => l.c === c), l = ls.find(x => ilEstEnCours(x)) || ls[ls.length - 1]; if (!l) return non("aucune ligne");
+  console.info("Chouf'Tout : récap ouvert", d.dossier);
   if (!ouverte || LIGNES[ficheLi].c !== c) ouvrir(LIGNES.indexOf(l));
   RC_EDIT.clear(); RC_VUE = null; rendreRecap(recapProprio(c)); allerPage(1, "f-recap");
 }
