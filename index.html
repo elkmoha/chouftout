@@ -15681,13 +15681,15 @@ function appliquer(type, li, it, v){
   else if (type === "mode") l.mode = v;
   else if (type === "tp"){
     const i = l.items[it], tp = v === "tp";
-    if (i.tp !== tp){ const vers = tp ? VERS_TP : VERS_STP, d = i.dAdmin || {};
-      i.a = vers[i.a]; i.tp = tp;
-      i.dAdmin = {}; Object.entries(d).forEach(([k, x]) => { const k2 = vers[k]; if (k2 && (!i.dAdmin[k2] || i.dAdmin[k2].t < x.t)) i.dAdmin[k2] = x; });   // dates reprises sur le parcours équivalent
-      datesAdmin(i); }
+    regimeTP(i, tp);
     if (!tp && !l.mode){ l.mode = "cheque"; l.condition = false; }   // un STP a besoin d'un mode de règlement
   }
 }
+// Passage TP ↔ STP d'un équipement : état et dates repris sur le parcours équivalent
+function regimeTP(i, tp){ if (i.tp === tp) return; const vers = tp ? VERS_TP : VERS_STP, d = i.dAdmin || {};
+  i.a = vers[i.a]; i.tp = tp;
+  i.dAdmin = {}; Object.entries(d).forEach(([k, x]) => { const k2 = vers[k]; if (k2 && (!i.dAdmin[k2] || i.dAdmin[k2].t < x.t)) i.dAdmin[k2] = x; });
+  datesAdmin(i); }
 let toastMinuterie = null;
 function toast(texte, annuler, client){
   const t = document.getElementById("toast");
@@ -17003,8 +17005,9 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
   // 17 oct. 2026 (demande de Mohamed) : une ligne en cours sans mutuelle prend aussi celle de la fiche Cosium
   const mutC = d.mut ? MUTUELLES.find(m => plat(m) === plat(d.mut)) || d.mut : "";
   const aPreciser = ci && mutC ? LIGNES.filter(l => l.c === ci && !l.archive && !clos(l) && (!l.mut || l.mut.aPreciser)) : [];
-  aPreciser.forEach(l => { if (!l.mut) l.mut = {nom:mutC, reseau:"Hors réseau"}; l.mut.nom = mutC; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
-    histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${mutC} lue dans Cosium${rc && rc !== "Hors réseau" ? `, réseau ${rc}` : ""}`}); });
+  // 17 oct. 2026 (Mohamed) : une ligne sans mutuelle passe en tiers payant, l'équipe corrige à la main au besoin
+  aPreciser.forEach(l => { if (!l.mut){ l.mut = {nom:mutC, reseau:"Hors réseau"}; l.items.forEach(i => regimeTP(i, true)); } l.mut.nom = mutC; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
+    histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${mutC} lue dans Cosium${rc && rc !== "Hors réseau" ? `, réseau ${rc}` : ""}${l.items.some(i => i.tp) ? " (tiers payant)" : ""}`}); });
   if (aPreciser.length && ouverte) rafraichirFiche();
   if (aRegler.length && ouverte) rafraichirFiche(); BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
 /* Ordonnance du dossier Lunettes ou Lentilles ouvert dans Cosium (9 oct. 2026, demande de Mohamed) : inscrite dans la fiche du client,
