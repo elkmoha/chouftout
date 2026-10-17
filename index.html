@@ -6092,7 +6092,11 @@ window.ChoufAPI = {
   marqueHTML(){ return marqueNav(); },   // 16 oct. 2026 : en-tête de la colonne Cosium
   marque(){ return {logo:S.settings.logo || LOGO_MAGASIN, logoSombre:S.settings.logoSombre || LOGO_MAGASIN_SOMBRE, slogan:S.settings.slogan || ""}; },
   /* La roue du module Dossiers ouvre les Réglages communs */
-  basePrete(){ return basePret || baseEnPanne; },   // 9 oct. 2026 : extension Cosium, attendre les dossiers de la base
+  basePrete(){ return basePret || baseEnPanne; },
+  /* 17 oct. 2026 (demande de Mohamed) : fiches Cosium lues, une ligne de la base par fiche (voir ficheLue) */
+  ficheLue(f){ ficheLue(f); },
+  ficheCosium(dossier){ return ficheBase(dossier); },
+  fichesChercher(q){ return fichesChercher(q); },
   allerDossiers(){ if (S.tab !== "dossiers"){ S.tab = "dossiers"; S.drawer = null; closePopover(); render(); window.scrollTo(0, 0); } },   // 9 oct. 2026
   /* 16 oct. 2026 : raccourcis de la colonne Cosium. Commandes et duplicatas en cours d'un client, ou les compteurs du magasin (sans client) */
   raccourcis(cle){ if (!currentUser()) return null;
@@ -9644,7 +9648,7 @@ let baseDelai = 15e3;
 const BASE_PAR_MAG = new Set(["dossiers", "duplicatas", "fichesAtelier", "numeroAtelier", "commandes", "semaines", "retards", "moisClotures", "journal", "suiviClients", "cheques", "conges", "signalements", "annonces", "notifications", "taches"]);
 const baseMag = () => (typeof S !== "undefined" && S && S.magasin) || (authLire() || {}).mag || "18";   // dans Cosium (un seul magasin) : celui du compte
 const baseMagDe = cle => BASE_PAR_MAG.has(cle) ? baseMag() : "*";
-const baseFiltreMag = () => "magasin=in.(%22*%22,18,5)";   // tous les magasins : l'autre est rangé dans MAG_DONNEES
+const baseFiltreMag = () => "magasin=in.(%22*%22,18,5)&cle=not.like.fiche:*";   // 17 oct. 2026 : les fiches Cosium ne sont jamais lues en bloc   // tous les magasins : l'autre est rangé dans MAG_DONNEES
 const baseCle = (m, cle) => m + "|" + cle;
 /* l'autre magasin (rangé dans MAG_DONNEES), au format de la base */
 const baseAutre = () => { const o = MULTI && !DEMO ? MAGASINS.find(m => m.id !== S.magasin && MAG_DONNEES[m.id]) : null; if (!o) return null;
@@ -9660,6 +9664,48 @@ function baseRepartir(rangs){
   const ici = rangs.filter(r => r.magasin === "*" || r.magasin === baseMag() || !r.magasin), ailleurs = rangs.filter(r => r.magasin && r.magasin !== "*" && r.magasin !== baseMag());
   if (ici.length) baseAppliquer(ici);
   [...new Set(ailleurs.map(r => r.magasin))].forEach(m => baseAppliquerAutre(m, ailleurs.filter(r => r.magasin === m)));
+}
+/* 17 oct. 2026 (demande de Mohamed) : chaque fiche Cosium lue est gardée dans la base, suivie ou non : une ligne par fiche
+   (magasin « * », clé « fiche:<n° de dossier> »), lue seulement à la demande (ouverture, recherche) et réécrite seulement si elle a changé :
+   des milliers de fiches ne pèsent ni sur le chargement ni sur les envois. Un champ vide dans Cosium n'efface rien. */
+const FICHES = new Map(), FICHE_FILE = new Map(), FICHE_RECH = {q:null, res:[]};   // FICHES : cache de la session (seule source en démonstration)
+const ficheCle = d => "fiche:" + d;
+async function ficheBase(dossier){
+  if (FICHES.has(dossier)) return FICHES.get(dossier);
+  if (DEMO || !authLire()) return null;
+  try { const r = await baseAppel(`donnees?select=valeur&magasin=eq.*&cle=eq.${encodeURIComponent(ficheCle(dossier))}`);
+    const f = r && r[0] ? r[0].valeur : null; if (f) FICHES.set(dossier, f); return f; }
+  catch (e){ console.warn("Fiche Cosium :", e); return undefined; }
+}
+function ficheLue(f){
+  if (!f || !f.dossier || !currentUser()) return;
+  const suite = (FICHE_FILE.get(f.dossier) || Promise.resolve()).then(async () => {   // deux lectures rapprochées (fiche, puis gestionnaire) : l'une après l'autre
+    const av = await ficheBase(f.dossier); if (av === undefined) return;
+    const n = {nom:f.nom || "", prenom:f.prenom || "", ne:f.ne || (av && av.ne) || "", mut:f.mut || "", gest:f.gest || "", cosium:Object.assign({}, av && av.cosium, f.cosium)};
+    if (!n.gest && av && av.mut === n.mut) n.gest = av.gest || "";   // gestionnaire lu un instant après la fiche
+    const cle = x => JSON.stringify([x.nom, x.prenom, x.ne, x.mut, x.gest, x.cosium]);
+    if (av && cle(av) === cle(n)) return;
+    const rec = Object.assign(n, {lueLe:av && av.lueLe || TODAY_KEY, majLe:TODAY_KEY}); FICHES.set(f.dossier, rec);
+    if (DEMO) return;
+    try { await baseAppel("donnees?on_conflict=magasin,cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify([{magasin:"*", cle:ficheCle(f.dossier), valeur:rec, par:(currentUser() || {}).name || null, session:BASE.session}])}); }
+    catch (e){ FICHES.delete(f.dossier); console.warn("Fiche Cosium :", e); }
+  });
+  FICHE_FILE.set(f.dossier, suite);
+}
+// Recherche : nom, prénom, n° de dossier (chaque mot) ; réponse de la base reçue un instant après, la liste se met alors à jour
+function fichesChercher(q){
+  const p = String(q || "").trim(); if (p.length < 2) return [];
+  if (FICHE_RECH.q === p) return FICHE_RECH.res;
+  FICHE_RECH.q = p; FICHE_RECH.res = [];
+  const mots = sansAccent(p).split(/\s+/).map(m => m.replace(/[^\p{L}\p{N}'-]/gu, "")).filter(Boolean); if (!mots.length) return [];
+  if (DEMO || !authLire()){ FICHE_RECH.res = [...FICHES].filter(([d, f]) => mots.every(m => sansAccent(`${f.nom} ${f.prenom} ${d}`).includes(m))).map(([d, f]) => Object.assign({dossier:d}, f)); return FICHE_RECH.res; }
+  const cond = mots.map(m => `or(valeur->>nom.ilike.*${m}*,valeur->>prenom.ilike.*${m}*,cle.ilike.*${m}*)`).join(",");
+  baseAppel(`donnees?select=cle,valeur&magasin=eq.*&cle=like.fiche:*&and=(${encodeURIComponent(cond)})&limit=8`)
+    .then(r => { if (FICHE_RECH.q !== p) return; FICHE_RECH.res = (r || []).map(x => { const d = x.cle.slice(6); FICHES.set(d, x.valeur); return Object.assign({dossier:d}, x.valeur); });
+      if (FICHE_RECH.res.length && !$("search").hidden) majRecherche(); })
+    .catch(e => console.warn("Fiches Cosium, recherche :", e));
+  return [];
 }
 let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMinuterie = null, baseRefus = new Set();   // baseRefus : ensembles illisibles, jamais renvoyés
 const baseAppel = async (chemin, o = {}) => { const j = await authJeton(); if (!j) throw new Error("base : pas connecté");
@@ -11256,6 +11302,8 @@ function resultatsRecherche(q, autre){   // autre : seulement ce qui appartient 
   const max = 6;
   if (suviOk() && !autre) window.SuviAPI.chercher(q).slice(0, max)
     .forEach(x => out.push({groupe:"Dossiers clients", titre:x.nom, detail:x.detail, action:"client", val:x.cle}));
+  if (suviOk() && !autre && window.SuviAPI.fichesSeules) window.SuviAPI.fichesSeules(q).slice(0, max)   // 17 oct. 2026 : fiches Cosium lues, client sans dossier
+    .forEach(f => out.push({groupe:"Fiches clients sans dossier", titre:f.nom, detail:f.detail, action:"fiche-cosium", val:f.dossier}));
   if (canSeeCmd()) S.commandes.filter(c => [c.client, c.marque, c.modele, c.source].some(v => sansAccent(v || "").includes(q))).slice(0, max)
     .forEach(c => out.push({groupe:"Commandes", titre:c.marque + " " + c.modele, detail:"pour " + c.client + ", " + chqLabelEtat(c), action:"commandes", val:c.client}));
   if (canSeeChq()) S.cheques.filter(c => sansAccent(c.numero).includes(q) || (nomsClientsVisibles() && (sansAccent(c.emetteur).includes(q) || c.factures.some(f => sansAccent(f.client).includes(q))))).slice(0, max)
@@ -11321,6 +11369,7 @@ function allerVersResultat(cible, val, mag){
   if (mag && mag !== S.magasin){ magOuvrir(mag, true); if (S.magasin !== mag) return; }
   if (cible === "client-nom"){ const r = window.SuviAPI.chercher(val)[0]; if (!r){ render(); return; } cible = "client"; val = r.cle; }
   if (cible === "tab"){ S.tab = val; }
+  else if (cible === "fiche-cosium"){ S.tab = "dossiers"; S.drawer = null; render(); window.scrollTo(0, 0); if (window.SuviAPI) window.SuviAPI.ouvrirFicheCosium(val); return; }
   else if (cible === "client"){ S.tab = "dossiers"; S.drawer = null; render(); window.scrollTo(0, 0); if (window.SuviAPI) window.SuviAPI.ouvrirClient(val); return; }
   else if (cible === "commandes"){ S.tab = "commandes"; S.cmdQ = val; S.cmdPour = ""; S.cmdSource = ""; S.cmdQui = ""; S.cmdVue = ""; }
   else if (cible === "cheques"){ S.tab = "cheques"; S.chqQ = val; S.chqEmetteur = ""; S.chqVue = ""; }
@@ -13956,7 +14005,7 @@ const RAPIDES = [
     aide:"Dossiers confiés à l’autre magasin : il les traite, la vente reste comptée ici", test:l => !l.archive && !!l.confie && !!magInfo()},
   {k:"prog", lib:"Programmés", aide:"Renouvellements en attente : à venir, ou à activer (date atteinte)", test:l => !l.archive && estProgramme(l)},
   {k:"renouv", lib:"Échéances", aide:"Clients au dossier clôturé et date de leur prochain renouvellement (lunettes 1 an et 1 jour après la facture, lentilles au 1er janvier) : à rappeler à l’échéance", test:l => renouvDe(l).length > 0},
-  {k:"clos", lib:"Clôturés", aide:"Équipement clôturé, dossier entièrement payé ou annulé, et passages archivés", test:l => !estProgramme(l) && (l.archive || clos(l))},
+  {k:"clos", lib:"Clôturés", aide:"Équipement clôturé, dossier entièrement payé ou annulé, et passages archivés", test:l => !l.fiche && !estProgramme(l) && (l.archive || clos(l))},
 ];
 filtre.rapide = "tous";
 filtre.crit = {cons:new Set(), mut:new Set(), res:new Set(), type:new Set(), regime:new Set(), autres:new Set(), cree:null};
@@ -15004,7 +15053,7 @@ function blocLog(l){
 let PASSAGES_OUVERT = false;
 function blocPassages(c){
   const g = new Map();
-  LIGNES.filter(l => l.c === c && l.archive).forEach(l => { const k = l.archiveLe || ""; g.has(k) ? g.get(k).push(l) : g.set(k, [l]); });
+  LIGNES.filter(l => l.c === c && l.archive && !l.fiche).forEach(l => { const k = l.archiveLe || ""; g.has(k) ? g.get(k).push(l) : g.set(k, [l]); });
   if (!g.size) return "";
   const f = recapProprio(c), ps = [...g].sort((a, b) => b[0].localeCompare(a[0]));
   return `<details class="bloc passages" data-passages-pli${PASSAGES_OUVERT ? " open" : ""}><summary>${ARCH_ICO}<span>Passages précédents</span><span class="petit">${ps.length}</span>${ICO.chevron}</summary>
@@ -15332,7 +15381,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
     : !c.dossier ? `<span class="copie-discrete" title="Importé du suivi sans n° Cosium : il se reliera en ouvrant la fiche du client dans Cosium">Dossier Cosium à relier</span>`   // 15 oct. 2026
     : `<button class="copie-discrete" type="button" data-copie="${c.dossier}" data-quoi="Numéro de dossier" title="Copier le numéro de dossier">Dossier ${c.dossier}</button>`) + ` · <span class="conseiller-choix">${c.conseiller}<select data-conseiller="${idx}" aria-label="Changer le conseiller de ${c.prenom} ${nomCasse(c)}">
       ${[...new Set([...EQUIPE, c.conseiller])].map(n => `<option${n === c.conseiller ? " selected" : ""}>${n}</option>`).join("")}</select></span> · ` +
-    esc(l.mut ? `${l.mut.nom}${l.rang ? (l.rang === 1 ? ", 1re mutuelle" : `, ${l.rang}e mutuelle`) : ""}` : "Sans tiers payant");
+    esc(l.fiche ? "Fiche sans dossier" : l.mut ? `${l.mut.nom}${l.rang ? (l.rang === 1 ? ", 1re mutuelle" : `, ${l.rang}e mutuelle`) : ""}` : "Sans tiers payant");
   // Dates sous le nom : création et dernier changement (rouge au-delà de 14 jours sans mouvement)
   document.getElementById("f-dates").innerHTML = (estProgramme(l) ? `Renouvellement prévu le ${dateISO(l.debut)}` : `Créé le ${ilYa(l.ouvertJ).toLocaleDateString("fr-FR", {day:"numeric", month:"short", year:"numeric"})}`) +
     (estProgramme(l) ? "" : ` · <span class="${vieux(l) ? "vieux" : ""}" title="Dernier changement : ${l.depuis === 0 ? "aujourd’hui" : dateLongue(l.depuis)}">${depuis(l.depuis)}</span>`);
@@ -15430,7 +15479,12 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
         : `<div class="bloc-confie libre" style="--mag:${a.c}"><button type="button" data-confier="${idx}" data-a="${a.id}">${a.dome}Confier à ${esc(a.nom)}</button><span class="petit">Il le verra dans ses dossiers et pourra le traiter. La vente reste comptée à ${esc(mg.nom)}.</span></div>`);
       if (l.rattache) contenu.insertAdjacentHTML("beforeend", `<p class="petit rattache-note">Rattaché à ${esc(mg.nom)} le ${dateISO(l.rattache.le, "short")}${l.rattache.par ? " par " + esc(l.rattache.par) : ""} : il venait de ${esc(window.ChoufAPI.magDe(l.rattache.de).nom)}.</p>`);
       if (mg.perso) contenu.insertAdjacentHTML("beforeend", `<div class="bloc-rattache"><button type="button" data-rattacher="${idx}" data-a="${mg.autre.id}">Rattacher ce dossier à ${esc(mg.autre.nom)}</button><span class="petit">Quand la vente doit changer de magasin : il quitte ${esc(mg.nom)}.</span></div>`); } }
-  if (!estProgramme(l)) contenu.insertAdjacentHTML("beforeend", `<div class="suppr-dossier"><button type="button" class="danger" data-suppr-dossier="${idx}">Supprimer ce dossier</button></div>`);
+  if (l.fiche){ const k = c.cosium || {};   // 17 oct. 2026 : fiche seule (client sans dossier) : ni équipement, ni étapes ; actions, journal et récap
+    contenu.innerHTML = `<div class="bloc fiche-seule"><div class="ld"><span><b>Fiche Cosium, sans dossier</b><span class="petit">${k.mutCosium ? esc(k.mutCosium) + (k.gestCosium ? ", réseau " + esc(k.gestCosium) : "") : "Aucune complémentaire lue"}${k.lu ? " · lue " + esc(k.lu) : ""}</span></span>
+      <button type="button" class="btn-solder" data-fs-suivi="${idx}">+ Ajouter au suivi</button></div>
+      <div class="ld"><span class="petit">Garde ici un ancien récap (page Récapitulatif), des notes ou des actions. La fiche devient un dossier au premier ajout au suivi.</span></div></div>`
+      + blocAction(idx) + blocPassages(c) + (window.ChoufAPI ? window.ChoufAPI.blocFiche(cleClient(c), {nom:nomClient(c), conseiller:c.conseiller || ""}) : ""); }
+  if (!estProgramme(l) && !l.fiche) contenu.insertAdjacentHTML("beforeend", `<div class="suppr-dossier"><button type="button" class="danger" data-suppr-dossier="${idx}">Supprimer ce dossier</button></div>`);
   /* « Équipement » rejoint la rangée des ajouts, placée juste sous les équipements */
   { const eq = contenu.querySelector(":scope > label.ajout"), rangee = contenu.querySelector(":scope > .ajouts-fiche");
     if (eq){ const r = rangee || Object.assign(document.createElement("div"), {className:"ajouts-fiche"}); eq.before(r); r.prepend(eq); } }
@@ -16738,7 +16792,7 @@ function ajouterDepuisCosium(v){
   }
   if (lie) c.autresDossiers = [...(c.autresDossiers || []), v.dossier];
   if (v.cosium) c.cosium = Object.assign({secu:"", ordo:{date:"", prescripteur:""}}, v.cosium, {lu:"le " + dateISO(isoJour(), "short")});   // 9 oct. 2026 : lue par l'extension
-  const tp = !!v.mut, avant = LIGNES.filter(l => l.c === c && l.archive).sort((a, b) => (b.archiveLe || "").localeCompare(a.archiveLe || ""))[0];
+  const tp = !!v.mut, avant = LIGNES.filter(l => l.c === c && l.archive && !l.fiche).sort((a, b) => (b.archiveLe || "").localeCompare(a.archiveLe || ""))[0];
   const enCours = LIGNES.filter(l => l.c === c && !l.archive && !estProgramme(l) && l.mut);
   const l = {c, mut:tp ? {nom:v.mut, reseau:v.reseau || "Hors réseau"} : null, equip:"prep", depuis:0, ouvertJ:0,
     items:v.types.map(t => ({t, tp, a:tp ? "a_traiter" : "s_traiter", bl:"non", devis:null, pec:null})), actions:[], histo:[]};
@@ -16754,10 +16808,13 @@ function ajouterDepuisCosium(v){
   }
   l.histo.unshift({d:isoJour(), par, fait:false, texte:nouveau ? `Client ajouté depuis Cosium (dossier ${v.dossier})`
     : `Nouveau passage${tp ? ` · ${v.mut}` : ""}${avant ? ` · passage précédent clôturé le ${dateISO(avant.archiveLe, "short")}${avant.mut ? ` avec ${avant.mut.nom}` : ""}` : ""}${lie ? ` · fiche Cosium ${v.dossier} liée (doublon)` : ""}${etaitPassage ? ` · ancien client de passage, rattaché à la fiche Cosium ${v.dossier}` : ""}`});
+  const fiches = LIGNES.filter(x => x.c === c && x.fiche);   // 17 oct. 2026 : fiche seule (client sans dossier) : elle devient ce dossier
+  fiches.forEach(x => { l.histo.push(...(x.histo || [])); LIGNES.splice(LIGNES.indexOf(x), 1); });
+  if (fiches.length && (!c.conseiller || c.conseiller === "—")) c.conseiller = auteur() || c.conseiller;
   LIGNES.push(l); rendre();
   const i = LIGNES.indexOf(l); if (VUE !== "cosium") ouvrir(i);
   toast(nouveau ? `Nouveau client ajouté : ${nomClient(c)}` : `Client déjà suivi : nouveau passage ajouté`, () => {
-    LIGNES.splice(LIGNES.indexOf(l), 1);
+    LIGNES.splice(LIGNES.indexOf(l), 1); LIGNES.push(...fiches);
     if (avantChg){ avantChg.progs.forEach(({x, i}) => LIGNES.splice(i, 0, x)); c.accordRenouv = avantChg.accord; c.renouvDepuis = avantChg.depuis; RENOUV_CACHE = null; }
     if (lie) c.autresDossiers = c.autresDossiers.filter(x => x !== v.dossier);
     if (etaitPassage){ const f = recapProprio(c); if (f.recap && f.recap.lignes[v.dossier]){ f.recap.lignes[ancien.dossier] = f.recap.lignes[v.dossier]; delete f.recap.lignes[v.dossier]; }
@@ -16782,9 +16839,9 @@ function rendreBarre(){
     <span class="petit">${ls.length ? `${esc(nomClient(c))} · ${ls.length} ligne${ls.length > 1 ? "s" : ""} en cours${fam ? " · " + esc(fam.nom) : ""}` : esc(nomClient(c))}</span>
     ${ls.length ? `<button type="button" data-bs-replier>${BARRE_REPLIEE ? "Déplier" : "Replier"}</button>` : ""}</div>`;
   if (!ls.length){
-    const ps = LIGNES.filter(l => l.c === c && (l.archive || clos(l))).length, prog = LIGNES.find(l => l.c === c && estProgramme(l));
+    const ps = LIGNES.filter(l => l.c === c && !l.fiche && (l.archive || clos(l))).length, prog = LIGNES.find(l => l.c === c && estProgramme(l));
     z.innerHTML = tete + `<div class="bs-vide"><span><b>Aucun dossier en cours dans le suivi.</b> <span class="petit">${ps ? `${ps} dossier${ps > 1 ? "s" : ""} clôturé${ps > 1 ? "s" : ""} ou archivé${ps > 1 ? "s" : ""}` : "Jamais suivi"}${prog ? ` · renouvellement programmé le ${dateISO(prog.debut, "short")}` : ""}</span></span>
-      ${EN_COSIUM ? mutLue() : ""}<button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>${coteRacc(c)}`;
+      ${EN_COSIUM ? mutLue() : ""}${EN_COSIUM && c.dossier ? `<button type="button" class="bs-ouvrir second" data-fs-ouvrir="${esc(c.dossier)}">Ouvrir la fiche</button>` : ""}<button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>${coteRacc(c)}`;
     return;
   }
   /* 16 oct. 2026 (colonne Cosium, version A) : le client une seule fois en tête, puis deux tuiles (dossiers en cours, solde) */
@@ -16945,6 +17002,29 @@ let BANDEAU_AJOUT = null;   // {mut, reseau, types} pendant la saisie
 // 9 oct. 2026 : réseau lu dans Cosium (« Gestionnaire Contrat » de la complémentaire, « VIAMEDIS ») ramené au nom connu
 /* 17 oct. 2026 (demande de Mohamed) : mutuelle lue dans Cosium différente de celle des dossiers en cours : avertissement, rien n'est remplacé
    (un dossier de 2e mutuelle compte : si une des mutuelles en cours est celle de Cosium, pas d'avertissement) */
+/* 17 oct. 2026 (demande de Mohamed) : client sans dossier, fiche Cosium lue : « Ouvrir la fiche » crée une fiche seule
+   (ligne archivée marquée « fiche », sans équipement, absente des vues, des chiffres et des exports) pour y garder un ancien récap, des notes…
+   Au premier ajout au suivi, elle devient le dossier. Client déjà connu : sa fiche s'ouvre. */
+async function ficheSeuleOuvrir(dossier){
+  let c = clientCosium(dossier);
+  const f = c ? null : window.ChoufAPI && await window.ChoufAPI.ficheCosium(dossier);
+  c = c || clientCosium(dossier);   // ouverte entre-temps
+  if (!c){ if (!f){ toast("Fiche Cosium pas encore lue : ouvre-la dans Cosium"); return; }
+    c = C(f.nom, f.prenom, dossier, auteur() || "—");
+    c.cosium = Object.assign({secu:"", ordo:{date:"", prescripteur:""}}, f.cosium, {ne:f.ne || (f.cosium || {}).ne || "", lu:"le " + dateISO(f.majLe || isoJour(), "short"), mutCosium:f.mut || "", gestCosium:f.gest || ""});
+    LIGNES.push({c, mut:null, items:[], fiche:true, archive:true, archiveLe:isoJour(), equip:"clos", depuis:0, ouvertJ:0, actions:[],
+      histo:[{d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Fiche Cosium ouverte dans Chouf’Tout (dossier ${dossier}, sans suivi en cours)`}]}); }
+  const ls = LIGNES.filter(l => l.c === c), l = ls.find(x => enCours(x)) || ls.find(x => !x.archive) || ls[ls.length - 1];
+  FILTRE_TACHE = null; rendre(); setTimeout(() => ouvrir(LIGNES.indexOf(l)), 60);
+}
+document.addEventListener("click", async ev => { const b = ev.target.closest?.("[data-fs-suivi]"); if (!b) return; ev.stopPropagation();
+  const l = LIGNES[+b.dataset.fsSuivi], c = l && l.c, k = (c && c.cosium) || {}; if (!c) return;
+  const v = await dialogueAjout({dossier:c.dossier, nom:c.nom, prenom:c.prenom, ne:k.ne, mut:k.mutCosium || "", reseau:k.gestCosium || "", types:["lunettes"], lu:true});
+  if (!v) return;
+  if (ouverte) fermer();   // la fiche seule disparaît : son index ne vaut plus
+  ajouterDepuisCosium(Object.assign(v, {client:c}));
+  if (VUE === "cosium"){ const i = LIGNES.findIndex(x => x.c === c && enCours(x)); if (i >= 0) setTimeout(() => ouvrir(i), 300); } }, true);
+document.addEventListener("click", ev => { const b = ev.target.closest?.("[data-fs-ouvrir]"); if (!b) return; ev.stopPropagation(); ficheSeuleOuvrir(b.dataset.fsOuvrir); }, true);
 /* 17 oct. 2026 (demande de Mohamed) : avant tout ajout au suivi, la colonne montre la mutuelle et le réseau (gestionnaire) lus sur la fiche Cosium */
 const mutLue = () => { const b = BANDEAU; if (!b || !b.complet) return "";
   const r = b.mut && reseauCosium(b.reseau);
@@ -17003,6 +17083,9 @@ const CHAMPS_FICHE = {ne:"date de naissance", secu:"n° de sécu", caisse:"caiss
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null;
   else if (BANDEAU_AJOUT && d.reseau && !BANDEAU.reseau) BANDEAU_AJOUT.reseau = reseauCosium(d.reseau);   // réseau arrivé après l'ouverture de l'ajout
   if (d.aucun){ BANDEAU = null; BANDEAU_C = null; bandeauMaj(true); return; }   // 9 oct. 2026 : aucun client ouvert dans Cosium (accueil)
+  if (d.complet && window.ChoufAPI && window.ChoufAPI.ficheLue){ const k = d.cosium || {};   // 17 oct. 2026 : fiche gardée dans la base, suivie ou non
+    window.ChoufAPI.ficheLue({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne || k.ne || "", mut:d.mut || "", gest:d.mut ? reseauCosium(d.reseau) : "",
+      cosium:Object.fromEntries(Object.keys(CHAMPS_FICHE).filter(x => k[x]).map(x => [x, k[x]]))}); }
   // 9 oct. 2026 : réseau lu dans Cosium (gestionnaire de la complémentaire), inscrit sur les lignes en cours de cette mutuelle
   // 17 oct. 2026 (Mohamed) : toujours celui de Cosium, même s'il change (une même mutuelle peut passer d'un gestionnaire à l'autre)
   const rc = d.complet && d.mut && reseauCosium(d.reseau), cr = rc && rc !== "Hors réseau" && clientCosium(d.dossier);
@@ -18314,7 +18397,7 @@ addEventListener("scroll", () => { barre.classList.toggle("defilee", scrollY > 4
     for (let j = n - 1; j >= 1; j--){ const k = chemin[j], s = chemin[j + 1]; if (d[s] && d[k].d > d[s].d) d[k].d = d[s].d; }
     for (let j = 2; j <= n; j++){ const k = chemin[j], p = chemin[j - 1]; if (!fixe[k] && d[k].d < d[p].d) d[k].d = d[p].d; }
     return d; };
-  LIGNES.forEach(l => { if (l.dEquip) return;
+  LIGNES.forEach(l => { if (l.dEquip || l.fiche) return;
     // passage archivé : on se cale sur sa date de facture (environ un mois avant, trois semaines après)
     const fact = l.items.map(i => i.factureLe).filter(Boolean).sort()[0], jf = fact ? -joursAvant(fact) : null;
     const deb = l.archive && jf != null ? jf + 30 : l.ouvertJ ?? 0, fin = l.archive && jf != null ? Math.max(0, jf - 20) : Math.min(deb, l.depuis ?? 0), par = l.c.conseiller, span = deb - fin;
@@ -18786,8 +18869,13 @@ window.SuviAPI = {
   /* Recherche commune : nom, n° de dossier, téléphone, mutuelle (la même règle que la recherche du suivi) */
   chercher(q){ const p = plat(String(q || "").trim()); if (!p) return []; const vus = new Map();
     LIGNES.forEach(l => { if (!chercheOk(l, p)) return; const k = cleClient(l.c); if (vus.has(k)) return;
-      vus.set(k, {cle:k, nom:nomClient(l.c), detail:[l.c.dossier ? "dossier " + l.c.dossier : "client de passage", l.mut ? l.mut.nom : "sans tiers payant", l.c.conseiller].filter(Boolean).join(", ")}); });
+      vus.set(k, {cle:k, nom:nomClient(l.c), detail:l.fiche ? `dossier ${l.c.dossier}, fiche Cosium sans dossier` : [l.c.dossier ? "dossier " + l.c.dossier : "client de passage", l.mut ? l.mut.nom : "sans tiers payant", l.c.conseiller].filter(Boolean).join(", ")}); });
     return [...vus.values()]; },
+  /* 17 oct. 2026 : fiches Cosium lues dont le client n'est pas encore dans les dossiers (recherche) ; les autres sont trouvés par chercher() */
+  fichesSeules(q){ const ch = window.ChoufAPI; if (!ch || !ch.fichesChercher) return [];
+    return ch.fichesChercher(q).filter(f => !clientCosium(f.dossier))
+      .map(f => ({dossier:f.dossier, nom:`${f.prenom} ${f.nom.charAt(0)}${f.nom.slice(1).toLowerCase()}`, detail:`dossier ${f.dossier}, fiche Cosium lue le ${dateISO(f.majLe || f.lueLe, "short")}`})); },
+  ouvrirFicheCosium(dossier){ ficheSeuleOuvrir(dossier); },
   /* Les réglages propres aux dossiers, ouverts depuis les Réglages communs */
   ouvrirReglages(){ try { ouvrirPageReglages(); } catch (_) {} },
   vue(k){ if (RAPIDES.some(r => r.k === k)){ filtre.rapide = k; rendre(); } },   // 14 oct. 2026 : ouvrir Dossiers sur une vue rapide
