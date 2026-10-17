@@ -16792,7 +16792,7 @@ function rendreBarre(){
       <div class="ct-sur">Dossier ${esc(c.dossier || "à relier")}${fam ? " · " + esc(fam.nom) : ""}</div>
       <div class="ct-nom"><span>${esc(c.nom.toUpperCase())}</span> <span>${esc(c.prenom)}</span></div></div>
     <div class="ct-tuiles"><button type="button" class="ct-tuile" data-bs-fiche="${i0}"><b>${ls.length}</b><span>dossier${ls.length > 1 ? "s" : ""} en cours</span></button>${x ? `<button type="button" class="ct-tuile ${x.cl}" data-bs-fiche="${i0}" data-bs-recap><b>${rEur(x.v)}</b><span>${x.lib.toLowerCase()}</span></button>` : ""}</div></div>`;
-  z.innerHTML = tete + coteTete + avisMut(c) + `<div class="bs-lignes">${ls.map((l, k) => { const i = LIGNES.indexOf(l);
+  z.innerHTML = tete + coteTete + avisMut(c, EN_COSIUM) + `<div class="bs-lignes">${ls.map((l, k) => { const i = LIGNES.indexOf(l);
     return `<div class="bs-ligne">
       <div class="bs-client" data-bs-fiche="${i}"><div class="nom">${COTE ? `<span>${esc(c.nom.toUpperCase())}</span> <span>${esc(c.prenom)}</span>` : esc(nomClient(c))}${c.passage ? '<span class="badge-passage">De passage</span>' : ""}</div>
         <div class="petit ${vieux(l) ? "vieux" : ""}">${depuis(l.depuis)}</div></div>
@@ -16801,7 +16801,7 @@ function rendreBarre(){
       <div>${htmlEquip(l)}</div>
       <div class="bs-act">${obs(i)}</div>
       <div class="bs-fin">${k === 0 && x ? `<button type="button" class="f-solde ${x.cl}" data-bs-fiche="${i}" data-bs-recap>${x.lib} <b>${rEur(x.v)}</b></button>` : ""}<button type="button" class="bs-ouvrir" data-bs-fiche="${i}">Ouvrir la fiche</button></div>
-    </div>`; }).join("")}</div>${EN_COSIUM ? `${mutLue()}<button type="button" class="bs-ouvrir bs-ajout-2" data-bs-ajouter title="Change d’abord la mutuelle dans Cosium : elle est reprise ici">+ Ajouter une 2e mutuelle</button>` : ""}${coteRacc(c)}`;
+    </div>`; }).join("")}</div>${coteRacc(c)}`;
 }
 /* 16 oct. 2026 (colonne Cosium) : commandes et duplicatas en cours du client en cartes, et « Commander une monture » ; ouverts dans l'onglet Chouf'Tout */
 const coteRacc = c => { const r = COTE && window.ChoufAPI && window.ChoufAPI.raccourcis(cleClient(c)); if (!r) return "";
@@ -16952,8 +16952,8 @@ const mutLue = () => { const b = BANDEAU; if (!b || !b.complet) return "";
 const mutEcart = c => { const m = c && c.cosium && c.cosium.mutCosium; if (!m) return null;
   const ls = LIGNES.filter(l => l.c === c && !l.archive && !clos(l) && !estProgramme(l) && l.mut && !l.mut.aPreciser);
   return ls.length && !ls.some(l => plat(l.mut.nom) === plat(m)) ? {cosium:m, chouf:[...new Set(ls.map(l => l.mut.nom))], ls} : null; };
-const avisMut = c => { const e = mutEcart(c); return e ? `<div class="alerte avis-mut">${ICO.attention}<span>Mutuelle dans Cosium : <b>${esc(e.cosium)}</b>${c.cosium.gestCosium ? ` (${esc(c.cosium.gestCosium)})` : ""}. Dossier en cours avec ${esc(e.chouf.join(", "))}  : vérifie et corrige si besoin.</span>
-  <span class="avis-mut-bt">${e.ls.map(l => `<button type="button" data-mut-maj="${LIGNES.indexOf(l)}">${e.ls.length > 1 ? `Remplacer ${esc(l.mut.nom)}` : "Mettre à jour le dossier"}</button>`).join("")}</span></div>` : ""; };
+const avisMut = (c, colonne) => { const e = mutEcart(c); return e ? `<div class="alerte avis-mut">${ICO.attention}<span>Mutuelle dans Cosium : <b>${esc(e.cosium)}</b>${c.cosium.gestCosium ? ` (${esc(c.cosium.gestCosium)})` : ""}. Dossier en cours avec ${esc(e.chouf.join(", "))}  : vérifie et corrige si besoin.</span>
+  <span class="avis-mut-bt">${e.ls.map(l => `<button type="button" data-mut-maj="${LIGNES.indexOf(l)}">${e.ls.length > 1 ? `Remplacer ${esc(l.mut.nom)}` : "Mettre à jour le dossier"}</button>`).join("")}${colonne ? `<button type="button" class="second" data-bs-ajouter>Ajouter en 2e mutuelle</button>` : ""}</span></div>` : ""; };
 /* 17 oct. 2026 (demande de Mohamed) : « Mettre à jour le dossier » : la mutuelle et le réseau lus dans Cosium remplacent ceux du dossier en cours (annulable) */
 document.addEventListener("click", ev => { const b = ev.target.closest?.("[data-mut-maj]"); if (!b) return; ev.stopPropagation();
   const l = LIGNES[+b.dataset.mutMaj], c = l && l.c, m = c && c.cosium && c.cosium.mutCosium; if (!m || !l.mut) return;
@@ -22858,6 +22858,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #zone-suivi:not(#luxe) .avis-mut-bt button{min-height:32px; padding:6px 14px; line-height:1.25; text-align:left; border:0; border-radius:999px; background:var(--encre); color:var(--fond); font:500 .8125rem var(--font); cursor:pointer}
 #zone-suivi:not(#luxe) .avis-mut-bt button:hover{filter:brightness(1.1)}
+#zone-suivi:not(#luxe) .avis-mut-bt button.second{background:color-mix(in srgb, var(--encre) 10%, transparent); color:var(--encre)}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
