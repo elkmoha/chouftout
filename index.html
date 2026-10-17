@@ -23079,6 +23079,8 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 @media (max-width:760px){ :is(#drawer, .fl-carte):not(#luxe) .dlist .dmini.verif-ligne > .cb{width:34px;height:34px;min-width:34px} }
 #drawer .dr-oeil:not(#luxe){margin:14px 0 4px}
 #drawer .dr-oeil:not(#luxe) button svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
+/* 17 oct. 2026 : sur téléphone, un code à copier (fiches prix et produit) se touche sur 44 px sans grandir la ligne */
+@media (max-width:760px){ #drawer .copiable:not(#luxe){min-height:44px;margin-top:-11px;margin-bottom:-11px} }
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
