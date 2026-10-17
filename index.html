@@ -23145,6 +23145,47 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #app .fm-etape-gestes:not(#luxe){display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
 #app .fm-ajout-etape:not(#luxe){display:flex;gap:8px;margin-top:12px}
 #app .fm-ajout-etape:not(#luxe) .inp{flex:1;min-width:0;margin:0}
+/* 17 oct. 2026 : crible du reste (demande de Mohamed). Sombre : texte foncé sur les pastilles d'alerte des cartes de Dossiers (blanc sur orange, 1,9:1) et sur les initiales d'une tâche faite du Planning */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pastille:not(.info){color:#1A1003}
+  :root:not([data-theme="light"]) #app:not(#luxe) .rp-it.done .rp-av{color:#0F0F10}
+}
+:root[data-theme="dark"]:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-pastille:not(.info){color:#1A1003}
+:root[data-theme="dark"] #app:not(#luxe) .rp-it.done .rp-av{color:#0F0F10}
+/* Clair : étapes à venir du parcours, « Annulé » et « ’Tout » de l'écran d'au revoir, trop pâles (1,6 à 3:1) */
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]) #zone-suivi .trois .etape-btn:not(.ok):not(.ici):not(:hover){color:#5F6A7A}
+  :root:not([data-theme="dark"]) #zone-suivi .sortie{--gris:#636366}
+  :root:not([data-theme="dark"]) .cb-marque .or{color:#7A5C00}
+}
+:root[data-theme="light"] #zone-suivi .trois .etape-btn:not(.ok):not(.ici):not(:hover){color:#5F6A7A}
+:root[data-theme="light"] #zone-suivi .sortie{--gris:#636366}
+:root[data-theme="light"] .cb-marque .or{color:#7A5C00}
+/* Planning : les points de présence (9 px) se touchent sur 25 px de haut, sans changer leur aspect (en largeur, jusqu'au point voisin) */
+#app:not(#luxe) .rp-pt{position:relative}
+#app:not(#luxe) .rp-pt::before{content:"";position:absolute;inset:-8px -1.5px}
+/* Téléphone : pages de la fiche client, fiche et Réglages à taille de doigt */
+@media (max-width:760px){
+  :root:root:root body #feuille:not(#luxe) .retour{min-height:44px}
+  :root:root:root body #feuille:not(#luxe) .copiable:not(.copie-ico){min-height:44px;margin-top:-8px;margin-bottom:-8px;display:inline-flex;align-items:center}
+  :root:root:root body #feuille:not(#luxe) :is(.copie-ico, #voirSecu){min-width:40px;min-height:40px}
+  :root:root:root body #feuille:not(#luxe) .texte-champ{min-height:44px}
+  :root:root:root body #feuille:not(#luxe) :is(#f-messages .filtre, .ld-essai .filtre){min-height:44px}
+  :root:root:root body #feuille:not(#luxe) .rc-crayon{width:40px;height:40px}
+  :root:root:root body #feuille:not(#luxe) .sortie{height:40px}
+  :root:root:root body #feuille:not(#luxe) .moins{width:40px;height:40px}
+  :root:root:root body #feuille:not(#luxe) .fi-journal summary{min-height:44px}
+  :root:root:root body #feuille:not(#luxe) .btn-solder{min-height:40px}
+  :root:root:root #app:not(#luxe) .page-reglages .snav, :root:root:root .reg-rail .snav:not(#zone-suivi *){min-height:44px}
+  :root:root:root body .settings-layout:not(#luxe):not(#luxe2) .btn{min-height:40px}
+  :root:root:root body .settings-layout:not(#luxe):not(#luxe2) .pill > button{min-width:36px;min-height:36px}
+  :root:root:root body #feuille:not(#luxe) .obs{min-height:36px}
+  :root:root:root body #feuille:not(#luxe) .pec-puce .montant-champ{min-height:36px;align-items:center}
+  :root:root:root body #feuille:not(#luxe) .ld > .montant-champ{min-height:40px;align-items:center}
+  :root:root:root body #feuille:not(#luxe) button.rc-coche{width:36px;height:36px}
+  :root:root:root body #feuille:not(#luxe) .info-aide{position:relative}
+  :root:root:root body #feuille:not(#luxe) .info-aide::before{content:"";position:absolute;inset:-8px}
+}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
@@ -23823,6 +23864,8 @@ html.mode-cosium #zone-suivi .groupe{margin:0 !important}
 html.mode-cosium.cosium-vide #zone-suivi .groupe, html.mode-cosium:not(.cosium-connecte) #zone-suivi .groupe{display:none !important}
 html.mode-cosium:not(.cosium-connecte) #zone-suivi{display:block !important}
 html.mode-cosium #zone-suivi .toast{top:10px; bottom:auto}
+/* 17 oct. 2026 : colonne Cosium, le message « … · Annuler » s'affichait au milieu de la page, hors de la colonne (le cadre est découpé à la colonne : invisible). Il se pose dans la colonne, en bas */
+html.mode-cosium.cosium-cote:not(.cosium-plein):not(#luxe):not(#luxe2) :is(#zone-suivi .toast, .toast:not(#zone-suivi *)), html.mode-cosium.cosium-cote:not(.cosium-plein):not(#luxe):not(#luxe2) :is(#zone-suivi .toast.vu, .toast.show:not(#zone-suivi *)){left:auto; right:8px; top:auto; bottom:12px; width:calc(var(--cote-w, 184px) - 16px); max-width:none; box-sizing:border-box; flex-wrap:wrap; gap:8px; border-radius:14px; transform:none}
 /* Bandeau plat sur toute la largeur, en verre comme la barre du Suivi (9 oct. 2026, demande de Mohamed) : ni carte ni arrondi */
 html.mode-cosium #zone-suivi main{padding:0 !important; background:color-mix(in srgb, var(--groupe) 82%, transparent);
   -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%); box-shadow:inset 0 -1px 0 var(--separateur)}
