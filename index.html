@@ -3605,9 +3605,9 @@ const MAG_DOMES = {
 /* Les mêmes monuments en quelques traits, pour le sélecteur de la barre du haut (24 px) */
 const MAG_DOMES_MINI = {
   "18":["M8,92 L112,92", "M24,56 L24,92 M60,56 L60,92 M96,56 L96,92", "M24,72 C34,58 50,58 60,72 C70,58 86,58 96,72", "M4,56 L116,56", "M24,56 L24,32 L94,32 L104,56"],
-  "5":["M10,92 L110,92", "M16,92 L16,74 L50,74 M70,74 L104,74 L104,92", "M50,92 L50,30 L70,30 L70,92", "M46,30 L74,30", "M55,30 L55,16 L65,16 L65,30", "M60,16 L60,10", "M52,0 A8,8 0 0 0 68,0"]
+  "5":["M10,92 L110,92", "M16,92 L16,74 L50,74 M70,74 L104,74 L104,92", "M50,92 L50,30 L70,30 L70,92", "M46,30 L74,30", "M55,30 L55,16 L65,16 L65,30", "M60,16 L60,12", "M49,-2 A11,11 0 0 0 71,-2"]
 };
-const magDome = (id, cls, mini) => `<svg class="mag-dome ${cls || ""}" viewBox="0 0 120 100" aria-hidden="true">${((mini ? MAG_DOMES_MINI : MAG_DOMES)[id] || []).map((d, k) => `<path pathLength="1" style="--k:${k}" d="${d}"/>`).join("")}</svg>`;
+const magDome = (id, cls, mini) => `<svg class="mag-dome ${cls || ""}" viewBox="0 0 120 100" style="--n:${((mini ? MAG_DOMES_MINI : MAG_DOMES)[id] || []).length}" aria-hidden="true">${((mini ? MAG_DOMES_MINI : MAG_DOMES)[id] || []).map((d, k) => `<path pathLength="1" style="--k:${k}" d="${d}"/>`).join("")}</svg>`;
 const magPers = p => (p && p.mag) || MAGASINS[0].id;
 /* En visite dans l'autre magasin (S.visite = mon magasin) : ses dossiers, commandes, chèques, fiches atelier et duplicatas, pas son planning ni son équipe */
 const MAG_HORS_VISITE = ["jour", "planning", "horaires", "paie", "equipe", "taches", "demandes", "retards", "stats"];
@@ -22612,7 +22612,7 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :is(.rech-mag, .rech-autre) .mag-pt{flex:none; width:8px; height:8px; border-radius:50%; background:var(--mag)}
 /* 14 oct. 2026 : dômes, choix du magasin au lancement, annonce plein écran, pastille de la fiche client */
 .mag-dome{display:block; overflow:visible; fill:none; stroke:var(--mag, currentColor); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 5px color-mix(in srgb, var(--mag, currentColor) 55%, transparent))}
-.mag-dome.trace path{stroke-dasharray:1; stroke-dashoffset:1; animation:mag-trace .6s cubic-bezier(.4,0,.2,1) forwards; animation-delay:calc(var(--d, 0ms) + var(--k) * 75ms)}
+.mag-dome.trace path{stroke-dasharray:1; stroke-dashoffset:1; animation:mag-trace .6s cubic-bezier(.4,0,.2,1) forwards; animation-delay:calc(var(--d, 0ms) + var(--k) * min(75ms, 700ms / var(--n, 1)))}   /* 18 oct. 2026 : tracé fini en 1,5 s au plus, même avec beaucoup de traits (l'annonce dure 1,65 s) */
 @keyframes mag-trace{to{stroke-dashoffset:0}}
 .login-mags{grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr; gap:14px}
 .login-question{grid-column:1 / -1; margin:0 0 4px; font-size:1.0625rem; font-weight:500; color:var(--sur-ciel, var(--encre)); opacity:.86}
