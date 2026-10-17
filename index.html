@@ -14399,7 +14399,7 @@ const copiable = (v, quoi) => `<button class="copiable" type="button" data-copie
 const cp = (v, quoi) => v ? copiable(v, quoi) : "";   // valeur copiable d'un clic, « — » si vide
 // Copie seule (icône), à côté d'un champ modifiable ou d'une valeur masquée
 const copieIco = (v, quoi) => `<button class="copiable copie-ico" type="button" data-copie="${esc(v)}" data-quoi="${quoi}" title="Copier ${quoi.toLowerCase()}" aria-label="Copier ${quoi.toLowerCase()}">${ICO_COPIE}</button>`;
-const RESEAUX = ["Kalixia", "Santéclair", "Itelis", "Carte Blanche", "Sévéane", "Optistya", "Viamedis", "Mercer", "Hors réseau"];   // 17 oct. 2026 : Mercer gère lui-même son tiers payant
+const RESEAUX = ["Kalixia", "Santéclair", "Itelis", "Carte Blanche", "Sévéane", "Optistya", "Viamedis", "Hors réseau"];
 const MUTUELLES = [...new Set(LIGNES.filter(l => l.mut).map(l => l.mut.nom))].sort((a, b) => a.localeCompare(b, "fr"));
 // Mutuelle : texte libre avec suggestions ; réseau : liste
 function champMut(li, cle){
@@ -14458,7 +14458,7 @@ function rendreCosium(idx){
     </div>
 
     <p class="tl-sec">Complémentaire</p>
-    <div class="bloc">
+    ${avisMut(c)}<div class="bloc">
       ${muts.length ? muts.map((m, j) => champ(muts.length > 1 ? `Mutuelle ${j + 1}` : "Mutuelle", champMut(LIGNES.indexOf(m), "nom") + copieIco(m.mut.nom, "Mutuelle"), true) + champ("Réseau", champMut(LIGNES.indexOf(m), "reseau") + copieIco(m.mut.reseau, "Réseau"), true)).join("")
         : champ("Mutuelle", "Aucune (sans tiers payant)", true)}
       ${muts.length ? champ("N° d’adhérent", cp(k.adherent, "N° d’adhérent"), false) + champ("Fin de droits", cp(k.finDroits, "Fin de droits"), false) : ""}
@@ -16789,7 +16789,7 @@ function rendreBarre(){
       <div class="ct-sur">Dossier ${esc(c.dossier || "à relier")}${fam ? " · " + esc(fam.nom) : ""}</div>
       <div class="ct-nom"><span>${esc(c.nom.toUpperCase())}</span> <span>${esc(c.prenom)}</span></div></div>
     <div class="ct-tuiles"><button type="button" class="ct-tuile" data-bs-fiche="${i0}"><b>${ls.length}</b><span>dossier${ls.length > 1 ? "s" : ""} en cours</span></button>${x ? `<button type="button" class="ct-tuile ${x.cl}" data-bs-fiche="${i0}" data-bs-recap><b>${rEur(x.v)}</b><span>${x.lib.toLowerCase()}</span></button>` : ""}</div></div>`;
-  z.innerHTML = tete + coteTete + `<div class="bs-lignes">${ls.map((l, k) => { const i = LIGNES.indexOf(l);
+  z.innerHTML = tete + coteTete + avisMut(c) + `<div class="bs-lignes">${ls.map((l, k) => { const i = LIGNES.indexOf(l);
     return `<div class="bs-ligne">
       <div class="bs-client" data-bs-fiche="${i}"><div class="nom">${COTE ? `<span>${esc(c.nom.toUpperCase())}</span> <span>${esc(c.prenom)}</span>` : esc(nomClient(c))}${c.passage ? '<span class="badge-passage">De passage</span>' : ""}</div>
         <div class="petit ${vieux(l) ? "vieux" : ""}">${depuis(l.depuis)}</div></div>
@@ -16879,7 +16879,7 @@ function traiterDemandeCosium(){
   const mut = d.mut ? MUTUELLES.find(m => plat(m) === plat(d.mut)) || d.mut : der ? der.mut.nom : "";
   const meme = LIGNES.filter(l => l.mut && plat(l.mut.nom) === plat(mut)).pop();
   setTimeout(async () => {
-    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:reseauPropre(mut) || (d.mut && reseauCosium(d.reseau)) || (meme ? meme.mut.reseau : ""), types:["lunettes"], lu:true});
+    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:(d.mut && reseauCosium(d.reseau)) || (meme ? meme.mut.reseau : ""), types:["lunettes"], lu:true});
     if (v){ v.cosium = d.cosium; ajouterDepuisCosium(v); }
   }, 120);
 }
@@ -16940,14 +16940,18 @@ if (COTE) document.documentElement.classList.add("cosium-cote");
 let BANDEAU_AJOUT = null;   // {mut, reseau, types} pendant la saisie
 const reseauDe = mut => { const l = mut && LIGNES.filter(x => x.mut && plat(x.mut.nom) === plat(mut)).pop(); return l ? l.mut.reseau : ""; };
 // 9 oct. 2026 : réseau lu dans Cosium (« Gestionnaire Contrat » de la complémentaire, « VIAMEDIS ») ramené au nom connu
-// 17 oct. 2026 (Mohamed) : mutuelles qui gèrent elles-mêmes leur tiers payant : leur réseau porte leur nom, quoi que dise Cosium
-const RESEAU_PROPRE = ["Mercer"], reseauPropre = m => RESEAU_PROPRE.find(r => plat(m || "").includes(plat(r))) || "";
+/* 17 oct. 2026 (demande de Mohamed) : mutuelle lue dans Cosium différente de celle des dossiers en cours : avertissement, rien n'est remplacé
+   (un dossier de 2e mutuelle compte : si une des mutuelles en cours est celle de Cosium, pas d'avertissement) */
+const mutEcart = c => { const m = c && c.cosium && c.cosium.mutCosium; if (!m) return null;
+  const ls = LIGNES.filter(l => l.c === c && !l.archive && !clos(l) && !estProgramme(l) && l.mut && !l.mut.aPreciser);
+  return ls.length && !ls.some(l => plat(l.mut.nom) === plat(m)) ? {cosium:m, chouf:[...new Set(ls.map(l => l.mut.nom))]} : null; };
+const avisMut = c => { const e = mutEcart(c); return e ? `<div class="alerte avis-mut">${ICO.attention}<span>Mutuelle dans Cosium : <b>${esc(e.cosium)}</b>${c.cosium.gestCosium ? ` (${esc(c.cosium.gestCosium)})` : ""}. Dossier en cours avec ${esc(e.chouf.join(", "))} : vérifie et corrige si besoin.</span></div>` : ""; };
 const reseauCosium = g => { if (!g) return ""; const k = plat(g).replace(/[^a-z]/g, ""); return RESEAUX.find(r => plat(r).replace(/[^a-z]/g, "") === k) || g.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, x => x.toUpperCase()); };
 const connuBandeau = () => clientsDe().find(x => x.dossier === BANDEAU.dossier || (x.autresDossiers || []).includes(BANDEAU.dossier)) || null;
 function bandeauAjoutOuvrir(){
   if (!BANDEAU.complet){ toast("Ouvre sa fiche Cosium pour l’ajouter au suivi"); return; }
   const mut = BANDEAU.mut ? MUTUELLES.find(m => plat(m) === plat(BANDEAU.mut)) || BANDEAU.mut : "";
-  BANDEAU_AJOUT = {mut, reseau:reseauPropre(mut) || (BANDEAU.mut && reseauCosium(BANDEAU.reseau)) || reseauDe(mut), types:["lunettes"], par:auteur() || ""}; rendreBarre();
+  BANDEAU_AJOUT = {mut, reseau:(BANDEAU.mut && reseauCosium(BANDEAU.reseau)) || reseauDe(mut), types:["lunettes"], par:auteur() || ""}; rendreBarre();
   document.querySelector('#barreSuvi [data-ba="mut"]')?.focus();
 }
 function bandeauAjoutHTML(){
@@ -16980,12 +16984,13 @@ const FILTRE_BANDEAU = {lib:"Cosium", test:l => aBandeau(l) && enCours(l)};
 const CHAMPS_FICHE = {ne:"date de naissance", secu:"n° de sécu", caisse:"caisse", tauxSS:"taux sécu", qualite:"qualité", assure:"assuré", assureNe:"naissance de l’assuré", assureSecu:"n° de sécu de l’assuré",
   adherent:"n° d’adhérent", contrat:"n° de contrat", finDroits:"fin de droits", tel:"portable", email:"e-mail", adresse:"adresse"};   // 16 oct. 2026 : qualité, assuré, contrat, taux (relevé sur le vrai Cosium)
 function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEAU_AJOUT = null;
-  else if (BANDEAU_AJOUT && d.reseau && !BANDEAU.reseau) BANDEAU_AJOUT.reseau = reseauPropre(d.mut) || reseauCosium(d.reseau);   // réseau arrivé après l'ouverture de l'ajout
+  else if (BANDEAU_AJOUT && d.reseau && !BANDEAU.reseau) BANDEAU_AJOUT.reseau = reseauCosium(d.reseau);   // réseau arrivé après l'ouverture de l'ajout
   if (d.aucun){ BANDEAU = null; BANDEAU_C = null; bandeauMaj(true); return; }   // 9 oct. 2026 : aucun client ouvert dans Cosium (accueil)
-  // 9 oct. 2026 : réseau lu dans Cosium, inscrit sur les lignes en cours de cette mutuelle restées « Hors réseau » (réseau inconnu à l'ajout)
-  const rc = d.complet && d.mut && (reseauPropre(d.mut) || reseauCosium(d.reseau)), cr = rc && rc !== "Hors réseau" && clientCosium(d.dossier);
-  const aRegler = cr ? LIGNES.filter(l => l.c === cr && !l.archive && l.mut && plat(l.mut.nom) === plat(d.mut) && l.mut.reseau === "Hors réseau") : [];
-  aRegler.forEach(l => { l.mut.reseau = rc; histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Réseau ${rc} lu dans Cosium (gestionnaire de la complémentaire)`}); });
+  // 9 oct. 2026 : réseau lu dans Cosium (gestionnaire de la complémentaire), inscrit sur les lignes en cours de cette mutuelle
+  // 17 oct. 2026 (Mohamed) : toujours celui de Cosium, même s'il change (une même mutuelle peut passer d'un gestionnaire à l'autre)
+  const rc = d.complet && d.mut && reseauCosium(d.reseau), cr = rc && rc !== "Hors réseau" && clientCosium(d.dossier);
+  const aRegler = cr ? LIGNES.filter(l => l.c === cr && !l.archive && l.mut && plat(l.mut.nom) === plat(d.mut) && l.mut.reseau !== rc) : [];
+  aRegler.forEach(l => { const av = l.mut.reseau; l.mut.reseau = rc; histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Réseau ${rc} lu dans Cosium (gestionnaire de la complémentaire)${av && av !== "Hors réseau" ? `, à la place de ${av}` : ""}`}); });
   // 15 oct. 2026 : client importé du Google Sheets sans n° de dossier, reconnu par son nom (un seul) : il reçoit le n° Cosium ; sa mutuelle « à préciser » est complétée
   let ci = d.complet && clientCosium(d.dossier);
   if (d.complet && !ci){ const hs = clientsDe().filter(x => !x.dossier && !x.passage && plat(x.nom.trim()) === plat(d.nom || "") && plat(x.prenom.trim()) === plat(d.prenom || ""));
@@ -17009,6 +17014,13 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
   aPreciser.forEach(l => { if (!l.mut){ l.mut = {nom:mutC, reseau:"Hors réseau"}; l.items.forEach(i => regimeTP(i, true)); } l.mut.nom = mutC; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
     histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${mutC} lue dans Cosium${rc && rc !== "Hors réseau" ? `, réseau ${rc}` : ""}${l.items.some(i => i.tp) ? " (tiers payant)" : ""}`}); });
   if (aPreciser.length && ouverte) rafraichirFiche();
+  if (ci && ci.cosium && mutC){ const avait = ci.cosium.mutEcartNote; ci.cosium.mutCosium = mutC; ci.cosium.gestCosium = rc || "";
+    const e = mutEcart(ci);
+    if (e && ci.cosium.mutEcartNote !== mutC){ ci.cosium.mutEcartNote = mutC;
+      const l = LIGNES.filter(x => x.c === ci && !x.archive && !clos(x) && x.mut).sort((a, b) => a.ouvertJ - b.ouvertJ)[0];
+      if (l) histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${mutC} lue dans Cosium, différente de celle du dossier (${e.chouf.join(", ")}) : à vérifier`}); }
+    if (!e) delete ci.cosium.mutEcartNote;
+    if (ouverte && (e ? avait !== mutC : avait)) rafraichirFiche(); }
   if (aRegler.length && ouverte) rafraichirFiche(); BANDEAU = d; FILTRE_TACHE = FILTRE_BANDEAU; if (window.ChoufAPI && window.ChoufAPI.moi()) rendre(); bandeauMaj(true); }
 /* Ordonnance du dossier Lunettes ou Lentilles ouvert dans Cosium (9 oct. 2026, demande de Mohamed) : inscrite dans la fiche du client,
    sauf si ce dossier Cosium est bien plus ancien que la ligne de suivi de cet équipement : ce n'est alors pas la bonne ordonnance.
@@ -22818,6 +22830,11 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) .alerte-boite button:hover{background:color-mix(in srgb, var(--encre) 6%, transparent); color:var(--encre)}
 :root:root #zone-suivi:not(#luxe) .alerte-boite button + button:hover{background:var(--encre); color:var(--fond); filter:brightness(1.1)}
 :root:root #zone-suivi:not(#luxe) .alerte-boite button + button.danger:hover{background:color-mix(in srgb, var(--rouge) 28%, transparent); color:var(--rouge); filter:none}
+
+/* 17 oct. 2026 : avertissement « mutuelle différente dans Cosium » (fiche client et colonne Cosium) */
+#zone-suivi:not(#luxe) .alerte.avis-mut{display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:10px 14px; border-radius:12px; white-space:normal; font-weight:500; line-height:1.4; background:color-mix(in srgb, var(--orange) 12%, transparent)}
+#zone-suivi:not(#luxe) .alerte.avis-mut svg{flex:none; margin-top:2px}
+#zone-suivi:not(#luxe) .alerte.avis-mut b{font-weight:600}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
