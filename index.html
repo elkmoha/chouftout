@@ -10213,10 +10213,10 @@ function drawerTacheCat(t){
       <label class="dp-champ large"><span>Nom</span><input class="inp" value="${esc(t.name)}" maxlength="60" data-edit="task-name" data-task="${t.id}" data-key="tn-${t.id}"></label>
       <label class="dp-champ large"><span>Détail</span><input class="inp" value="${esc(t.detail)}" maxlength="120" placeholder="Par exemple : dès le matin" data-edit="task-detail" data-task="${t.id}" data-key="td-${t.id}"></label>
       <label class="dp-champ"><span>Personnes</span><select class="inp" data-edit="task-need" data-task="${t.id}" data-key="tp-${t.id}">${[1,2,3,4].map(n => `<option ${t.need === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-      <label class="dp-champ"><span>Fréquence</span><select class="inp" data-edit="task-freq" data-task="${t.id}" data-key="tf-${t.id}"><option value="daily" ${t.freq === "daily" ? "selected" : ""}>Chaque jour d’ouverture</option><option value="custom" ${t.freq === "custom" ? "selected" : ""}>Certains jours</option></select></label>
+      <label class="dp-champ large"><span>Fréquence</span><select class="inp" data-edit="task-freq" data-task="${t.id}" data-key="tf-${t.id}"><option value="daily" ${t.freq === "daily" ? "selected" : ""}>Chaque jour d’ouverture</option><option value="custom" ${t.freq === "custom" ? "selected" : ""}>Certains jours</option></select></label>
     </div>
     ${t.freq === "custom" ? `<div class="days-toggle">${DAYS_SHORT.map((dn, d) => `<button type="button" class="tg" data-action="task-day" data-task="${t.id}" data-day="${d}" data-key="tdy-${t.id}-${d}" aria-pressed="${t.days.includes(d)}">${dn}</button>`).join("")}</div>` : ""}
-    <label class="check-line"><input type="checkbox" data-edit="task-busy" data-task="${t.id}" data-key="tb-${t.id}" ${t.busy ? "checked" : ""}> Retire la personne de la vente</label>
+    <label class="check-line tc-busy"><input type="checkbox" data-edit="task-busy" data-task="${t.id}" data-key="tb-${t.id}" ${t.busy ? "checked" : ""}> Retire la personne de la vente</label>
     <label class="sub" hidden>Liste du suivi <select class="inp" data-edit="task-list" data-task="${t.id}" data-key="tl-${t.id}"><option value="">Aucune</option>${LISTS.map(l => `<option value="${l.id}" ${t.liste === l.id ? "selected" : ""}>${l.label}</option>`).join("")}</select></label>
     <h4>Mode d’emploi</h4>
     ${pr ? "" : `<p class="sub" style="margin:0">Pas encore de mode d’emploi.</p>`}
@@ -23065,6 +23065,10 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .atl-note-impr:not(#luxe){margin:8px 0 0;font-size:12px;line-height:1.4}
 /* 17 oct. 2026 : fiche d'une personne, horaires types repliés comme le reste, libellé du contrat avec son unité */
 #drawer .typ.fiche-repli:not(#luxe) > .typ-table{margin:0 12px 12px;width:calc(100% - 24px)}
+/* 17 oct. 2026 : réglage d'une tâche, la ligne « Retire la personne de la vente » se touche sur toute sa hauteur */
+#drawer .check-line.tc-busy:not(#luxe){min-height:44px;display:flex;align-items:center;gap:10px;margin:8px 0 0}
+#drawer .days-toggle:not(#luxe){display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:6px;margin:10px 0 0}
+#drawer .days-toggle:not(#luxe) .tg{min-height:44px;padding:0;margin:0;justify-content:center;text-align:center}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
