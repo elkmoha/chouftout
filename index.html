@@ -8054,7 +8054,6 @@ function drawerCheque(c){
   const suivant = c.statut === "attendu" ? ["recu", "Reçu"] : c.statut === "recu" ? ["remis", "Remis en banque"] : c.statut === "remis" ? ["solde", "Soldé"] : null;
   /* Retour à l'étape d'avant, pour corriger une erreur de clic */
   const precedent = c.statut === "recu" ? ["attendu", "Revenir à « Attendu »"] : c.statut === "remis" || c.statut === "restitue" ? ["recu", "Revenir à « Reçu »"] : c.statut === "solde" ? ["remis", "Revenir à « Remis en banque »"] : null;
-  const nc = nomsClientsVisibles() ? 4 : 3;
   const restituer = gerer && chqCaution(c) && c.statut === "recu";
   const corps = `
     ${ligneInfo("Émetteur", c.dossier && nomsClientsVisibles() ? lienClient(c.dossier, nomEmetteur(c)) : esc(nomEmetteur(c)))}
@@ -8072,13 +8071,13 @@ function drawerCheque(c){
       + (gerer ? `<div class="row" style="margin-top:8px"><button type="button" class="btn small${chqARelancer(c) ? " primary" : ""}" data-action="chq-relance" data-cheque="${c.id}">Client relancé aujourd’hui</button></div>` : "") : ""}
     ${c.note ? `<p class="obs" style="margin-top:12px">${esc(c.note)}</p>` : ""}
     <h4>Factures réglées (${c.factures.length})</h4>
-    ${c.factures.length ? `<div class="table-scroll"><table class="htable"><thead><tr>${nomsClientsVisibles() ? `<th scope="col">Client</th>` : ""}<th scope="col">Équipement</th><th scope="col">Facture</th><th scope="col">Date</th><th scope="col" class="num">Montant</th>${gerer ? `<th scope="col"></th>` : ""}</tr></thead><tbody>
-      ${c.factures.slice().sort((a, b) => a.date.localeCompare(b.date)).map(f => `<tr>${nomsClientsVisibles() ? `<td><b>${f.dossier ? lienClient(f.dossier, f.client) : esc(f.client)}</b></td>` : ""}<td>${esc(f.type || "—")}</td><td class="sub">${f.numero ? esc(f.numero) : "pas encore facturé"}</td>
-        <td class="sub">${esc(fmtDay.format(parseKey(f.date)))}</td><td class="num">${eur(f.montant)}</td>
-        ${gerer ? `<td><button type="button" class="btn small danger" data-action="chq-fact-del" data-cheque="${c.id}" data-fact="${f.id}" aria-label="Retirer">×</button></td>` : ""}</tr>`).join("")}
-      <tr><td colspan="${nc}"><b>Total des factures</b></td><td class="num"><b>${eur(chqTotal(c))}</b></td>${gerer ? "<td></td>" : ""}</tr>
-      ${ecart ? `<tr><td colspan="${nc}"><b style="color:var(--warn)">Écart à expliquer</b></td><td class="num"><b style="color:var(--warn)">${eur(ecart)}</b></td>${gerer ? "<td></td>" : ""}</tr>` : ""}
-    </tbody></table></div>` : `<p class="sub" style="margin:0">Aucune facture rattachée.</p>`}
+    ${c.factures.length ? `<ul class="chq-factures">${c.factures.slice().sort((a, b) => a.date.localeCompare(b.date)).map(f => `<li>
+        <span class="cf-quoi">${nomsClientsVisibles() ? `<b>${f.dossier ? lienClient(f.dossier, f.client) : esc(f.client)}</b> · ` : ""}${esc(f.type || "—")}
+          <span class="sub">${f.numero ? "facture " + esc(f.numero) : "pas encore facturé"} · ${esc(fmtDay.format(parseKey(f.date)))}</span></span>
+        <b class="cf-mt">${eur(f.montant)}</b>
+        ${gerer ? `<button type="button" class="cf-retirer" data-action="chq-fact-del" data-cheque="${c.id}" data-fact="${f.id}" aria-label="Retirer cette facture du chèque" title="Retirer">×</button>` : ""}</li>`).join("")}
+      <li class="cf-total"><span>Total des factures</span><b class="cf-mt">${eur(chqTotal(c))}</b>${gerer ? `<span class="cf-place"></span>` : ""}</li>
+      ${ecart ? `<li class="cf-total cf-ecart"><span>Écart à expliquer</span><b class="cf-mt">${eur(ecart)}</b>${gerer ? `<span class="cf-place"></span>` : ""}</li>` : ""}</ul>` : `<p class="sub" style="margin:0">Aucune facture rattachée.</p>`}
     ${gerer ? `<details class="fiche-repli"><summary>+ Rattacher une facture</summary>
       <form class="fiche-form" data-form="add-fact" data-cheque="${c.id}">
       <input class="inp cf-client" name="client" maxlength="40" placeholder="Client" required aria-label="Client"${chqListeClients(c)}>
@@ -23042,6 +23041,20 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 :is(#drawer, #app, #feuille) .conges-miens:not(#luxe) .cm-quoi{min-width:0}
 :is(#drawer, #app, #feuille) .conges-miens:not(#luxe) .cm-le{display:block;margin-top:2px}
 
+/* 17 oct. 2026 : factures d'un chèque en lignes (le tableau débordait sur téléphone) */
+#drawer .chq-factures:not(#luxe){list-style:none;margin:0;padding:0}
+#drawer .chq-factures:not(#luxe) > li{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--separateur)}
+#drawer .chq-factures:not(#luxe) .cf-quoi{flex:1;min-width:0}
+#drawer .chq-factures:not(#luxe) .cf-quoi .sub{display:block;margin-top:2px}
+#drawer .chq-factures:not(#luxe) .cf-mt{white-space:nowrap;font-variant-numeric:tabular-nums}
+#drawer .chq-factures:not(#luxe) .cf-retirer{background:none;border:0;color:var(--second);font-size:18px;line-height:1;width:32px;height:32px;margin:-6px 0 0 0;border-radius:50%;cursor:pointer}
+#drawer .chq-factures:not(#luxe) .cf-retirer:hover{color:var(--rouge);background:color-mix(in srgb, var(--rouge) 10%, transparent)}
+#drawer .chq-factures:not(#luxe) .cf-total{border-bottom:0;font-weight:500}
+#drawer .chq-factures:not(#luxe) .cf-place{width:32px;flex:none}
+#drawer .chq-factures:not(#luxe) .cf-total > span:first-child{flex:1}
+#drawer .chq-factures:not(#luxe) .cf-total:has(+ .cf-ecart){padding-bottom:0}
+#drawer .chq-factures:not(#luxe) .cf-ecart{color:var(--warn)}
+@media (max-width:760px){ #drawer .chq-factures:not(#luxe) .cf-retirer{width:44px;height:44px;margin:-12px 0 -12px 0} #drawer .chq-factures:not(#luxe) .cf-place{width:44px} }
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
