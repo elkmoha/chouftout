@@ -11287,6 +11287,9 @@ function renderDrawer(){
   /* 13 oct. 2026 (essai) : le champ en cours de saisie dans le panneau garde le focus quand le panneau se redessine */
   const cleFocus = el.contains(document.activeElement) && document.activeElement.dataset ? document.activeElement.dataset.key : null;
   el.innerHTML = drawerHTML(contenu);
+  /* 17 oct. 2026 : fenêtre agrandie : les gestes de la fiche passent dans la colonne de gauche, sous le titre (comme la fiche de tâche) */
+  if (S.drAgrandi && !isNarrow()){ const g = el.querySelector(".dr-body > .fiche-gestes:last-child");
+    if (g){ let pied = el.querySelector(":scope > .dr-pied"); if (!pied){ pied = document.createElement("div"); pied.className = "dr-pied"; el.append(pied); } pied.append(g); } }
   if (cleFocus){ const x = el.querySelector(`[data-key="${CSS.escape(cleFocus)}"]`); if (x) x.focus({preventScroll:true}); }
   if (window.LuxeVolet) window.LuxeVolet.ouvrir();
   renderFlottes();
@@ -23106,6 +23109,8 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   :root:root:root body #feuille .ld:has(> input[type=date]):not(#luxe) > input[type=date]{align-self:flex-start;min-height:44px}
   :root:root:root body #feuille ol.parcours:not(#luxe) .etape-btn{min-height:36px}
 }
+#drawer.agrandie .dr-pied > .fiche-gestes:not(#luxe){width:100%;margin:0}
+@media (min-width:761px){ :root:root:root body #drawer.drawer.dr-fond.agrandie:not(#luxe) .dr-pied:has(> .fiche-gestes){grid-row:2;align-self:start;padding:28px 40px 40px} }
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
