@@ -13738,7 +13738,8 @@ const ICO = {
 
 const filtre = {q:"", etats:{admin:new Set(), equip:new Set(), bl:new Set()}};
 const euros = n => n == null ? "à demander" : n.toLocaleString("fr-FR", {minimumFractionDigits:n % 1 ? 2 : 0, maximumFractionDigits:2}) + " €";
-const somme = (l, k) => { const its = k === "pec" ? l.items.filter(i => i.tp) : l.items;
+// 17 oct. 2026 (Mohamed) : un équipement sans TP garde le remboursement de la mutuelle (versé au client)
+const somme = (l, k) => { const its = k === "pec" ? l.items.filter(i => i.tp || l.mut) : l.items;
   return its.some(i => i[k] != null) ? its.reduce((s, i) => s + (i[k] || 0), 0) : null; };
 const plat = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const depuis = j => j === 0 ? "modifié aujourd’hui" : `modifié il y a ${j} j`;
@@ -14692,7 +14693,7 @@ const recapProprio = c => famDe(c) || soloDe(c);
 function rembMembre(c){
   // la PEC d'un renouvellement ne compte pas ici : elle sert à solder l'avance (voir « Solder avec la PEC »)
   return LIGNES.filter(l => l.c === c && l.mut && !l.renouv && !l.archive).map(l => {
-    const t = type => { const its = l.items.filter(i => i.t === type && i.tp); return its.some(i => i.pec != null) ? its.reduce((s, i) => s + (i.pec || 0), 0) : null; };
+    const t = type => { const its = l.items.filter(i => i.t === type); return its.some(i => i.pec != null) ? its.reduce((s, i) => s + (i.pec || 0), 0) : null; };
     return {nom:l.mut.nom, lunettes:t("lunettes"), lentilles:t("lentilles")};
   }).filter(m => m.lunettes != null || m.lentilles != null);
 }
@@ -15429,8 +15430,8 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
     ${blocAction(idx)}
     ${blocPassages(c)}
     ${famDe(c) ? espaceFamille(idx) : ""}
-    ${(() => { const tps = l.items.filter(i => i.tp);
-      if (!l.mut || !tps.length || estProgramme(l)) return "";   // pas de mutuelle ou aucun équipement en tiers payant : rien à afficher
+    ${(() => {
+      if (!l.mut || !l.items.length || estProgramme(l)) return "";   // pas de mutuelle : rien à afficher (17 oct. : sans TP aussi, remboursement au client)
       // Carte de la mutuelle : qui paie, combien, et le détail par équipement (montants modifiables)
       const mots = l.mut.nom.split(/[\s-]+/).filter(Boolean);
       const initiales = (mots.length > 1 ? mots[0][0] + mots[1][0] : (mots[0] || "?").slice(0, 2)).toUpperCase();   // MGEN → MG, Harmonie Mutuelle → HM
@@ -15440,7 +15441,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
         ${(() => { const t = somme(l, "pec");
           return `<span class="petit carte-mut-lib" data-pec-lib="${idx}">${t == null ? "Prise en charge" : "Prend en charge"}</span>
           <b class="carte-mut-total${t == null ? " attente" : ""}" data-pec-total="${idx}" data-carte="1">${t == null ? pecAttente(l) : euros(t)}</b>`; })()}
-        <div class="carte-mut-puces">${l.items.map((i, it) => i.tp ? `<span class="pec-puce">${ICO[i.t]}<span>${TYPES[i.t]}</span>${montant(idx, it)}</span>` : "").join("")}</div>
+        <div class="carte-mut-puces">${l.items.map((i, it) => `<span class="pec-puce">${ICO[i.t]}<span>${TYPES[i.t]}${i.tp ? "" : " · sans TP"}</span>${montant(idx, it)}</span>`).join("")}</div>
       </section>`; })()}
     ${estProgramme(l) ? "" : `<div class="bloc bloc-frise" style="margin-top:10px">${trois("Équipement", EQUIP_CHEMIN, EQUIP, l.equip, "equip", idx, 0, l.dEquip)}</div>${prevenuFiche(l, idx)}`}
     ${m ? `<p class="tl-sec">Règlement</p>
@@ -17114,7 +17115,7 @@ function bandeauSuivre(d){ if (!BANDEAU || BANDEAU.dossier !== d.dossier) BANDEA
   const mutC = d.mut ? MUTUELLES.find(m => plat(m) === plat(d.mut)) || d.mut : "";
   const aPreciser = ci && mutC ? LIGNES.filter(l => l.c === ci && !l.archive && !clos(l) && (!l.mut || l.mut.aPreciser)) : [];
   // 17 oct. 2026 (Mohamed) : une ligne sans mutuelle passe en tiers payant, l'équipe corrige à la main au besoin
-  aPreciser.forEach(l => { if (!l.mut){ l.mut = {nom:mutC, reseau:"Hors réseau"}; l.items.forEach(i => regimeTP(i, true)); } l.mut.nom = mutC; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
+  aPreciser.forEach(l => { if (!l.mut){ l.mut = {nom:mutC, reseau:"Hors réseau"}; if (l.mode !== "comptant") l.items.forEach(i => regimeTP(i, true)); }   // paiement comptant : reste sans TP (Mohamed, 17 oct.) l.mut.nom = mutC; delete l.mut.aPreciser; if (rc && rc !== "Hors réseau") l.mut.reseau = rc;
     histo(l).unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle ${mutC} lue dans Cosium${rc && rc !== "Hors réseau" ? `, réseau ${rc}` : ""}${l.items.some(i => i.tp) ? " (tiers payant)" : ""}`}); });
   if (aPreciser.length && ouverte) rafraichirFiche();
   if (ci && ci.cosium && mutC){ const avait = ci.cosium.mutEcartNote; ci.cosium.mutCosium = mutC; ci.cosium.gestCosium = rc || "";
