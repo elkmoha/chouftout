@@ -5601,12 +5601,13 @@ function drawerProcess(p){
   let corps = `<ol class="proc-etapes">${p.etapes.map(e => `<li><p>${esc(e.texte)}</p>${e.image ? `<img src="${e.image}" alt="Photo de l’étape" loading="lazy">` : ""}</li>`).join("")}</ol>`;
   if (p.aSavoir) corps += `<div class="proc-box info"><b>À savoir</b><p>${esc(p.aSavoir).replace(/\n/g, "<br>")}</p></div>`;
   if (p.erreurs) corps += `<div class="proc-box warn"><b>Erreurs à éviter</b><p>${esc(p.erreurs).replace(/\n/g, "<br>")}</p></div>`;
+  // 17 oct. 2026 : liens touchables, comme dans les autres fiches (la tâche liée s'ouvre si on peut la régler)
   const liens = [];
-  if (t) liens.push(`<span>Mode d’emploi de la tâche « ${esc(t.name)} »</span>`);
+  if (t) liens.push(can("equipe.gerer") ? `<button type="button" data-action="open-tachecat" data-task="${t.id}">Tâche « ${esc(t.name)} » ›</button>` : `<span class="sub">Mode d’emploi de la tâche « ${esc(t.name)} »</span>`);
   if (p.fiche && (S.fiches || {})[p.fiche] && canSeeTarifs()) { const [m, pl] = p.fiche.split("|");
-    liens.push(`<button type="button" class="lien" data-action="goto-fiche" data-fiche="${esc(p.fiche)}">Fiche mutuelle : ${esc(gridLabel(m, pl))} ›</button>`); }
-  if (va && !va.archive) liens.push(`<button type="button" class="lien" data-action="open-process" data-proc="${va.id}">Voir aussi : ${esc(va.titre)} ›</button>`);
-  if (liens.length) corps += `<h4>Liens</h4><ul class="list-plain proc-liens">${liens.map(l => `<li>${l}</li>`).join("")}</ul>`;
+    liens.push(`<button type="button" data-action="goto-fiche" data-fiche="${esc(p.fiche)}">Fiche mutuelle : ${esc(gridLabel(m, pl))} ›</button>`); }
+  if (va && !va.archive) liens.push(`<button type="button" data-action="open-process" data-proc="${va.id}">Voir aussi : ${esc(va.titre)} ›</button>`);
+  if (liens.length) corps += `<div class="gestes-liens proc-liens-gestes">${liens.join("")}</div>`;
   // 17 oct. 2026 : rangée comme les autres fiches (geste principal, liens, retrait à part)
   const ecrire = peutEcrireProcess();
   corps += `<p class="sub" style="margin:16px 0 0">Mis à jour le ${esc(fmtLong.format(parseKey(p.majLe)))}${p.majPar ? " par " + esc(quiNom(p.majPar)) : ""}.</p>
@@ -23081,6 +23082,13 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .dr-oeil:not(#luxe) button svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
 /* 17 oct. 2026 : sur téléphone, un code à copier (fiches prix et produit) se touche sur 44 px sans grandir la ligne */
 @media (max-width:760px){ #drawer .copiable:not(#luxe){min-height:44px;margin-top:-11px;margin-bottom:-11px} }
+/* 17 oct. 2026 : étapes d'un process en bloc numéroté 01, 02…, comme le mode d'emploi d'une tâche */
+:root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes{list-style:none;margin:0;padding:4px 16px;counter-reset:etape;border-radius:16px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes > li{position:relative;display:block;counter-increment:etape;margin:0;padding:14px 0 14px 46px}
+:root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes > li p{font-size:1rem;line-height:1.4;color:var(--encre)}
+:root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes > li::before{content:counter(etape, decimal-leading-zero);position:absolute;left:0;top:18px;font-size:.75rem;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--second)}
+:root:root body #drawer.drawer:not(.agrandie):not(#luxe) ol.proc-etapes > li + li{background:linear-gradient(90deg, var(--separateur), transparent) top / 100% 1px no-repeat}
+#drawer .proc-liens-gestes:not(#luxe){margin-top:14px}
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
