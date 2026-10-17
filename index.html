@@ -9002,33 +9002,34 @@ function renderFiches(){
     return `<option value="${esc(k)}" ${k === key ? "selected" : ""}>${esc(gridLabel(mm, pp))}${ficheOf(k) ? "" : gerer ? " (à créer)" : " (pas encore de fiche)"}</option>`;
   }).join("")}</select></label>
   ${aideEcran("La marche à suivre pour chaque couple mutuelle et plateforme : informations de tête, procédure pas à pas et pièges connus. Les champs se règlent dans Réglages.")}
-  ${key ? `<button type="button" class="jg-menu" data-action="goto-tarifs" data-fiche="${esc(key)}">Voir les tarifs</button>` : ""}
-  ${gerer && key ? `<button type="button" class="${edit ? "sv-ajout sans-plus" : "jg-menu"}" data-action="fiche-edit" aria-pressed="${edit}">${edit ? "Terminer" : f ? "Modifier" : "Remplir la fiche"}</button>` : ""}</div>`;
+  ${edit ? `<button type="button" class="sv-ajout sans-plus" data-action="fiche-edit" aria-pressed="true">Terminer</button>` : ""}</div>`;
+  /* 17 oct. 2026 : rangée comme les autres fiches : geste principal, puis « Voir les tarifs » en lien, sous la fiche */
+  const gestesFiche = key && !edit ? `<div class="fiche-gestes">${gerer ? `<div class="gestes-principal"><button type="button" class="btn${f ? "" : " primary"}" data-action="fiche-edit" aria-pressed="false">${f ? "Modifier" : "Remplir la fiche"}</button></div>` : ""}
+    <div class="gestes-liens"><button type="button" data-action="goto-tarifs" data-fiche="${esc(key)}">Voir les tarifs de cette grille ›</button></div></div>` : "";
   if (!key) return html + `<p class="banner info">Ajoute d’abord un produit dans la grille tarifaire.</p>`;
   if (!edit){
     html += `<div class="ct-rang"><p class="ct-phrase">${esc(gridLabel(m, pl))} <span>· ${f ? "mise à jour le " + esc(fmtLong.format(parseKey(f.majLe))) + ((personOf(f.majPar) || {}).name ? ", par " + esc(personOf(f.majPar).name) : "") : "fiche vide"}</span></p></div>`;
-    if (!remplis.length && !(f && f.etapes.length)) return html + vide(gerer ? "Cette fiche est vide. Touche « Remplir la fiche » pour noter le portail, les plafonds et la procédure." : "Pas encore de fiche pour cette mutuelle.");
+    if (!remplis.length && !(f && f.etapes.length)) return html + vide(gerer ? "Cette fiche est vide. Touche « Remplir la fiche » pour noter le portail, les plafonds et la procédure." : "Pas encore de fiche pour cette mutuelle.") + gestesFiche;
     if (remplis.length) html += `<div class="fm-infos">${remplis.map(c => `<div class="dr-l"><span>${esc(c.label)}</span><b>${esc(f.champs[c.id])}</b></div>`).join("")}</div>`;
     if (f && f.etapes.length) html += `<h3 class="task-group">Procédure pas à pas <span>${f.etapes.length}</span></h3><ol class="fm-etapes">${f.etapes.map(e => `<li><p>${esc(e.texte)}</p>${e.image ? `<div class="etape-img"><img src="${esc(e.image)}" alt=""></div>` : ""}</li>`).join("")}</ol>`;
-    return html;
+    return html + gestesFiche;
   }
   html += `<section class="panel"><h3>${esc(gridLabel(m, pl))}</h3>
-    <div class="settings-list" style="margin-top:12px">${cfg.fiches.champs.map(c => `<div class="row">
-      <span class="lbl" style="min-width:230px">${esc(c.label)}${c.bandeau ? ` <span class="sub">(en tête de grille)</span>` : ""}</span>
-      ${gerer ? `<input class="inp" style="flex:1" maxlength="160" value="${esc(f && f.champs[c.id] ? f.champs[c.id] : "")}" data-edit="fiche-champ" data-fiche="${esc(key)}" data-champ="${c.id}" data-key="fc-${esc(key)}-${c.id}">`
-        : `<span style="flex:1">${f && f.champs[c.id] ? esc(f.champs[c.id]) : "—"}</span>`}</div>`).join("")}</div>
+    <div class="fm-champs">${cfg.fiches.champs.map(c => `<label class="dp-champ"><span>${esc(c.label)}${c.bandeau ? ` <span class="sub">(en tête de grille)</span>` : ""}</span>
+      <input class="inp" maxlength="160" value="${esc(f && f.champs[c.id] ? f.champs[c.id] : "")}" data-edit="fiche-champ" data-fiche="${esc(key)}" data-champ="${c.id}" data-key="fc-${esc(key)}-${c.id}"></label>`).join("")}</div>
   </section>
   <section class="panel"><h3>Procédure pas à pas</h3>
-    ${f && f.etapes.length ? `<ol class="etapes">${f.etapes.map((e, i) => `<li>
+    ${f && f.etapes.length ? `<ol class="etapes fm-edit-etapes">${f.etapes.map((e, i) => `<li>
       ${gerer ? `<textarea class="inp" rows="2" style="width:100%" maxlength="300" data-edit="fiche-etape" data-fiche="${esc(key)}" data-etape="${e.id}" data-key="fe-${e.id}">${esc(e.texte)}</textarea>` : `<p style="margin:0">${esc(e.texte)}</p>`}
       <div class="etape-img">${e.image ? `<img src="${esc(e.image)}" alt="">` : `<span class="sub">Emplacement pour une capture d’écran${gerer ? ", envoi de fichier dans la version finale" : ""}</span>`}</div>
-      ${gerer ? `<div class="row"><button type="button" class="btn small" data-action="etape-up" data-fiche="${esc(key)}" data-etape="${e.id}" ${i === 0 ? "disabled" : ""}>↑</button>
-        <button type="button" class="btn small" data-action="etape-down" data-fiche="${esc(key)}" data-etape="${e.id}" ${i === f.etapes.length - 1 ? "disabled" : ""}>↓</button>
-        <button type="button" class="btn small danger" data-action="etape-del" data-fiche="${esc(key)}" data-etape="${e.id}">Supprimer l’étape</button></div>` : ""}</li>`).join("")}</ol>`
+      ${gerer ? `<div class="fm-etape-gestes"><div class="gestes-liens">${i > 0 ? `<button type="button" data-action="etape-up" data-fiche="${esc(key)}" data-etape="${e.id}">Monter ↑</button>` : ""}
+        ${i < f.etapes.length - 1 ? `<button type="button" data-action="etape-down" data-fiche="${esc(key)}" data-etape="${e.id}">Descendre ↓</button>` : ""}</div>
+        <div class="gestes-danger" style="border:0;padding-top:0"><button type="button" data-action="etape-del" data-fiche="${esc(key)}" data-etape="${e.id}">Supprimer l’étape</button></div></div>` : ""}</li>`).join("")}</ol>`
       : `<p class="sub">Aucune étape pour l’instant.</p>`}
-    ${gerer ? `<form class="row" data-form="add-etape" data-fiche="${esc(key)}" style="margin-top:12px">
-      <input class="inp" name="texte" maxlength="300" placeholder="Nouvelle étape" required style="flex:1"><button type="submit" class="btn">Ajouter l’étape</button></form>` : ""}
-  </section>`;
+    ${gerer ? `<form class="fm-ajout-etape" data-form="add-etape" data-fiche="${esc(key)}">
+      <input class="inp" name="texte" maxlength="300" placeholder="Nouvelle étape" required aria-label="Nouvelle étape"><button type="submit" class="btn">Ajouter l’étape</button></form>` : ""}
+  </section>
+  <div class="fiche-gestes"><div class="gestes-principal"><button type="button" class="btn primary" data-action="fiche-edit" aria-pressed="true">Terminer</button></div></div>`;
   return html;
 }
 
@@ -23008,35 +23009,44 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 /* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
 :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
 
-/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour, produit, prix, process) (demande de Mohamed : « trop fouillis ») =====
+/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour, produit, prix, process, fiche mutuelle) (demande de Mohamed : « trop fouillis ») =====
    facture à rattacher repliée, geste principal seul, liens discrets, annuler et supprimer à part */
-#drawer .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
-#drawer .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
-#drawer .fiche-repli:not(#luxe) > summary::-webkit-details-marker{display:none}
-#drawer .fiche-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
-#drawer .fiche-form:not(#luxe) .cf-client{grid-column:1 / -1}
-#drawer .fiche-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
-#drawer .fiche-form:not(#luxe) .cf-montant{position:relative;display:block}
-#drawer .fiche-form:not(#luxe) .cf-montant .inp{padding-right:28px}
-#drawer .fiche-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
-#drawer .fiche-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
-#drawer .fiche-gestes:not(#luxe){margin-top:20px;display:flex;flex-direction:column;gap:14px}
-#drawer .gestes-principal:not(#luxe){display:flex;flex-wrap:wrap;gap:8px}
-#drawer .gestes-liens:not(#luxe), #drawer .gestes-danger:not(#luxe){display:flex;flex-wrap:wrap;gap:2px 18px}
-#drawer .gestes-danger:not(#luxe){padding-top:12px;border-top:1px solid var(--separateur)}
-#drawer :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){background:none;border:0;box-shadow:none;padding:0;min-height:36px;font:inherit;font-size:14px;font-weight:500;color:var(--bleu);cursor:pointer;border-radius:6px}
-#drawer .gestes-danger button:not(#luxe):not(#zone-suivi){color:var(--rouge)}
-#drawer :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi):hover{text-decoration:underline;text-underline-offset:3px}
-@media (max-width:760px){ #drawer :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){min-height:44px} }
+:is(#drawer, #app) .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:is(#drawer, #app) .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
+:is(#drawer, #app) .fiche-repli:not(#luxe) > summary::-webkit-details-marker{display:none}
+:is(#drawer, #app) .fiche-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
+:is(#drawer, #app) .fiche-form:not(#luxe) .cf-client{grid-column:1 / -1}
+:is(#drawer, #app) .fiche-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
+:is(#drawer, #app) .fiche-form:not(#luxe) .cf-montant{position:relative;display:block}
+:is(#drawer, #app) .fiche-form:not(#luxe) .cf-montant .inp{padding-right:28px}
+:is(#drawer, #app) .fiche-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
+:is(#drawer, #app) .fiche-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
+:is(#drawer, #app) .fiche-gestes:not(#luxe){margin-top:20px;display:flex;flex-direction:column;gap:14px}
+:is(#drawer, #app) .gestes-principal:not(#luxe){display:flex;flex-wrap:wrap;gap:8px}
+:is(#drawer, #app) .gestes-liens:not(#luxe), :is(#drawer, #app) .gestes-danger:not(#luxe){display:flex;flex-wrap:wrap;gap:2px 18px}
+:is(#drawer, #app) .gestes-danger:not(#luxe){padding-top:12px;border-top:1px solid var(--separateur)}
+:is(#drawer, #app) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){background:none;border:0;box-shadow:none;padding:0;min-height:36px;font:inherit;font-size:14px;font-weight:500;color:var(--bleu);cursor:pointer;border-radius:6px}
+:is(#drawer, #app) .gestes-danger button:not(#luxe):not(#zone-suivi){color:var(--rouge)}
+:is(#drawer, #app) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi):hover{text-decoration:underline;text-underline-offset:3px}
+@media (max-width:760px){ :is(#drawer, #app) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){min-height:44px} }
 
 /* 17 oct. 2026 : formulaire affiché d'office (panneau d'un congé) et liste de mes congés */
-#drawer .fiche-form.fiche-form-seule:not(#luxe){padding:12px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
-#drawer .fiche-form:not(#luxe) .dp-champ{display:flex;flex-direction:column;gap:4px;margin:0;min-width:0}
-#drawer .conges-miens:not(#luxe){list-style:none;margin:0;padding:0}
-#drawer .conges-miens:not(#luxe) li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--separateur)}
-#drawer .conges-miens:not(#luxe) li:last-child{border-bottom:0}
-#drawer .conges-miens:not(#luxe) .cm-quoi{min-width:0}
-#drawer .conges-miens:not(#luxe) .cm-le{display:block;margin-top:2px}
+:is(#drawer, #app) .fiche-form.fiche-form-seule:not(#luxe){padding:12px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:is(#drawer, #app) .fiche-form:not(#luxe) .dp-champ{display:flex;flex-direction:column;gap:4px;margin:0;min-width:0}
+:is(#drawer, #app) .conges-miens:not(#luxe){list-style:none;margin:0;padding:0}
+:is(#drawer, #app) .conges-miens:not(#luxe) li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--separateur)}
+:is(#drawer, #app) .conges-miens:not(#luxe) li:last-child{border-bottom:0}
+:is(#drawer, #app) .conges-miens:not(#luxe) .cm-quoi{min-width:0}
+:is(#drawer, #app) .conges-miens:not(#luxe) .cm-le{display:block;margin-top:2px}
+
+/* 17 oct. 2026 : fiche mutuelle en saisie, champs empilés et étapes sans rangée de petits boutons */
+#app .fm-champs:not(#luxe){display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:12px;margin-top:12px}
+#app .fm-champs:not(#luxe) .dp-champ{display:flex;flex-direction:column;gap:4px;margin:0;min-width:0}
+#app .fm-champs:not(#luxe) .inp{width:100%;box-sizing:border-box;margin:0}
+#app .fm-edit-etapes:not(#luxe) > li{padding:12px 0;border-bottom:1px solid var(--separateur)}
+#app .fm-etape-gestes:not(#luxe){display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
+#app .fm-ajout-etape:not(#luxe){display:flex;gap:8px;margin-top:12px}
+#app .fm-ajout-etape:not(#luxe) .inp{flex:1;min-width:0;margin:0}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
