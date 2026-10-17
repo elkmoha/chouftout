@@ -23697,6 +23697,13 @@ html.mode-cosium.cosium-cote .ct-lien{flex-direction:row; align-items:center; ga
 html.mode-cosium.cosium-cote .ct-lien span{flex:1}
 html.mode-cosium.cosium-cote .ct-lien b{font-weight:500; font-variant-numeric:tabular-nums; color:var(--orange)}
 html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
+/* 17 oct. 2026 : téléphone, la bande du haut descend sous l'heure et la batterie (viewport-fit=cover : la page passe dessous ; Safari y floute le haut) */
+@media (max-width:760px){
+  :root{--tel-sur:env(safe-area-inset-top, 0px); --tel-haut:calc(52px + var(--tel-sur))}
+  :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-marque{top:calc(10px + var(--tel-sur))}
+  :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-compte{top:calc(7px + var(--tel-sur))}
+  :root:root:root:root:root:root #app:not(#luxe) .nav-globale .nav-mag{top:calc(10px + var(--tel-sur))}
+}
 </style>
 <script id="charge-js">document.documentElement.classList.add("charge");   // 16 oct. 2026 : tous les styles sont lus, la page peut s'afficher</script>
 </body>
