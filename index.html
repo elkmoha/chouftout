@@ -16784,7 +16784,7 @@ function rendreBarre(){
   if (!ls.length){
     const ps = LIGNES.filter(l => l.c === c && (l.archive || clos(l))).length, prog = LIGNES.find(l => l.c === c && estProgramme(l));
     z.innerHTML = tete + `<div class="bs-vide"><span><b>Aucun dossier en cours dans le suivi.</b> <span class="petit">${ps ? `${ps} dossier${ps > 1 ? "s" : ""} clôturé${ps > 1 ? "s" : ""} ou archivé${ps > 1 ? "s" : ""}` : "Jamais suivi"}${prog ? ` · renouvellement programmé le ${dateISO(prog.debut, "short")}` : ""}</span></span>
-      <button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>${coteRacc(c)}`;
+      ${EN_COSIUM ? mutLue() : ""}<button type="button" class="bs-ouvrir" data-bs-ajouter>+ Ajouter au suivi</button></div>${coteRacc(c)}`;
     return;
   }
   /* 16 oct. 2026 (colonne Cosium, version A) : le client une seule fois en tête, puis deux tuiles (dossiers en cours, solde) */
@@ -16801,7 +16801,7 @@ function rendreBarre(){
       <div>${htmlEquip(l)}</div>
       <div class="bs-act">${obs(i)}</div>
       <div class="bs-fin">${k === 0 && x ? `<button type="button" class="f-solde ${x.cl}" data-bs-fiche="${i}" data-bs-recap>${x.lib} <b>${rEur(x.v)}</b></button>` : ""}<button type="button" class="bs-ouvrir" data-bs-fiche="${i}">Ouvrir la fiche</button></div>
-    </div>`; }).join("")}</div>${EN_COSIUM ? `<button type="button" class="bs-ouvrir bs-ajout-2" data-bs-ajouter title="Change d’abord la mutuelle dans Cosium : elle est reprise ici">+ Ajouter une 2e mutuelle</button>` : ""}${coteRacc(c)}`;
+    </div>`; }).join("")}</div>${EN_COSIUM ? `${mutLue()}<button type="button" class="bs-ouvrir bs-ajout-2" data-bs-ajouter title="Change d’abord la mutuelle dans Cosium : elle est reprise ici">+ Ajouter une 2e mutuelle</button>` : ""}${coteRacc(c)}`;
 }
 /* 16 oct. 2026 (colonne Cosium) : commandes et duplicatas en cours du client en cartes, et « Commander une monture » ; ouverts dans l'onglet Chouf'Tout */
 const coteRacc = c => { const r = COTE && window.ChoufAPI && window.ChoufAPI.raccourcis(cleClient(c)); if (!r) return "";
@@ -16945,6 +16945,10 @@ let BANDEAU_AJOUT = null;   // {mut, reseau, types} pendant la saisie
 // 9 oct. 2026 : réseau lu dans Cosium (« Gestionnaire Contrat » de la complémentaire, « VIAMEDIS ») ramené au nom connu
 /* 17 oct. 2026 (demande de Mohamed) : mutuelle lue dans Cosium différente de celle des dossiers en cours : avertissement, rien n'est remplacé
    (un dossier de 2e mutuelle compte : si une des mutuelles en cours est celle de Cosium, pas d'avertissement) */
+/* 17 oct. 2026 (demande de Mohamed) : avant tout ajout au suivi, la colonne montre la mutuelle et le réseau (gestionnaire) lus sur la fiche Cosium */
+const mutLue = () => { const b = BANDEAU; if (!b || !b.complet) return "";
+  const r = b.mut && reseauCosium(b.reseau);
+  return `<div class="mut-lue"><span class="ct-sur">Lu dans Cosium</span>${b.mut ? `<b>${esc(b.mut)}</b><span>${r ? `Réseau ${esc(r)}` : "Gestionnaire non lu : réseau à choisir"}</span>` : `<b>Aucune complémentaire</b><span>Sans tiers payant</span>`}</div>`; };
 const mutEcart = c => { const m = c && c.cosium && c.cosium.mutCosium; if (!m) return null;
   const ls = LIGNES.filter(l => l.c === c && !l.archive && !clos(l) && !estProgramme(l) && l.mut && !l.mut.aPreciser);
   return ls.length && !ls.some(l => plat(l.mut.nom) === plat(m)) ? {cosium:m, chouf:[...new Set(ls.map(l => l.mut.nom))]} : null; };
@@ -17216,7 +17220,7 @@ function bandeauMaj(forcer){
   const html = !connecte ? `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">${BANDEAU ? esc(nomBandeau(BANDEAU)) + " · " : ""}Connecte-toi pour voir le suivi</span><button type="button" class="bc-bouton" data-bc="connexion">Se connecter</button>`
     : !BANDEAU ? (COTE ? coteKpi() : `<span class="bc-marque">Chouf’Tout</span><span class="bc-txt">Ouvre une fiche client dans Cosium pour voir son suivi.</span>`)
     : !nb ? `<span class="bc-nom">${esc(c ? nomClient(c) : nomBandeau(BANDEAU))}</span><span class="bc-txt">${passe ? "Aucun dossier en cours dans le suivi" : "Pas encore suivi"}</span>
-      ${passe ? `<button type="button" class="bc-bouton second" data-bc="fiche">Ouvrir la fiche</button>` : ""}${BANDEAU.complet ? `<button type="button" class="bc-bouton" data-bc="ajout">+ Ajouter au suivi</button>` : `<span class="bc-txt">Ouvre sa fiche Cosium pour l’ajouter</span>`}` : "";
+      ${passe ? `<button type="button" class="bc-bouton second" data-bc="fiche">Ouvrir la fiche</button>` : ""}${mutLue()}${BANDEAU.complet ? `<button type="button" class="bc-bouton" data-bc="ajout">+ Ajouter au suivi</button>` : `<span class="bc-txt">Ouvre sa fiche Cosium pour l’ajouter</span>`}` : "";
   if (z.dataset.html !== html){ z.dataset.html = html; z.innerHTML = html; }
   // Connecté avec un client : la barre de la maquette (rendreBarre), ses lignes modifiables et « Ouvrir la fiche »
   const barre = connecte && !!BANDEAU;
@@ -23578,6 +23582,12 @@ html.mode-cosium .bandeau-cosium .bc-bouton:hover{background:var(--primaire-fonc
 html.mode-cosium .bandeau-cosium .bc-bouton:active{transform:scale(.97)}
 html.mode-cosium .bandeau-cosium .bc-bouton.second{background:var(--groupe); color:var(--encre); border:1px solid var(--separateur)}
 html.mode-cosium .bandeau-cosium .bc-bouton:focus-visible{outline:2px solid var(--primaire); outline-offset:2px}
+/* 17 oct. 2026 : mutuelle et réseau lus dans Cosium, avant l'ajout au suivi */
+html.mode-cosium .mut-lue{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:12px; background:color-mix(in srgb, var(--encre) 6%, transparent); font-family:var(--font)}
+html.mode-cosium .mut-lue .ct-sur{font-size:12px; line-height:1.4; color:var(--pj-bleu, #4C9AFF)}
+html.mode-cosium .mut-lue b{font-weight:600; font-size:.9375rem; color:var(--encre); overflow-wrap:anywhere}
+html.mode-cosium .mut-lue span:last-child{font-size:.8125rem; color:var(--second)}
+html.mode-cosium #barreSuvi .mut-lue{margin:16px 0 8px}
 /* ---------- Colonne à droite de Cosium (9 oct. 2026, ?cosium=1&cote=1), d'après le schéma de Mohamed :
    en-tête « Chouf'Tout », puis nom / prénom, date, mutuelle / réseau, avancement de l'équipement, équipement, état, BL, actions, tout empilé ---------- */
 /* Le cadre couvre toujours toute la fenêtre ; l'extension le découpe (clip-path) à la largeur de la colonne, sauf fiche ou fenêtre ouverte.
