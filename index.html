@@ -16951,8 +16951,18 @@ const mutLue = () => { const b = BANDEAU; if (!b || !b.complet) return "";
   return `<div class="mut-lue"><span class="ct-sur">Lu dans Cosium</span>${b.mut ? `<b>${esc(b.mut)}</b><span>${r ? `Réseau ${esc(r)}` : "Gestionnaire non lu : réseau à choisir"}</span>` : `<b>Aucune complémentaire</b><span>Sans tiers payant</span>`}</div>`; };
 const mutEcart = c => { const m = c && c.cosium && c.cosium.mutCosium; if (!m) return null;
   const ls = LIGNES.filter(l => l.c === c && !l.archive && !clos(l) && !estProgramme(l) && l.mut && !l.mut.aPreciser);
-  return ls.length && !ls.some(l => plat(l.mut.nom) === plat(m)) ? {cosium:m, chouf:[...new Set(ls.map(l => l.mut.nom))]} : null; };
-const avisMut = c => { const e = mutEcart(c); return e ? `<div class="alerte avis-mut">${ICO.attention}<span>Mutuelle dans Cosium : <b>${esc(e.cosium)}</b>${c.cosium.gestCosium ? ` (${esc(c.cosium.gestCosium)})` : ""}. Dossier en cours avec ${esc(e.chouf.join(", "))} : vérifie et corrige si besoin.</span></div>` : ""; };
+  return ls.length && !ls.some(l => plat(l.mut.nom) === plat(m)) ? {cosium:m, chouf:[...new Set(ls.map(l => l.mut.nom))], ls} : null; };
+const avisMut = c => { const e = mutEcart(c); return e ? `<div class="alerte avis-mut">${ICO.attention}<span>Mutuelle dans Cosium : <b>${esc(e.cosium)}</b>${c.cosium.gestCosium ? ` (${esc(c.cosium.gestCosium)})` : ""}. Dossier en cours avec ${esc(e.chouf.join(", "))}  : vérifie et corrige si besoin.</span>
+  <span class="avis-mut-bt">${e.ls.map(l => `<button type="button" data-mut-maj="${LIGNES.indexOf(l)}">${e.ls.length > 1 ? `Remplacer ${esc(l.mut.nom)}` : "Mettre à jour le dossier"}</button>`).join("")}</span></div>` : ""; };
+/* 17 oct. 2026 (demande de Mohamed) : « Mettre à jour le dossier » : la mutuelle et le réseau lus dans Cosium remplacent ceux du dossier en cours (annulable) */
+document.addEventListener("click", ev => { const b = ev.target.closest?.("[data-mut-maj]"); if (!b) return; ev.stopPropagation();
+  const l = LIGNES[+b.dataset.mutMaj], c = l && l.c, m = c && c.cosium && c.cosium.mutCosium; if (!m || !l.mut) return;
+  const avant = {nom:l.mut.nom, reseau:l.mut.reseau}, r = c.cosium.gestCosium || "Hors réseau";
+  l.mut.nom = m; l.mut.reseau = r; delete c.cosium.mutEcartNote;
+  const h = {d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:`Mutuelle mise à jour depuis Cosium : ${avant.nom} (${avant.reseau}) → ${m} (${r})`}; histo(l).unshift(h);
+  const maj = () => { if (ouverte) rafraichirFiche(); else rendre(); if (EN_COSIUM) bandeauMaj(true); }; maj();
+  toast(`Mutuelle du dossier : ${m}`, () => { l.mut.nom = avant.nom; l.mut.reseau = avant.reseau; const k = histo(l).indexOf(h); if (k >= 0) histo(l).splice(k, 1); maj(); }, c);
+}, true);
 const reseauCosium = g => { if (!g) return ""; const k = plat(g).replace(/[^a-z]/g, ""); return RESEAUX.find(r => plat(r).replace(/[^a-z]/g, "") === k) || g.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, x => x.toUpperCase()); };
 const connuBandeau = () => clientsDe().find(x => x.dossier === BANDEAU.dossier || (x.autresDossiers || []).includes(BANDEAU.dossier)) || null;
 function bandeauAjoutOuvrir(){
@@ -22842,6 +22852,12 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 #zone-suivi:not(#luxe) .alerte.avis-mut{display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:10px 14px; border-radius:12px; white-space:normal; font-weight:500; line-height:1.4; background:color-mix(in srgb, var(--orange) 12%, transparent)}
 #zone-suivi:not(#luxe) .alerte.avis-mut svg{flex:none; margin-top:2px}
 #zone-suivi:not(#luxe) .alerte.avis-mut b{font-weight:600}
+#zone-suivi:not(#luxe) .alerte.avis-mut{flex-wrap:wrap}
+#zone-suivi:not(#luxe) .alerte.avis-mut > span:not(.avis-mut-bt){flex:1 1 0; min-width:0}
+#zone-suivi:not(#luxe) .avis-mut-bt{display:flex; flex-wrap:wrap; gap:6px; flex-basis:100%; padding-left:24px}
+html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
+#zone-suivi:not(#luxe) .avis-mut-bt button{min-height:32px; padding:6px 14px; line-height:1.25; text-align:left; border:0; border-radius:999px; background:var(--encre); color:var(--fond); font:500 .8125rem var(--font); cursor:pointer}
+#zone-suivi:not(#luxe) .avis-mut-bt button:hover{filter:brightness(1.1)}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
