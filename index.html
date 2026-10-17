@@ -15527,19 +15527,22 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
   if (window.ChoufAPI) contenu.insertAdjacentHTML("beforeend", window.ChoufAPI.blocFiche(cleClient(c), {nom:nomClient(c), conseiller:c.conseiller || ""}));
   if (FLUX){ const bf = bandeauFlux(idx); if (bf) contenu.insertAdjacentHTML("afterbegin", bf); }
   // 9 oct. 2026 : supprimer la ligne (dossier créé par erreur ou abandonné), rétablissable depuis l'Activité récente
+  /* 17 oct. 2026 : rangée comme les autres fiches : confier et rattacher en liens, supprimer à part, en bas */
+  const liensBas = [];
   { const mg = magInfo();   // 14 oct. 2026 : confier le dossier à l'autre magasin, ou le reprendre
     if (mg && mg.autre && !estProgramme(l) && !l.archive){ const a = l.confie ? window.ChoufAPI.magDe(l.confie.a) : mg.autre;
-      contenu.insertAdjacentHTML("beforeend", l.confie
-        ? `<div class="bloc-confie" style="--mag:${a.c}">${a.dome}<div><b>Confié à ${esc(a.nom)}</b><span class="petit">${l.confie.le ? "le " + dateISO(l.confie.le, "short") : ""}${l.confie.par ? " par " + esc(l.confie.par) : ""} · la vente reste comptée à ${esc(mg.nom)}</span></div><button type="button" data-confier="${idx}" data-a="">${mg.visite ? "Rendre à " + esc(mg.nom) : "Reprendre"}</button></div>`
-        : `<div class="bloc-confie libre" style="--mag:${a.c}"><button type="button" data-confier="${idx}" data-a="${a.id}">${a.dome}Confier à ${esc(a.nom)}</button><span class="petit">Il le verra dans ses dossiers et pourra le traiter. La vente reste comptée à ${esc(mg.nom)}.</span></div>`);
+      if (l.confie) contenu.insertAdjacentHTML("beforeend", `<div class="bloc-confie" style="--mag:${a.c}">${a.dome}<div><b>Confié à ${esc(a.nom)}</b><span class="petit">${l.confie.le ? "le " + dateISO(l.confie.le, "short") : ""}${l.confie.par ? " par " + esc(l.confie.par) : ""} · la vente reste comptée à ${esc(mg.nom)}</span></div><button type="button" data-confier="${idx}" data-a="">${mg.visite ? "Rendre à " + esc(mg.nom) : "Reprendre"}</button></div>`);
+      else liensBas.push(`<button type="button" data-confier="${idx}" data-a="${a.id}" title="${esc(a.nom)} le verra dans ses dossiers et pourra le traiter. La vente reste comptée à ${esc(mg.nom)}.">Confier à ${esc(a.nom)}</button>`);
       if (l.rattache) contenu.insertAdjacentHTML("beforeend", `<p class="petit rattache-note">Rattaché à ${esc(mg.nom)} le ${dateISO(l.rattache.le, "short")}${l.rattache.par ? " par " + esc(l.rattache.par) : ""} : il venait de ${esc(window.ChoufAPI.magDe(l.rattache.de).nom)}.</p>`);
-      if (mg.perso) contenu.insertAdjacentHTML("beforeend", `<div class="bloc-rattache"><button type="button" data-rattacher="${idx}" data-a="${mg.autre.id}">Rattacher ce dossier à ${esc(mg.autre.nom)}</button><span class="petit">Quand la vente doit changer de magasin : il quitte ${esc(mg.nom)}.</span></div>`); } }
+      if (mg.perso) liensBas.push(`<button type="button" data-rattacher="${idx}" data-a="${mg.autre.id}" title="Quand la vente doit changer de magasin : il quitte ${esc(mg.nom)}.">Rattacher à ${esc(mg.autre.nom)}</button>`); } }
   if (l.fiche){ const k = c.cosium || {};   // 17 oct. 2026 : fiche seule (client sans dossier) : ni équipement, ni étapes ; actions, journal et récap
     contenu.innerHTML = `<div class="bloc fiche-seule"><div class="ld"><span><b>Fiche Cosium, sans dossier</b><span class="petit">${k.mutCosium ? esc(k.mutCosium) + (k.gestCosium ? ", réseau " + esc(k.gestCosium) : "") : "Aucune complémentaire lue"}${k.lu ? " · lue " + esc(k.lu) : ""}</span></span>
       <button type="button" class="btn-solder" data-fs-suivi="${idx}">+ Ajouter au suivi</button></div>
       <div class="ld"><span class="petit">Garde ici un ancien récap (page Récapitulatif), des notes ou des actions. La fiche devient un dossier au premier ajout au suivi.</span></div></div>`
       + blocAction(idx) + blocPassages(c) + (window.ChoufAPI ? window.ChoufAPI.blocFiche(cleClient(c), {nom:nomClient(c), conseiller:c.conseiller || ""}) : ""); }
-  if (!estProgramme(l) && !l.fiche) contenu.insertAdjacentHTML("beforeend", `<div class="suppr-dossier"><button type="button" class="danger" data-suppr-dossier="${idx}">Supprimer ce dossier</button></div>`);
+  { const suppr = !estProgramme(l) && !l.fiche, lb = l.fiche ? [] : liensBas;
+    if (suppr || lb.length) contenu.insertAdjacentHTML("beforeend", `<div class="fiche-gestes">${lb.length ? `<div class="gestes-liens">${lb.join("")}</div>` : ""}
+      ${suppr ? `<div class="gestes-danger"><button type="button" data-suppr-dossier="${idx}">Supprimer ce dossier</button></div>` : ""}</div>`); }
   /* « Équipement » rejoint la rangée des ajouts, placée juste sous les équipements */
   { const eq = contenu.querySelector(":scope > label.ajout"), rangee = contenu.querySelector(":scope > .ajouts-fiche");
     if (eq){ const r = rangee || Object.assign(document.createElement("div"), {className:"ajouts-fiche"}); eq.before(r); r.prepend(eq); } }
@@ -23009,35 +23012,35 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 /* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
 :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
 
-/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour, produit, prix, process, fiche mutuelle) (demande de Mohamed : « trop fouillis ») =====
+/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour, produit, prix, process, fiche mutuelle, fiche client) (demande de Mohamed : « trop fouillis ») =====
    facture à rattacher repliée, geste principal seul, liens discrets, annuler et supprimer à part */
-:is(#drawer, #app) .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
-:is(#drawer, #app) .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
-:is(#drawer, #app) .fiche-repli:not(#luxe) > summary::-webkit-details-marker{display:none}
-:is(#drawer, #app) .fiche-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
-:is(#drawer, #app) .fiche-form:not(#luxe) .cf-client{grid-column:1 / -1}
-:is(#drawer, #app) .fiche-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
-:is(#drawer, #app) .fiche-form:not(#luxe) .cf-montant{position:relative;display:block}
-:is(#drawer, #app) .fiche-form:not(#luxe) .cf-montant .inp{padding-right:28px}
-:is(#drawer, #app) .fiche-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
-:is(#drawer, #app) .fiche-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
-:is(#drawer, #app) .fiche-gestes:not(#luxe){margin-top:20px;display:flex;flex-direction:column;gap:14px}
-:is(#drawer, #app) .gestes-principal:not(#luxe){display:flex;flex-wrap:wrap;gap:8px}
-:is(#drawer, #app) .gestes-liens:not(#luxe), :is(#drawer, #app) .gestes-danger:not(#luxe){display:flex;flex-wrap:wrap;gap:2px 18px}
-:is(#drawer, #app) .gestes-danger:not(#luxe){padding-top:12px;border-top:1px solid var(--separateur)}
-:is(#drawer, #app) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){background:none;border:0;box-shadow:none;padding:0;min-height:36px;font:inherit;font-size:14px;font-weight:500;color:var(--bleu);cursor:pointer;border-radius:6px}
-:is(#drawer, #app) .gestes-danger button:not(#luxe):not(#zone-suivi){color:var(--rouge)}
-:is(#drawer, #app) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi):hover{text-decoration:underline;text-underline-offset:3px}
-@media (max-width:760px){ :is(#drawer, #app) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){min-height:44px} }
+:is(#drawer, #app, #feuille) .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:is(#drawer, #app, #feuille) .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
+:is(#drawer, #app, #feuille) .fiche-repli:not(#luxe) > summary::-webkit-details-marker{display:none}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) .cf-client{grid-column:1 / -1}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) .cf-montant{position:relative;display:block}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) .cf-montant .inp{padding-right:28px}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
+:is(#drawer, #app, #feuille) .fiche-gestes:not(#luxe){margin-top:20px;display:flex;flex-direction:column;gap:14px}
+:is(#drawer, #app, #feuille) .gestes-principal:not(#luxe){display:flex;flex-wrap:wrap;gap:8px}
+:is(#drawer, #app, #feuille) .gestes-liens:not(#luxe), :is(#drawer, #app, #feuille) .gestes-danger:not(#luxe){display:flex;flex-wrap:wrap;gap:2px 18px}
+:is(#drawer, #app, #feuille) .gestes-danger:not(#luxe){padding-top:12px;border-top:1px solid var(--separateur)}
+:is(#drawer, #app, #feuille) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){background:none;border:0;box-shadow:none;padding:0;min-height:36px;font:inherit;font-size:14px;font-weight:500;color:var(--bleu);cursor:pointer;border-radius:6px}
+:is(#drawer, #app, #feuille) .gestes-danger button:not(#luxe):not(#zone-suivi){color:var(--rouge)}
+:is(#drawer, #app, #feuille) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi):hover{text-decoration:underline;text-underline-offset:3px}
+@media (max-width:760px){ :is(#drawer, #app, #feuille) :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){min-height:44px} }
 
 /* 17 oct. 2026 : formulaire affiché d'office (panneau d'un congé) et liste de mes congés */
-:is(#drawer, #app) .fiche-form.fiche-form-seule:not(#luxe){padding:12px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
-:is(#drawer, #app) .fiche-form:not(#luxe) .dp-champ{display:flex;flex-direction:column;gap:4px;margin:0;min-width:0}
-:is(#drawer, #app) .conges-miens:not(#luxe){list-style:none;margin:0;padding:0}
-:is(#drawer, #app) .conges-miens:not(#luxe) li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--separateur)}
-:is(#drawer, #app) .conges-miens:not(#luxe) li:last-child{border-bottom:0}
-:is(#drawer, #app) .conges-miens:not(#luxe) .cm-quoi{min-width:0}
-:is(#drawer, #app) .conges-miens:not(#luxe) .cm-le{display:block;margin-top:2px}
+:is(#drawer, #app, #feuille) .fiche-form.fiche-form-seule:not(#luxe){padding:12px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+:is(#drawer, #app, #feuille) .fiche-form:not(#luxe) .dp-champ{display:flex;flex-direction:column;gap:4px;margin:0;min-width:0}
+:is(#drawer, #app, #feuille) .conges-miens:not(#luxe){list-style:none;margin:0;padding:0}
+:is(#drawer, #app, #feuille) .conges-miens:not(#luxe) li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--separateur)}
+:is(#drawer, #app, #feuille) .conges-miens:not(#luxe) li:last-child{border-bottom:0}
+:is(#drawer, #app, #feuille) .conges-miens:not(#luxe) .cm-quoi{min-width:0}
+:is(#drawer, #app, #feuille) .conges-miens:not(#luxe) .cm-le{display:block;margin-top:2px}
 
 /* 17 oct. 2026 : fiche mutuelle en saisie, champs empilés et étapes sans rangée de petits boutons */
 #app .fm-champs:not(#luxe){display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:12px;margin-top:12px}
