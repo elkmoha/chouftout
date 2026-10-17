@@ -9241,6 +9241,13 @@ function ligneConge(c){
       <button type="button" class="btn small danger" data-action="conge-no" data-conge="${c.id}">Refuser</button></span>` : `<span class="abs">en attente</span>`)
       : c.statut === "acceptee" ? `<span class="tag">${c.pose ? "posé" : "acceptée"}</span>` : `<span class="tag warn">refusée</span>`}</li>`;
 }
+/* 17 oct. 2026 : une de mes demandes, dans le panneau (sans ma pastille ni colonnes fixes) */
+function congeMien(c){
+  const jours = Math.round((parseKey(c.to) - parseKey(c.from)) / 864e5) + 1;
+  const etat = c.statut === "attente" ? `<span class="abs">en attente</span>` : c.statut === "acceptee" ? `<span class="tag">${c.pose ? "posé" : "acceptée"}</span>` : `<span class="tag warn">refusée</span>`;
+  return `<li><span class="cm-quoi"><b>${esc(c.motif)}</b> du ${esc(fmtDay.format(parseKey(c.from)))} au ${esc(fmtDay.format(parseKey(c.to)))} <span class="sub">· ${jours} jour${jours > 1 ? "s" : ""}</span>
+    <span class="sub cm-le">demandé le ${esc(fmtDay.format(parseKey(c.demandeLe)))}${c.note ? " · " + esc(c.note) : ""}</span></span>${etat}</li>`;
+}
 /* Panneau « Poser un congé » : le formulaire, puis mes congés déjà posés ou demandés */
 function drawerConge(){
   const gerer = can("conges.gerer"), moi = currentUser().collab;
@@ -9248,15 +9255,15 @@ function drawerConge(){
   const miennes = S.conges.filter(c => c.pid === moi).sort((x, y) => y.demandeLe.localeCompare(x.demandeLe));
   return {titre:gerer ? "Poser un congé" : "Demander un congé",
     sous:gerer ? "Tu gères les congés : les tiens sont enregistrés directement, sans demande, et le planning se met à jour." : "La demande n’apparaît dans le planning qu’une fois acceptée par la direction.", corps:`
-    <form class="dp-form" data-form="add-conge">
+    <form class="fiche-form fiche-form-seule" data-form="add-conge">
       <label class="dp-champ"><span>Du</span><input class="inp" type="date" name="from" required></label>
       <label class="dp-champ"><span>Au</span><input class="inp" type="date" name="to" required></label>
-      <label class="dp-champ large"><span>Motif</span><select class="inp" name="motif">${ABSENCES.map(x => `<option>${x}</option>`).join("")}</select></label>
-      <label class="dp-champ large"><span>Précision</span><input class="inp" name="note" maxlength="80" placeholder="Facultatif"></label>
+      <label class="dp-champ cf-client"><span>Motif</span><select class="inp" name="motif">${ABSENCES.map(x => `<option>${x}</option>`).join("")}</select></label>
+      <label class="dp-champ cf-client"><span>Précision</span><input class="inp" name="note" maxlength="80" placeholder="Facultatif"></label>
       <button type="submit" class="btn primary">${gerer ? "Poser mes congés" : "Envoyer la demande"}</button>
     </form>
     <h4>Mes congés</h4>
-    ${miennes.length ? `<ul class="list-plain dem-liste">${miennes.map(ligneConge).join("")}</ul>` : `<p class="sub">Aucune demande pour l’instant.</p>`}`};
+    ${miennes.length ? `<ul class="conges-miens">${miennes.map(congeMien).join("")}</ul>` : `<p class="sub">Aucune demande pour l’instant.</p>`}`};   // 17 oct. 2026 : rangée comme les autres fiches
 }
 function shiftForm(prefix, sh){
   const type = !sh ? "rest" : sh.absence ? "abs" : "work";
@@ -23018,6 +23025,15 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .gestes-danger button:not(#luxe):not(#zone-suivi){color:var(--rouge)}
 #drawer :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi):hover{text-decoration:underline;text-underline-offset:3px}
 @media (max-width:760px){ #drawer :is(.gestes-liens, .gestes-danger) button:not(#luxe):not(#zone-suivi){min-height:44px} }
+
+/* 17 oct. 2026 : formulaire affiché d'office (panneau d'un congé) et liste de mes congés */
+#drawer .fiche-form.fiche-form-seule:not(#luxe){padding:12px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+#drawer .fiche-form:not(#luxe) .dp-champ{display:flex;flex-direction:column;gap:4px;margin:0;min-width:0}
+#drawer .conges-miens:not(#luxe){list-style:none;margin:0;padding:0}
+#drawer .conges-miens:not(#luxe) li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--separateur)}
+#drawer .conges-miens:not(#luxe) li:last-child{border-bottom:0}
+#drawer .conges-miens:not(#luxe) .cm-quoi{min-width:0}
+#drawer .conges-miens:not(#luxe) .cm-le{display:block;margin-top:2px}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
