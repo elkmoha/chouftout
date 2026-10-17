@@ -8076,8 +8076,8 @@ function drawerCheque(c){
       <tr><td colspan="${nc}"><b>Total des factures</b></td><td class="num"><b>${eur(chqTotal(c))}</b></td>${gerer ? "<td></td>" : ""}</tr>
       ${ecart ? `<tr><td colspan="${nc}"><b style="color:var(--warn)">Écart à expliquer</b></td><td class="num"><b style="color:var(--warn)">${eur(ecart)}</b></td>${gerer ? "<td></td>" : ""}</tr>` : ""}
     </tbody></table></div>` : `<p class="sub" style="margin:0">Aucune facture rattachée.</p>`}
-    ${gerer ? `<details class="chq-rattacher"><summary>+ Rattacher une facture</summary>
-      <form class="chq-fact-form" data-form="add-fact" data-cheque="${c.id}">
+    ${gerer ? `<details class="fiche-repli"><summary>+ Rattacher une facture</summary>
+      <form class="fiche-form" data-form="add-fact" data-cheque="${c.id}">
       <input class="inp cf-client" name="client" maxlength="40" placeholder="Client" required aria-label="Client"${chqListeClients(c)}>
       <select class="inp" name="type" aria-label="Type d’équipement">${st().cheques.types.map(t => `<option>${esc(t)}</option>`).join("")}</select>
       <input class="inp" name="numero" maxlength="20" placeholder="N° facture" aria-label="N° de facture">
@@ -9880,11 +9880,11 @@ function magBlocPersonne(p, g){
       ${g && ici && !p.archived ? `<button type="button" class="btn" data-action="pers-mag" data-person="${p.id}" data-mag="${autre.id}">Rattacher à ${esc(autre.nom)}</button>` : ""}</div>
     ${(p.magHisto || []).map(h => `<p class="sub dp-mag-histo">Depuis le ${fmtDay.format(parseKey(h.le))} · avant : ${esc(magDe(h.de).nom)}</p>`).join("")}
     <div class="dp-abs">${rf.length ? rf.map(r => `<span class="pill">Renfort à ${esc(magDe(r.mag).nom)} ${txtRenfort(r)}${g && ici ? `<button type="button" data-action="del-renfort" data-person="${p.id}" data-renfort="${r.id}" aria-label="Retirer ce renfort">×</button>` : ""}</span>`).join("") : `<span class="sub">Aucun renfort prévu à ${esc(autre.nom)}</span>`}</div>
-    ${g && ici && !p.archived ? `<form class="dp-form" data-form="add-renfort" data-person="${p.id}" data-mag="${autre.id}">
+    ${g && ici && !p.archived ? `<details class="fiche-repli"><summary>+ Ajouter un renfort à ${esc(autre.nom)}</summary><form class="fiche-form" data-form="add-renfort" data-person="${p.id}" data-mag="${autre.id}">
       <label class="dp-champ"><span>Du</span><input class="inp" type="date" name="from" required></label>
       <label class="dp-champ"><span>Au</span><input class="inp" type="date" name="to" required></label>
-      <button type="submit" class="btn">Ajouter un renfort à ${esc(autre.nom)}</button>
-    </form>` : !ici ? `<p class="sub">Son contrat, ses horaires et ses absences se règlent depuis ${esc(chez.nom)}.</p>` : ""}`;
+      <button type="submit" class="btn primary">Ajouter le renfort</button>
+    </form></details>` : !ici ? `<p class="sub">Son contrat, ses horaires et ses absences se règlent depuis ${esc(chez.nom)}.</p>` : ""}`;
 }
 const magsCompte = u => { const r = u && roleOf(u.role), sv = authCompte(u && u.id);
   if (sv) return sv.role === "admin" || sv.role === "administrateur" || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)];   // 14 oct. 2026 : le serveur décide qui voit les deux
@@ -10161,13 +10161,14 @@ function drawerPersonne(p){
     <h4>Horaires</h4>${typicalEditor(p)}
     <h4>Absences</h4>
     <div class="dp-abs">${p.leaves.length ? p.leaves.map(l => `<span class="pill">${txtAbsence(l)}<button type="button" data-action="del-leave" data-person="${p.id}" data-leave="${l.id}" aria-label="Supprimer cette absence">×</button></span>`).join("") : `<span class="sub">Aucune prévue</span>`}</div>
-    <form class="dp-form" data-form="add-leave" data-person="${p.id}">
+    <details class="fiche-repli"><summary>+ Ajouter une absence</summary>
+    <form class="fiche-form" data-form="add-leave" data-person="${p.id}">
       <label class="dp-champ"><span>Du</span><input class="inp" type="date" name="from" required></label>
       <label class="dp-champ"><span>Au</span><input class="inp" type="date" name="to" required></label>
-      <label class="dp-champ"><span>Motif</span><select class="inp" name="label">${ABSENCES.map(x => `<option>${x}</option>`).join("")}</select></label>
-      <button type="submit" class="btn">Ajouter l’absence</button>
-    </form>`,
-    pied:`<button type="button" class="btn danger" data-action="archive-person" data-person="${p.id}">Départ de ${esc(p.name)}</button>`};
+      <label class="dp-champ cf-client"><span>Motif</span><select class="inp" name="label">${ABSENCES.map(x => `<option>${x}</option>`).join("")}</select></label>
+      <button type="submit" class="btn primary">Ajouter l’absence</button>
+    </form></details>
+    <div class="fiche-gestes"><div class="gestes-danger"><button type="button" data-action="archive-person" data-person="${p.id}">Départ de ${esc(p.name)}</button></div></div>`};   // 17 oct. 2026 : rangée comme les autres fiches
 }
 
 function renderTasks(){
@@ -22992,18 +22993,18 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 /* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
 :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
 
-/* ===== 17 oct. 2026 : fiches d'un chèque et d'une commande rangées (demande de Mohamed : « trop fouillis ») =====
+/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne) (demande de Mohamed : « trop fouillis ») =====
    facture à rattacher repliée, geste principal seul, liens discrets, annuler et supprimer à part */
-#drawer .chq-rattacher:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
-#drawer .chq-rattacher:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
-#drawer .chq-rattacher:not(#luxe) > summary::-webkit-details-marker{display:none}
-#drawer .chq-fact-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
-#drawer .chq-fact-form:not(#luxe) .cf-client{grid-column:1 / -1}
-#drawer .chq-fact-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
-#drawer .chq-fact-form:not(#luxe) .cf-montant{position:relative;display:block}
-#drawer .chq-fact-form:not(#luxe) .cf-montant .inp{padding-right:28px}
-#drawer .chq-fact-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
-#drawer .chq-fact-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
+#drawer .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+#drawer .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
+#drawer .fiche-repli:not(#luxe) > summary::-webkit-details-marker{display:none}
+#drawer .fiche-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
+#drawer .fiche-form:not(#luxe) .cf-client{grid-column:1 / -1}
+#drawer .fiche-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
+#drawer .fiche-form:not(#luxe) .cf-montant{position:relative;display:block}
+#drawer .fiche-form:not(#luxe) .cf-montant .inp{padding-right:28px}
+#drawer .fiche-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
+#drawer .fiche-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
 #drawer .fiche-gestes:not(#luxe){margin-top:20px;display:flex;flex-direction:column;gap:14px}
 #drawer .gestes-principal:not(#luxe){display:flex;flex-wrap:wrap;gap:8px}
 #drawer .gestes-liens:not(#luxe), #drawer .gestes-danger:not(#luxe){display:flex;flex-wrap:wrap;gap:2px 18px}
