@@ -7270,17 +7270,14 @@ function drawerDuplicata(d){
   if (boutonsPj(d)) corps += `<div class="row dup-pj-boutons">${boutonsPj(d)}</div>`;
   if (gerer && dupOuverte(d)) corps += `<div class="row" style="margin-top:8px;gap:8px"><label class="btn small dup-joindre"><span>${d.fichier ? "Remplacer la pièce jointe" : "Joindre l’ordonnance"}</span><input type="file" accept="image/*,application/pdf" data-edit="dup-fichier-req" data-dup="${d.id}" hidden></label>
     ${d.fichier ? `<button type="button" class="btn small danger" data-action="dup-fichier-del" data-dup="${d.id}">Retirer</button>` : ""}</div>`;
-  if (gerer && dupOuverte(d)){
-    const b = [];
-    if (d.statut === "a_envoyer") b.push(`<button type="button" class="btn primary" data-action="dup-etat" data-dup="${d.id}" data-etat="envoyee">Marquer envoyée</button>`);
-    if (d.statut === "envoyee"){
-      b.push(`<button type="button" class="btn primary" data-action="dup-etat" data-dup="${d.id}" data-etat="recue">Duplicata reçu</button>`);
-      b.push(`<button type="button" class="btn" data-action="dup-relance" data-dup="${d.id}">Relancé aujourd’hui</button>`);
-    }
-    b.push(`<button type="button" class="btn danger" data-action="dup-etat" data-dup="${d.id}" data-etat="annulee">Annuler la demande</button>`);
-    corps += `<div class="row" style="margin-top:16px">${b.join("")}</div>
-      <p class="sub" style="margin:12px 0 0">À la clôture (duplicata reçu ou demande annulée), la pièce jointe est supprimée définitivement.</p>`;
-  }
+  /* 17 oct. 2026 : rangée comme les fiches chèque et commande (geste principal, liens, annulation à part) */
+  const princ = gerer && dupOuverte(d) ? (d.statut === "a_envoyer" ? `<button type="button" class="btn primary" data-action="dup-etat" data-dup="${d.id}" data-etat="envoyee">Marquer envoyée</button>`
+    : d.statut === "envoyee" ? `<button type="button" class="btn primary" data-action="dup-etat" data-dup="${d.id}" data-etat="recue">Duplicata reçu</button>` : "") : "";
+  const liens = (d.dossier && suviOk() ? `<button type="button" data-action="ouvrir-client-suvi" data-cle="${esc(d.dossier)}">Ouvrir le dossier ›</button>` : "")
+    + (gerer && dupOuverte(d) && d.statut === "envoyee" ? `<button type="button" data-action="dup-relance" data-dup="${d.id}">Relancé aujourd’hui</button>` : "");
+  if (princ || liens || (gerer && dupOuverte(d))) corps += `<div class="fiche-gestes">${princ ? `<div class="gestes-principal">${princ}</div>` : ""}${liens ? `<div class="gestes-liens">${liens}</div>` : ""}
+    ${gerer && dupOuverte(d) ? `<div class="gestes-danger"><button type="button" data-action="dup-etat" data-dup="${d.id}" data-etat="annulee">Annuler la demande</button></div>
+      <p class="sub" style="margin:0">À la clôture (duplicata reçu ou demande annulée), la pièce jointe est supprimée définitivement.</p>` : ""}</div>`;
   return {titre:"Duplicata pour " + d.client, sous:nomCabinet(d), corps};
 }
 
