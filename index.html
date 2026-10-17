@@ -5445,11 +5445,12 @@ function dossiersDeTache(t, ouvert, it){
       <span class="sub dmini-who">${v ? "vérifié par " + esc(v.par) + (v.h ? " à " + esc(v.h) : "") : esc(d.cons) + " · " + esc(quandSuvi(d.depuis))}</span></button></li>`;
   return `<details ${ouvert ? "open" : openAttr("jourlist-" + t.liste)} class="dlist"><summary>${avecVerif ? `<b>${nv} / ${all.length}</b> dossier${all.length > 1 ? "s" : ""} vérifié${all.length > 1 ? "s" : ""} aujourd’hui ${jaugeTache(nv, all.length)}` : `<b>${all.length}</b> dossier${all.length > 1 ? "s" : ""}, du plus ancien au plus récent`}</summary>
     <ul class="dmini-list">${shown.map(ligne).join("")}</ul>
-    <div class="row" style="margin-top:8px">
-      ${!avecVerif ? "" : fini ? (it && !it.done && can("planning.assigner") ? `<button type="button" class="btn small primary" data-action="done" data-item="${it.id}">Tout est vérifié : cocher la tâche</button>` : "")
-        : `<button type="button" class="btn small primary" data-action="verif-reprendre" data-liste="${esc(t.liste)}" data-lib="${esc(t.name)}">${nv ? "Reprendre où j’en étais" : "Commencer"} ›</button>`}
-      ${all.length > max ? `<button type="button" class="btn small" data-action="jour-more" data-list="${esc(t.liste)}">${more ? "Réduire la liste" : "Voir les " + (all.length - max) + " autres"}</button>` : ""}
-      <button type="button" class="btn small" data-action="voir-suivi" data-liste="${esc(t.liste)}" data-lib="${esc(t.name)}">Voir dans le suivi ›</button></div></details>`;
+    ${(() => {   // 17 oct. 2026 : rangée comme les fiches : un geste (commencer, reprendre ou cocher), le reste en liens
+      const princ = !avecVerif ? "" : fini ? (it && !it.done && can("planning.assigner") ? `<button type="button" class="btn" data-action="done" data-item="${it.id}">Tout est vérifié : cocher la tâche</button>` : "")
+        : `<button type="button" class="btn" data-action="verif-reprendre" data-liste="${esc(t.liste)}" data-lib="${esc(t.name)}">${nv ? "Reprendre où j’en étais" : "Commencer la vérification"} ›</button>`;
+      const liens = (all.length > max ? `<button type="button" data-action="jour-more" data-list="${esc(t.liste)}">${more ? "Réduire la liste" : "Voir les " + (all.length - max) + " autres"}</button>` : "")
+        + `<button type="button" data-action="voir-suivi" data-liste="${esc(t.liste)}" data-lib="${esc(t.name)}">Voir dans le suivi ›</button>`;
+      return `<div class="fiche-gestes" style="margin-top:4px">${princ ? `<div class="gestes-principal">${princ}</div>` : ""}<div class="gestes-liens">${liens}</div></div>`; })()}</details>`;
 }
 const aideDe = it => { const t = taskOf(it); if (t){ const pr = processDeTache(t.id); return pr ? pr.etapes.map(e => e.texte).join("\n") : ""; } return it.aide || ""; };
 const aideLeDe = it => { const t = taskOf(it); if (t){ const pr = processDeTache(t.id); return pr ? pr.majLe : ""; } return it.aideLe || ""; };
@@ -23069,6 +23070,10 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .check-line.tc-busy:not(#luxe){min-height:44px;display:flex;align-items:center;gap:10px;margin:8px 0 0}
 #drawer .days-toggle:not(#luxe){display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:6px;margin:10px 0 0}
 #drawer .days-toggle:not(#luxe) .tg{min-height:44px;padding:0;margin:0;justify-content:center;text-align:center}
+/* 17 oct. 2026 : tâche du jour, « À traiter » : titre sans triangle natif, cases à cocher plus grandes au doigt */
+#drawer .dlist:not(#luxe) > summary{list-style:none;min-height:44px;display:flex;align-items:center;gap:8px}
+#drawer .dlist:not(#luxe) > summary::-webkit-details-marker{display:none}
+@media (max-width:760px){ :is(#drawer, .fl-carte):not(#luxe) .dlist .dmini.verif-ligne > .cb{width:34px;height:34px;min-width:34px} }
 /* 17 oct. 2026 : sur téléphone, le geste principal des fiches prend toute la largeur, sous le pouce */
 @media (max-width:760px){
   :is(#drawer, #app, #feuille) .gestes-principal:not(#luxe) > .btn{flex:1 1 140px;min-height:48px;justify-content:center}
