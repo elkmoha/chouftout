@@ -8079,23 +8079,27 @@ function drawerCheque(c){
       <tr><td colspan="${nc}"><b>Total des factures</b></td><td class="num"><b>${eur(chqTotal(c))}</b></td>${gerer ? "<td></td>" : ""}</tr>
       ${ecart ? `<tr><td colspan="${nc}"><b style="color:var(--warn)">Écart à expliquer</b></td><td class="num"><b style="color:var(--warn)">${eur(ecart)}</b></td>${gerer ? "<td></td>" : ""}</tr>` : ""}
     </tbody></table></div>` : `<p class="sub" style="margin:0">Aucune facture rattachée.</p>`}
-    ${gerer ? `<form class="row" data-form="add-fact" data-cheque="${c.id}" style="margin-top:12px">
-      <input class="inp" name="client" maxlength="40" placeholder="Client" required style="flex:1 1 150px"${chqListeClients(c)}>
+    ${gerer ? `<details class="chq-rattacher"><summary>+ Rattacher une facture</summary>
+      <form class="chq-fact-form" data-form="add-fact" data-cheque="${c.id}">
+      <input class="inp cf-client" name="client" maxlength="40" placeholder="Client" required aria-label="Client"${chqListeClients(c)}>
       <select class="inp" name="type" aria-label="Type d’équipement">${st().cheques.types.map(t => `<option>${esc(t)}</option>`).join("")}</select>
-      <input class="inp" name="numero" maxlength="20" placeholder="N° facture" style="width:120px">
+      <input class="inp" name="numero" maxlength="20" placeholder="N° facture" aria-label="N° de facture">
       <input class="inp" type="date" name="date" value="${TODAY_KEY}" aria-label="Date de facture">
-      <span class="inline"><input class="inp" name="montant" type="number" min="0" step="0.01" style="width:100px" placeholder="Montant" required> €</span>
-      <button type="submit" class="btn small">Rattacher</button></form>` : ""}
-    <div class="row" style="margin-top:16px">
-      ${gerer && suivant ? `<button type="button" class="btn primary" data-action="chq-move" data-cheque="${c.id}" data-etat="${suivant[0]}"${restituer ? ` title="Le client n’a pas réglé autrement : la caution est encaissée"` : ""}>${restituer ? "Encaisser (remis en banque)" : suivant[1]}</button>` : ""}
-      ${restituer ? `<button type="button" class="btn" data-action="chq-restituer" data-cheque="${c.id}" title="Le client a réglé par carte, espèces ou virement : le chèque lui est rendu">Restituer au client</button>` : ""}
-      ${gerer && precedent ? `<button type="button" class="btn" data-action="chq-move" data-cheque="${c.id}" data-etat="${precedent[0]}" title="Corrige une erreur : remet le chèque à l’étape précédente">${precedent[1]}</button>` : ""}
-      ${gerer ? `<button type="button" class="btn" data-action="chq-edit" data-cheque="${c.id}">Modifier</button>` : ""}
-      <button type="button" class="btn" data-action="chq-fiche" data-cheque="${c.id}">Fiche à imprimer</button>
-      ${c.dossier && suviOk() ? `<button type="button" class="btn" data-action="ouvrir-client-suvi" data-cle="${esc(c.dossier)}">Ouvrir le dossier ›</button>` : ""}
-      ${gerer && c.statut === "annule" ? `<button type="button" class="btn" data-action="chq-retablir" data-cheque="${c.id}">Rétablir le chèque</button>` : ""}
-      ${gerer && c.statut !== "annule" ? `<button type="button" class="btn danger" data-action="chq-annuler" data-cheque="${c.id}">Annuler le chèque</button>` : ""}
-      ${gerer && !c.suvi ? `<button type="button" class="btn danger" data-action="chq-del" data-cheque="${c.id}">Supprimer</button>` : ""}
+      <label class="cf-montant"><input class="inp" name="montant" type="number" min="0" step="0.01" placeholder="Montant" required aria-label="Montant en euros"><span aria-hidden="true">€</span></label>
+      <button type="submit" class="btn primary">Rattacher</button></form></details>` : ""}
+    <div class="chq-gestes">
+      ${(gerer && suivant) || restituer || (gerer && c.statut === "annule") ? `<div class="chq-principal">
+        ${gerer && suivant ? `<button type="button" class="btn primary" data-action="chq-move" data-cheque="${c.id}" data-etat="${suivant[0]}"${restituer ? ` title="Le client n’a pas réglé autrement : la caution est encaissée"` : ""}>${restituer ? "Encaisser (remis en banque)" : suivant[1]}</button>` : ""}
+        ${restituer ? `<button type="button" class="btn" data-action="chq-restituer" data-cheque="${c.id}" title="Le client a réglé par carte, espèces ou virement : le chèque lui est rendu">Restituer au client</button>` : ""}
+        ${gerer && c.statut === "annule" ? `<button type="button" class="btn primary" data-action="chq-retablir" data-cheque="${c.id}">Rétablir le chèque</button>` : ""}</div>` : ""}
+      <div class="chq-liens">
+        ${c.dossier && suviOk() ? `<button type="button" data-action="ouvrir-client-suvi" data-cle="${esc(c.dossier)}">Ouvrir le dossier ›</button>` : ""}
+        ${gerer ? `<button type="button" data-action="chq-edit" data-cheque="${c.id}">Modifier</button>` : ""}
+        <button type="button" data-action="chq-fiche" data-cheque="${c.id}">Fiche à imprimer</button>
+        ${gerer && precedent ? `<button type="button" data-action="chq-move" data-cheque="${c.id}" data-etat="${precedent[0]}" title="Corrige une erreur : remet le chèque à l’étape précédente">${precedent[1]}</button>` : ""}</div>
+      ${gerer && (c.statut !== "annule" || !c.suvi) ? `<div class="chq-danger">
+        ${c.statut !== "annule" ? `<button type="button" data-action="chq-annuler" data-cheque="${c.id}">Annuler le chèque</button>` : ""}
+        ${!c.suvi ? `<button type="button" data-action="chq-del" data-cheque="${c.id}">Supprimer</button>` : ""}</div>` : ""}
     </div>`;
   return {titre:"Chèque de " + eur(c.montant), sous:nomEmetteur(c) + ", " + etat.label.toLowerCase(), corps};
 }
@@ -22981,6 +22985,27 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #zone-suivi:not(#luxe) .avis-mut-bt button.second{background:color-mix(in srgb, var(--encre) 10%, transparent); color:var(--encre)}
 /* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
 :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
+
+/* ===== 17 oct. 2026 : fiche d'un chèque rangée (demande de Mohamed : « trop fouillis ») =====
+   facture à rattacher repliée, geste principal seul, liens discrets, annuler et supprimer à part */
+#drawer .chq-rattacher:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
+#drawer .chq-rattacher:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
+#drawer .chq-rattacher:not(#luxe) > summary::-webkit-details-marker{display:none}
+#drawer .chq-fact-form:not(#luxe){display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
+#drawer .chq-fact-form:not(#luxe) .cf-client{grid-column:1 / -1}
+#drawer .chq-fact-form:not(#luxe) .inp{width:100%;min-width:0;box-sizing:border-box;margin:0}
+#drawer .chq-fact-form:not(#luxe) .cf-montant{position:relative;display:block}
+#drawer .chq-fact-form:not(#luxe) .cf-montant .inp{padding-right:28px}
+#drawer .chq-fact-form:not(#luxe) .cf-montant span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--second);pointer-events:none}
+#drawer .chq-fact-form:not(#luxe) button[type=submit]{grid-column:2;justify-self:end}
+#drawer .chq-gestes:not(#luxe){margin-top:20px;display:flex;flex-direction:column;gap:14px}
+#drawer .chq-principal:not(#luxe){display:flex;flex-wrap:wrap;gap:8px}
+#drawer .chq-liens:not(#luxe), #drawer .chq-danger:not(#luxe){display:flex;flex-wrap:wrap;gap:2px 18px}
+#drawer .chq-danger:not(#luxe){padding-top:12px;border-top:1px solid var(--separateur)}
+#drawer :is(.chq-liens, .chq-danger) button:not(#luxe):not(#zone-suivi){background:none;border:0;box-shadow:none;padding:0;min-height:36px;font:inherit;font-size:14px;font-weight:500;color:var(--bleu);cursor:pointer;border-radius:6px}
+#drawer .chq-danger button:not(#luxe):not(#zone-suivi){color:var(--rouge)}
+#drawer :is(.chq-liens, .chq-danger) button:not(#luxe):not(#zone-suivi):hover{text-decoration:underline;text-underline-offset:3px}
+@media (max-width:760px){ #drawer :is(.chq-liens, .chq-danger) button:not(#luxe):not(#zone-suivi){min-height:44px} }
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
