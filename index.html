@@ -22952,6 +22952,8 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #zone-suivi:not(#luxe) .avis-mut-bt button{min-height:32px; padding:6px 14px; line-height:1.25; text-align:left; border:0; border-radius:999px; background:var(--encre); color:var(--fond); font:500 .8125rem var(--font); cursor:pointer}
 #zone-suivi:not(#luxe) .avis-mut-bt button:hover{filter:brightness(1.1)}
 #zone-suivi:not(#luxe) .avis-mut-bt button.second{background:color-mix(in srgb, var(--encre) 10%, transparent); color:var(--encre)}
+/* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
+:root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
