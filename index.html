@@ -16594,7 +16594,10 @@ function renouvInscrit(c){
   const ref = progs[0] || [...aRenouveler().keys()].find(x => x.c === c) || (c.accordRenouv ? LIGNES.filter(x => x.c === c && !x.renouv).pop() : null);
   return ref ? {mut:ref.mut ? ref.mut.nom : "", progs, echeances:renouvDe(ref).map(x => x.des)} : null;
 }
-const mutChangee = (c, mut) => { const r = c && mut ? renouvInscrit(c) : null; return r && plat(r.mut) !== plat(mut) ? r : null; };
+/* 17 oct. 2026 (Mohamed) : une 2e mutuelle ajoutée pendant qu'un dossier TP est en cours ne remet pas les dates à zéro ;
+   après la clôture, une nouvelle mutuelle remplace l'ancienne : ses dates repartent de zéro */
+const mutChangee = (c, mut) => { if (c && LIGNES.some(l => l.c === c && l.mut && !l.archive && !estProgramme(l) && !clos(l))) return null;
+  const r = c && mut ? renouvInscrit(c) : null; return r && plat(r.mut) !== plat(mut) ? r : null; };
 function dialogueAjout(pre){
   const EX = {
     retour:{dossier:"24790", nom:"LEMAIRE", prenom:"Sophie", ne:lemaire.cosium.ne, mut:"MGEN", reseau:"Optistya", types:["lunettes"]},
@@ -16798,7 +16801,7 @@ function rendreBarre(){
       <div>${htmlEquip(l)}</div>
       <div class="bs-act">${obs(i)}</div>
       <div class="bs-fin">${k === 0 && x ? `<button type="button" class="f-solde ${x.cl}" data-bs-fiche="${i}" data-bs-recap>${x.lib} <b>${rEur(x.v)}</b></button>` : ""}<button type="button" class="bs-ouvrir" data-bs-fiche="${i}">Ouvrir la fiche</button></div>
-    </div>`; }).join("")}</div>${coteRacc(c)}`;
+    </div>`; }).join("")}</div>${EN_COSIUM ? `<button type="button" class="bs-ouvrir bs-ajout-2" data-bs-ajouter title="Change d’abord la mutuelle dans Cosium : elle est reprise ici">+ Ajouter une 2e mutuelle</button>` : ""}${coteRacc(c)}`;
 }
 /* 16 oct. 2026 (colonne Cosium) : commandes et duplicatas en cours du client en cartes, et « Commander une monture » ; ouverts dans l'onglet Chouf'Tout */
 const coteRacc = c => { const r = COTE && window.ChoufAPI && window.ChoufAPI.raccourcis(cleClient(c)); if (!r) return "";
@@ -16877,9 +16880,8 @@ function traiterDemandeCosium(){
   // Mutuelle de Cosium (« SWISS LIFE ») ramenée au nom connu ; réseau lu dans Cosium, sinon repris du dernier dossier avec cette mutuelle
   const der = c && LIGNES.filter(l => l.c === c && l.mut).pop();
   const mut = d.mut ? MUTUELLES.find(m => plat(m) === plat(d.mut)) || d.mut : der ? der.mut.nom : "";
-  const meme = LIGNES.filter(l => l.mut && plat(l.mut.nom) === plat(mut)).pop();
   setTimeout(async () => {
-    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:(d.mut && reseauCosium(d.reseau)) || (meme ? meme.mut.reseau : ""), types:["lunettes"], lu:true});
+    const v = await dialogueAjout({dossier:d.dossier, nom:d.nom, prenom:d.prenom, ne:d.ne, mut, reseau:d.mut ? reseauCosium(d.reseau) : "", types:["lunettes"], lu:true});
     if (v){ v.cosium = d.cosium; ajouterDepuisCosium(v); }
   }, 120);
 }
@@ -16938,7 +16940,8 @@ const coteW = () => { const w = coteLarge(); document.documentElement.style.setP
 if (COTE) document.documentElement.classList.add("cosium-cote");
 /* Ajout au suivi dans la barre même (9 oct. 2026, demande de Mohamed) : seuls la mutuelle, le réseau et l'équipement sont à confirmer */
 let BANDEAU_AJOUT = null;   // {mut, reseau, types} pendant la saisie
-const reseauDe = mut => { const l = mut && LIGNES.filter(x => x.mut && plat(x.mut.nom) === plat(mut)).pop(); return l ? l.mut.reseau : ""; };
+/* 17 oct. 2026 (Mohamed) : le réseau n'est jamais repris d'un autre dossier : une même mutuelle a des contrats gérés par Mercer, d'autres par Viamedis…
+   Il vient du gestionnaire lu dans Cosium pour ce client, sinon il reste à choisir (Hors réseau) */
 // 9 oct. 2026 : réseau lu dans Cosium (« Gestionnaire Contrat » de la complémentaire, « VIAMEDIS ») ramené au nom connu
 /* 17 oct. 2026 (demande de Mohamed) : mutuelle lue dans Cosium différente de celle des dossiers en cours : avertissement, rien n'est remplacé
    (un dossier de 2e mutuelle compte : si une des mutuelles en cours est celle de Cosium, pas d'avertissement) */
@@ -16951,7 +16954,7 @@ const connuBandeau = () => clientsDe().find(x => x.dossier === BANDEAU.dossier |
 function bandeauAjoutOuvrir(){
   if (!BANDEAU.complet){ toast("Ouvre sa fiche Cosium pour l’ajouter au suivi"); return; }
   const mut = BANDEAU.mut ? MUTUELLES.find(m => plat(m) === plat(BANDEAU.mut)) || BANDEAU.mut : "";
-  BANDEAU_AJOUT = {mut, reseau:(BANDEAU.mut && reseauCosium(BANDEAU.reseau)) || reseauDe(mut), types:["lunettes"], par:auteur() || ""}; rendreBarre();
+  BANDEAU_AJOUT = {mut, reseau:BANDEAU.mut ? reseauCosium(BANDEAU.reseau) : "", types:["lunettes"], par:auteur() || ""}; rendreBarre();
   document.querySelector('#barreSuvi [data-ba="mut"]')?.focus();
 }
 function bandeauAjoutHTML(){
@@ -17241,7 +17244,7 @@ if (EN_COSIUM){
   bs.addEventListener("input", e => {   // la saisie reste dans l'état : un nouvel affichage de la barre la retrouve
     if (!BANDEAU_AJOUT) return;
     const t = e.target, a = BANDEAU_AJOUT;
-    if (t.dataset.ba === "mut"){ a.mut = t.value.trim(); const r = bs.querySelector('[data-ba="reseau"]'); r.disabled = !a.mut; if (!r.value) { a.reseau = reseauDe(a.mut); r.value = a.reseau; } }
+    if (t.dataset.ba === "mut"){ a.mut = t.value.trim(); const r = bs.querySelector('[data-ba="reseau"]'); r.disabled = !a.mut; }
     else if (t.dataset.ba === "reseau") a.reseau = t.value.trim();
     else if (t.dataset.ba === "par") a.par = t.value;
     else if (t.dataset.baType){ a.types = [...bs.querySelectorAll("[data-ba-type]:checked")].map(x => x.dataset.baType); bs.querySelector("[data-ba-valider]").disabled = !a.types.length; }
