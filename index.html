@@ -11189,8 +11189,9 @@ function drawerTache(it, wk){
   const peutEcrireAide = m.t ? can("process.ecrire") : can("planning.ajouter");
   corps += `<h4>Comment faire</h4>` + (aide ? etapesHtml(aide) + (aideLe ? `<p class="sub" style="margin:8px 0 0">Mis à jour le ${esc(fmtLong.format(parseKey(aideLe)))}.</p>` : "")
     : peutEcrireAide ? "" : `<p class="sub" style="margin:0">Pas encore de mode d’emploi pour cette tâche.</p>`);
-  if (prLie || peutEcrireAide) corps += `<div class="row" style="margin-top:8px">${prLie ? `<button type="button" class="btn small" data-action="open-process" data-proc="${prLie.id}">Ouvrir le process</button>` : ""}
-    ${peutEcrireAide ? `<button type="button" class="btn small" data-action="tache-aide" data-item="${it.id}" data-wk="${wk}">${aide ? "Modifier le mode d’emploi" : "Écrire le mode d’emploi"}</button>` : ""}</div>`;
+  // 17 oct. 2026 : rangée comme les autres fiches ; le geste principal (« Marquer comme faite ») reste dans le pied
+  if (prLie || peutEcrireAide) corps += `<div class="fiche-gestes" style="margin-top:10px"><div class="gestes-liens">${prLie ? `<button type="button" data-action="open-process" data-proc="${prLie.id}">Ouvrir le process ›</button>` : ""}
+    ${peutEcrireAide ? `<button type="button" data-action="tache-aide" data-item="${it.id}" data-wk="${wk}">${aide ? "Modifier le mode d’emploi" : "Écrire le mode d’emploi"}</button>` : ""}</div></div>`;
   const aTraiter = m.t ? dossiersDeTache(m.t, true, it) + commandesDeTache(m.t, true) + chequesDeTache(m.t, true) : "";
   if (aTraiter) corps += `<h4>À traiter</h4>` + aTraiter;
   corps += `</div>`;
@@ -22994,7 +22995,7 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 /* 17 oct. 2026 (demande de Mohamed) : dans Cosium, plus de flou derrière la fiche et les fenêtres : Cosium reste net sous le voile */
 :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) #voile:not(.x-voile), :root:root.mode-cosium:not(.x-cosium) #zone-suivi:not(#luxe) .voile:not(.x-voile){-webkit-backdrop-filter:none; backdrop-filter:none}
 
-/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche) (demande de Mohamed : « trop fouillis ») =====
+/* ===== 17 oct. 2026 : fiches rangées (chèque, commande, duplicata, atelier, personne, tâche, tâche du jour) (demande de Mohamed : « trop fouillis ») =====
    facture à rattacher repliée, geste principal seul, liens discrets, annuler et supprimer à part */
 #drawer .fiche-repli:not(#luxe){margin-top:14px;border-radius:14px;background:color-mix(in srgb, var(--encre) 4%, transparent)}
 #drawer .fiche-repli:not(#luxe) > summary{cursor:pointer;list-style:none;padding:12px 16px;font-weight:500;color:var(--bleu);min-height:44px;box-sizing:border-box;display:flex;align-items:center}
