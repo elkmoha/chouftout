@@ -15460,7 +15460,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
       ${blocDates(l, idx, it)}
       ${trois("BL", BL_CHEMIN, BL, i.bl, "bl", idx, it, i.dBl)}
       ${i.t === "lentilles" ? essaiFiche(i, idx, it) : ""}
-      ${l.mut && i.tp ? `<div class="ld"><span>Prise en charge ${esc(l.mut.nom)}</span>${montant(idx, it)}</div>` : ""}`}
+      ${l.mut ? `<div class="ld"><span>${i.tp ? "Prise en charge" : "Remboursement"} ${esc(l.mut.nom)}</span>${montant(idx, it)}</div>` : ""}`}
     </div>`).join("")}
     ${(() => { const manquants = Object.keys(TYPES).filter(t => !l.items.some(i => i.t === t));
       return manquants.length ? `<label class="ajout">
