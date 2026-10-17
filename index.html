@@ -9898,14 +9898,14 @@ function magBlocPersonne(p, g){
   return `<h4>Magasin</h4>
     <div class="dp-mag" style="--mag:${chez.c}">${magDome(chez.id, "", true)}<span><b>${esc(chez.nom)}</b><small>Magasin de rattachement · sa paie y reste</small></span>
 </div>
-    ${g && ici && !p.archived ? `<div class="gestes-liens"><button type="button" data-action="pers-mag" data-person="${p.id}" data-mag="${autre.id}">Rattacher à ${esc(autre.nom)}</button></div>` : ""}
     ${(p.magHisto || []).map(h => `<p class="sub dp-mag-histo">Depuis le ${fmtDay.format(parseKey(h.le))} · avant : ${esc(magDe(h.de).nom)}</p>`).join("")}
     <div class="dp-abs">${rf.length ? rf.map(r => `<span class="pill">Renfort à ${esc(magDe(r.mag).nom)} ${txtRenfort(r)}${g && ici ? `<button type="button" data-action="del-renfort" data-person="${p.id}" data-renfort="${r.id}" aria-label="Retirer ce renfort">×</button>` : ""}</span>`).join("") : `<span class="sub">Aucun renfort prévu à ${esc(autre.nom)}</span>`}</div>
     ${g && ici && !p.archived ? `<details class="fiche-repli"><summary>+ Ajouter un renfort à ${esc(autre.nom)}</summary><form class="fiche-form" data-form="add-renfort" data-person="${p.id}" data-mag="${autre.id}">
       <label class="dp-champ"><span>Du</span><input class="inp" type="date" name="from" required></label>
       <label class="dp-champ"><span>Au</span><input class="inp" type="date" name="to" required></label>
       <button type="submit" class="btn primary">Ajouter le renfort</button>
-    </form></details>` : !ici ? `<p class="sub">Son contrat, ses horaires et ses absences se règlent depuis ${esc(chez.nom)}.</p>` : ""}`;
+    </form></details>
+    <div class="gestes-liens" style="margin-top:8px"><button type="button" data-action="pers-mag" data-person="${p.id}" data-mag="${autre.id}" title="Change son magasin de rattachement : sa paie le suit">Rattacher à ${esc(autre.nom)}</button></div>` : !ici ? `<p class="sub">Son contrat, ses horaires et ses absences se règlent depuis ${esc(chez.nom)}.</p>` : ""}`;
 }
 const magsCompte = u => { const r = u && roleOf(u.role), sv = authCompte(u && u.id);
   if (sv) return sv.role === "admin" || sv.role === "administrateur" || (u && u.tousMag) ? MAGASINS.map(m => m.id) : [magDefaut(u)];   // 14 oct. 2026 : le serveur décide qui voit les deux
