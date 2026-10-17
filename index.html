@@ -4191,7 +4191,7 @@ const moisLabel = mois => { const [y, m] = mois.split("-").map(Number); return c
 const sansAccent = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const enCours = () => S.suivi.dossiers.filter(d => !LISTS.filter(l => l.id !== "nv").some(l => l.match(d)));
 /* Actions de simple navigation, permises à tout compte connecté. Toute autre action doit avoir un droit dans ACTION_PERM, sinon elle est refusée. */
-const ACTIONS_LIBRES = new Set(["mdp-oublie", "mdp-changer", "voir-confies", "login-ident", "login-autre", "mag-verrou", "mag-appareil-retour", "mag-menu", "mag-aller", "mag-appareil", "mag-rentrer", "search-autre", "open-paie", "fiche-edit", "open-tarif", "tarif-grille", "tarif-grilles", "bascule", "open-personne", "open-tachecat", "open-ajout", "login", "logout", "tab", "plus", "print", "close-pop", "search-open", "search-go", "accent-perso",
+const ACTIONS_LIBRES = new Set(["guide-ouvrir", "mdp-oublie", "mdp-changer", "voir-confies", "login-ident", "login-autre", "mag-verrou", "mag-appareil-retour", "mag-menu", "mag-aller", "mag-appareil", "mag-rentrer", "search-autre", "open-paie", "fiche-edit", "open-tarif", "tarif-grille", "tarif-grilles", "bascule", "open-personne", "open-tachecat", "open-ajout", "login", "logout", "tab", "plus", "print", "close-pop", "search-open", "search-go", "accent-perso",
   "goto-cmd", "goto-fiche", "goto-hours", "goto-suivi", "goto-tarifs", "jour-more", "jour-next", "jour-prev", "jour-today",
   "month-next", "month-prev", "stat-next", "stat-prev", "week-next", "week-prev", "week-today", "pick-me",
   "suivi-reset", "tarif-reset", "tarif-mutuelle-dossier", "reg-aller", "jour-voir", "retour", "open-notifs", "open-notif", "notifs-tout-lu", "open-nouv", "open-activite", "open-tdb", "act-retablir", "act-ouvrir", "racc-basculer", "racc-fermer", "racc-go", "drawer-agrandir", "vue-ecran", "vues-plus", "filtre-gen-choix", "copier", "annuler", "drawer-close", "flotte-fermer", "flotte-panneau", "reg-section", "compte-menu", "compte-affichage", "export-ecran"]);
@@ -5573,9 +5573,9 @@ function renderProcess(){
       ${voitMut ? `<button type="button" class="fchip" data-action="proc-rub" data-rub="mutuelles" aria-pressed="${S.procRub === "mutuelles"}">Mutuelles et plateformes <span>${nbMut}</span></button>` : ""}
     </div>
   </div>`;
-  /* 17 oct. 2026 : guide d'utilisation en PDF (publié à côté de index.html) */
-  if (!S.procRub && (!q || "guide utilisation chouftout mode d emploi pdf".includes(q))) html += `<div class="proc-liste"><a class="card proc-card" href="guide-chouftout.pdf" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><span class="proc-titre">Guide d’utilisation de Chouf’Tout</span>
-    <span class="sub">PDF, 26 pages : tous les écrans expliqués, sommaire cliquable</span></a></div>`;
+  /* 17 oct. 2026 : guide d'utilisation en PDF, gardé dans la base (espace privé « documents »), lu seulement par les comptes connectés */
+  if (!S.procRub && (!q || "guide utilisation chouftout mode d emploi pdf".includes(q))) html += `<div class="proc-liste"><button type="button" class="card proc-card" data-action="guide-ouvrir"><span class="proc-titre">Guide d’utilisation de Chouf’Tout</span>
+    <span class="sub">PDF : tous les écrans expliqués, sommaire cliquable</span></button></div>`;
   const groupes = rubriques().map(r => ({id:r.id, nom:r.nom, items:liste.filter(p => p.rubrique === r.id)})).filter(g => g.items.length);
   const orphelins = liste.filter(p => !rubriques().some(r => r.id === p.rubrique));
   if (orphelins.length) groupes.push({id:"sans", nom:"Sans rubrique", items:orphelins});
@@ -9588,6 +9588,24 @@ async function authJeton(){
       throw e; }).finally(() => { authRenouv = null; });
   return authRenouv;
 }
+/* 17 oct. 2026 : documents internes dans le stockage privé de la base (lecture : comptes reliés ; dépôt : super administrateur) */
+const DOC_GUIDE = "guide-chouftout.pdf";
+const docUrl = (nom, depot) => BASE.url.replace("rest/v1/", "storage/v1/object/") + (depot ? "" : "authenticated/") + "documents/" + nom;
+async function docOuvrir(nom){
+  if (DEMO || !authLire()){ toast("Le guide s’ouvre une fois connecté avec ton compte."); return; }
+  const w = window.open("", "_blank");   // ouverte tout de suite, sinon Safari bloque la fenêtre
+  try {
+    const r = await fetch(docUrl(nom), {headers:{apikey:BASE.cle, Authorization:"Bearer " + await authJeton()}});
+    if (!r.ok) throw r.status;
+    const u = URL.createObjectURL(await r.blob());
+    if (w) w.location.href = u; else location.href = u;
+    setTimeout(() => URL.revokeObjectURL(u), 600e3);
+  } catch (e){ if (w) w.close(); toast(e === 400 || e === 404 ? "Le guide n’a pas encore été déposé (Réglages › Données)." : "Le guide n’a pas pu être ouvert. Réessaie dans un instant."); }
+}
+async function docDeposer(nom, file){
+  const r = await fetch(docUrl(nom, true), {method:"POST", headers:{apikey:BASE.cle, Authorization:"Bearer " + await authJeton(), "Content-Type":"application/pdf", "x-upsert":"true"}, body:file});
+  if (!r.ok) throw r.status;
+}
 /* 14 oct. 2026 : mot de passe oublié (lien envoyé par Supabase, qui revient sur cette page) et changement de mot de passe */
 const authMdpOublie = email => authAppel("recover?redirect_to=" + encodeURIComponent(location.origin + location.pathname), {email});
 async function authNouveauMdp(jeton, mdp){
@@ -10914,6 +10932,12 @@ function secDonnees(){
     <p class="sub" style="margin:4px 0 12px;max-width:70ch">Un onglet du mois du fichier « SUIVI CLIENTS » (CSV ou cellules collées) devient des dossiers : états répartis entre administratif, équipement et BL, observation en action à faire. Aperçu avant de valider ; un client déjà suivi n’est pas recréé.</p>
     <div class="row"><button type="button" class="btn" data-action="import-feuille">Importer un mois…</button></div>
   </section>
+  ${can("donnees.gerer") && !DEMO ? `<section class="panel">
+    <h3>Guide d’utilisation</h3>
+    <p class="sub" style="margin:4px 0 12px;max-width:70ch">Le PDF proposé à toute l’équipe dans Savoir-faire › Comment faire. Il est gardé dans la base, lisible seulement par les comptes connectés (pas sur le site public). Déposer un nouveau fichier remplace l’ancien.</p>
+    <div class="row"><button type="button" class="btn" data-action="guide-ouvrir">Ouvrir le guide</button>
+      <label class="btn">Déposer le PDF…<input type="file" accept=".pdf,application/pdf" data-edit="guide-pdf" hidden></label></div>
+  </section>` : ""}
   <section class="panel">
     <h3>Sauvegarde</h3>
     <p class="sub" style="margin:4px 0 12px;max-width:70ch">Un fichier avec toutes les données du magasin : dossiers des clients, planning, horaires, équipe, commandes, chèques, catalogue et réglages. Garde-le sur ton ordinateur ; « Recharger » remet les données telles qu’elles étaient ce jour-là. Les mots de passe n’y sont jamais.</p>
@@ -12621,6 +12645,7 @@ document.addEventListener("click", async e => {
       S.roles = S.roles.filter(x => x.id !== r.id);
       render(); break;
     }
+    case "guide-ouvrir": docOuvrir(DOC_GUIDE); break;   // 17 oct. 2026
     case "import-feuille": {   // 15 oct. 2026 : la fenêtre d'import s'ouvre sur Dossiers
       window.ChoufAPI.allerDossiers(); setTimeout(() => window.SuviAPI && window.SuviAPI.importerFeuille(), 60);
       break;
@@ -12896,6 +12921,15 @@ document.addEventListener("change", e => {   // 9 oct. 2026 : période des expor
   if (!k) return;
   S["export" + k.charAt(0).toUpperCase() + k.slice(1)] = el.value;
   render();
+});
+document.addEventListener("change", e => {   // 17 oct. 2026 : déposer le guide d'utilisation
+  const el = e.target;
+  if (!(el instanceof HTMLInputElement) || el.dataset.edit !== "guide-pdf" || !can("donnees.gerer")) return;
+  const file = el.files && el.files[0]; el.value = "";
+  if (!file) return;
+  if (file.type !== "application/pdf"){ toast("Choisis un fichier PDF."); return; }
+  toast("Envoi du guide…");
+  docDeposer(DOC_GUIDE, file).then(() => toast("Guide déposé : toute l’équipe le trouve dans Savoir-faire."), () => toast("Le guide n’a pas pu être déposé."));
 });
 document.addEventListener("change", e => {   // 9 oct. 2026 : recharger une sauvegarde
   const el = e.target;
