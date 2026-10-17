@@ -3508,7 +3508,9 @@ const CHQ_ETATS = [
   {id:"recu", label:"Reçu", desc:"Arrivé en boutique, à rapprocher des factures", color:"var(--lens)"},
   {id:"remis", label:"Remis en banque", desc:"Déposé, en attente d’encaissement", color:"var(--p0)"},
   {id:"solde", label:"Soldé", desc:"Encaissé et lettré", color:"var(--good)"},
-  {id:"restitue", label:"Restitué", desc:"Caution rendue au client, qui a réglé autrement", color:"var(--muted)"}
+  {id:"restitue", label:"Restitué", desc:"Caution rendue au client, qui a réglé autrement", color:"var(--muted)"},
+  /* 17 oct. 2026 (Mohamed) : annuler un chèque, même venu d'un dossier (pas de suppression) ; il reste pour la trace */
+  {id:"annule", label:"Annulé", desc:"Annulé : erreur ou chèque abandonné, gardé pour la trace", color:"var(--muted)"}
 ];
 const chqEtatOf = id => CHQ_ETATS.find(e => e.id === id);
 const etatOf = id => CMD_ETATS.find(e => e.id === id);
@@ -4202,7 +4204,7 @@ const ACTION_PERM = {
   "suivi-check":"suivi.cocher",
   "open-dossier":"suivi.voir", "ouvrir-client-suvi":"suivi.voir", "cmd-depuis-dossier":"commandes.gerer", "cmd-livree":"commandes.gerer", "cmd-ici":"commandes.gerer", "cmd-prefill-off":"commandes.voir", "ouvrir-commande-ct":"commandes.voir", "ouvrir-cheque-ct":"cheques.voir", "reglages-dossiers":"suivi.voir", "ouvrir-atelier-ct":"commandes.voir", "ouvrir-duplicata-ct":"suivi.voir", "voir-suivi":"suivi.voir", "ouvrir-dossier-suvi":"suivi.voir", "open-commande":"commandes.voir", "cmd-form":"commandes.gerer", "open-cheque":"cheques.voir", "chq-edit":"cheques.gerer", "chq-form":"cheques.gerer", "cmd-reset":"commandes.voir", "cmd-move":"commandes.gerer", "cmd-del":"commandes.gerer", "cmd-facture":"commandes.gerer", "cmd-issue":"commandes.gerer",
   "conge-ok":"conges.gerer", "conge-no":"conges.gerer", "signalement-ok":"tarifs.gerer",
-  "verif-dossier":"suivi.voir", "verif-reprendre":"suivi.voir", "chq-move":"cheques.gerer", "chq-relance":"cheques.gerer", "chq-restituer":"cheques.gerer", "goto-chq-relance":"cheques.voir", "chq-del":"cheques.gerer", "chq-fact-del":"cheques.gerer", "chq-fiche":"cheques.voir", "chq-reset":"cheques.voir",
+  "verif-dossier":"suivi.voir", "verif-reprendre":"suivi.voir", "chq-move":"cheques.gerer", "chq-relance":"cheques.gerer", "chq-restituer":"cheques.gerer", "goto-chq-relance":"cheques.voir", "chq-del":"cheques.gerer", "chq-annuler":"cheques.gerer", "chq-retablir":"cheques.gerer", "chq-fact-del":"cheques.gerer", "chq-fiche":"cheques.voir", "chq-reset":"cheques.voir",
   "step-open":"suivi.voir", "tarif-valider":"tarifs.gerer", "tarif-refuser":"tarifs.gerer", "tarif-signal":"tarifs.proposer",
   "signal-accept":"tarifs.gerer", "signal-confirm":"tarifs.gerer",
   "etape-up":"tarifs.gerer", "etape-down":"tarifs.gerer", "etape-del":"tarifs.gerer",
@@ -4313,7 +4315,7 @@ const tarifsProposes = () => S.tarifs.filter(t => t.statut === "propose");
 const tarifOf = id => S.tarifs.find(t => t.id === id);
 const chqOf = id => S.cheques.find(c => c.id === id);
 const chqTotal = c => c.factures.reduce((n, f) => n + f.montant, 0);
-const chqEcart = c => Math.round((c.montant - chqTotal(c)) * 100) / 100;
+const chqEcart = c => c.statut === "annule" ? 0 : Math.round((c.montant - chqTotal(c)) * 100) / 100;
 const chqJours = c => Math.round((new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate()) - parseKey(c.dateReception || c.saisiLe)) / 864e5);
 const chqRetard = c => st().cheques.alerteOn !== false && c.statut === "attendu" && chqJours(c) > st().cheques.alerteJours;
 const canSeeChq = () => can("cheques.voir");
@@ -6008,10 +6010,11 @@ function syncChequesSuvi(){
     else if (c.montant !== x.montant) montant(c, x.montant);
   });
   liste.filter(x => x.type === "condition").forEach(x => {
-    let c = S.cheques.find(q => q.cond === x.id) || S.cheques.find(q => q.dossier === x.cle && q.suvi && !q.cond && q.statut !== "solde");
+    let c = S.cheques.find(q => q.cond === x.id) || S.cheques.find(q => q.dossier === x.cle && q.suvi && !q.cond && q.statut !== "solde" && q.statut !== "annule");
     if (!c) S.cheques.push(c = {id:"q" + uid(), numero:"", emetteur:x.nom, montant:x.montant, statut:"attendu", dateReception:null, dateEnvoi:null, factures:facture(x, x.montant),
       note:"chèque de caution, en attente du remboursement du client", par:"", saisiLe:TODAY_KEY, suvi:x.id, dossier:x.cle});
     c.cond = x.id; c.caution = true; c.type = "caution";
+    if (c.statut === "annule") return;                                                    /* annulé dans l'écran Chèques : le dossier n'y touche plus */
     if (c.statut === "attendu" && !c.montantManuel && x.montant && c.montant !== x.montant) montant(c, x.montant);
     const ici = c.statut !== "attendu";                                                    /* au magasin : reçu, puis éventuellement remis ou soldé */
     if (ici !== x.depose){
@@ -6022,7 +6025,7 @@ function syncChequesSuvi(){
     c.deposeVu = c.statut !== "attendu";
   });
 }
-const ETAT_CHQ_COURT = {attendu:["Attendu", "--orange"], recu:["Reçu", "--bleu"], remis:["Remis en banque", "--violet"], solde:["Soldé", "--vert"], restitue:["Restitué", "--second"]};
+const ETAT_CHQ_COURT = {attendu:["Attendu", "--orange"], recu:["Reçu", "--bleu"], remis:["Remis en banque", "--violet"], solde:["Soldé", "--vert"], restitue:["Restitué", "--second"], annule:["Annulé", "--second"]};
 window.ChoufAPI = {
   /* 14 oct. 2026 : le magasin des dossiers affichés (pastille de la fiche client) ; visite = c'est l'autre magasin */
   magasin(){ if (!MULTI || !S || !S.magasin) return null; const m = magDe(S.magasin); return {nom:m.nom, lieu:m.lieu, c:m.c, visite:!!S.visite, lecture:magLecture(), dome:magDome(m.id, "", true), de:S.visite ? magDe(S.visite).nom : null,
@@ -7964,17 +7967,18 @@ function chqGarde(c){
 }
 /* Chèques au format du suivi : les quatre totaux restent en tête (cliquables), vues rapides, un seul tableau ; la ligne ouvre la fiche du chèque */
 const CHQ_VUES = [
-  {id:"", lib:"Tous", fixe:true, f:() => true},
+  {id:"", lib:"Tous", fixe:true, f:c => c.statut !== "annule"},
   {id:"attendu", lib:"Attendus", fixe:true, f:c => c.statut === "attendu"},
   {id:"recu", lib:"Reçus", fixe:true, f:c => c.statut === "recu"},
   {id:"remis", lib:"Remis en banque", fixe:true, f:c => c.statut === "remis"},
   {id:"solde", lib:"Soldés", fixe:true, f:c => c.statut === "solde"},
   {id:"restitue", lib:"Restitués", f:c => c.statut === "restitue"},
+  {id:"annule", lib:"Annulés", f:c => c.statut === "annule"},
   {id:"ecart", lib:"Écart à expliquer", urgent:true, f:c => !!chqEcart(c) && c.statut !== "attendu"},
   {id:"retard", lib:"Attendus depuis longtemps", urgent:true, f:c => chqRetard(c)},
   {id:"relance", lib:"Clients à relancer", urgent:true, f:c => chqARelancer(c)}
 ];
-const CHQ_COUL = {attendu:"--orange", recu:"--bleu", remis:"--violet", solde:"--vert", restitue:"--second"};
+const CHQ_COUL = {attendu:"--orange", recu:"--bleu", remis:"--violet", solde:"--vert", restitue:"--second", annule:"--second"};
 function chqLigneSv(c, gerer){
   const ecart = chqEcart(c), etat = chqEtatOf(c.statut);
   const suivant = c.statut === "attendu" ? ["recu", "Reçu"] : c.statut === "recu" ? ["remis", "Remis en banque"] : c.statut === "remis" ? ["solde", "Soldé"] : null;
@@ -8004,7 +8008,7 @@ function renderCheques(){
       <label class="sub">Type <select class="inp" name="type"><option value="caution">Caution</option><option value="comptant">Paiement comptant</option></select></label>
       <input class="inp" name="numero" maxlength="20" placeholder="N° de chèque" style="width:160px">
       <span class="inline"><input class="inp" name="montant" type="number" min="0" step="0.01" style="width:120px" placeholder="Montant" required> €</span>
-      <label class="sub">État <select class="inp" name="statut">${CHQ_ETATS.filter(e => e.id !== "restitue").map(e => `<option value="${e.id}" ${e.id === "recu" ? "selected" : ""}>${e.label}</option>`).join("")}</select></label>
+      <label class="sub">État <select class="inp" name="statut">${CHQ_ETATS.filter(e => e.id !== "restitue" && e.id !== "annule").map(e => `<option value="${e.id}" ${e.id === "recu" ? "selected" : ""}>${e.label}</option>`).join("")}</select></label>
       <input class="inp" name="note" maxlength="80" placeholder="Note (facultatif)" style="flex:1 1 150px">
       <button type="submit" class="btn primary">Créer</button>
     </form></section>`;
@@ -8061,6 +8065,7 @@ function drawerCheque(c){
     ${ligneInfo("Reçu le", c.dateReception ? esc(fmtLong.format(parseKey(c.dateReception))) : "")}
     ${ligneInfo("Remis le", c.dateEnvoi ? esc(fmtLong.format(parseKey(c.dateEnvoi))) : "")}
     ${c.statut === "restitue" && c.restitution ? ligneInfo("Restitué le", esc(fmtLong.format(parseKey(c.restitution.date))) + ", réglé par " + esc(c.restitution.mode.toLowerCase())) : ""}
+    ${c.statut === "annule" && c.annulation ? ligneInfo("Annulé le", esc(fmtLong.format(parseKey(c.annulation.date))) + (c.annulation.motif ? " : " + esc(c.annulation.motif) : "")) : ""}
     ${chqRetard(c) ? `<p class="banner" style="margin-top:8px">Attendu depuis ${chqJours(c)} jours.</p>` : ""}
     ${chqComplet(c) ? ligneInfo("Relance client", chqARelancer(c) ? `<b style="color:var(--orange)">à faire</b>` : `le ${esc(fmtLong.format(parseKey(chqProchaineRelance(c))))}`)
       + (c.relances && c.relances.length ? ligneInfo("Déjà relancé", esc(c.relances.map(r => fmtDay.format(parseKey(r.date))).join(", "))) : "")
@@ -8088,6 +8093,8 @@ function drawerCheque(c){
       ${gerer ? `<button type="button" class="btn" data-action="chq-edit" data-cheque="${c.id}">Modifier</button>` : ""}
       <button type="button" class="btn" data-action="chq-fiche" data-cheque="${c.id}">Fiche à imprimer</button>
       ${c.dossier && suviOk() ? `<button type="button" class="btn" data-action="ouvrir-client-suvi" data-cle="${esc(c.dossier)}">Ouvrir le dossier ›</button>` : ""}
+      ${gerer && c.statut === "annule" ? `<button type="button" class="btn" data-action="chq-retablir" data-cheque="${c.id}">Rétablir le chèque</button>` : ""}
+      ${gerer && c.statut !== "annule" ? `<button type="button" class="btn danger" data-action="chq-annuler" data-cheque="${c.id}">Annuler le chèque</button>` : ""}
       ${gerer && !c.suvi ? `<button type="button" class="btn danger" data-action="chq-del" data-cheque="${c.id}">Supprimer</button>` : ""}
     </div>`;
   return {titre:"Chèque de " + eur(c.montant), sous:nomEmetteur(c) + ", " + etat.label.toLowerCase(), corps};
@@ -12133,6 +12140,25 @@ document.addEventListener("click", async e => {
       chqMajComplet(c);
       render();
       toast(etat === "recu" ? "Chèque en « Reçu »." : etat === "remis" ? "Chèque remis en banque, date enregistrée." : etat === "solde" ? "Chèque soldé." : "Chèque revenu en « Attendu ».");
+      return;
+    }
+    case "chq-annuler": {
+      const c = chqOf(el.dataset.cheque); if (!c || c.statut === "annule") return;
+      const ok = await modal("Annuler le chèque de " + nomEmetteur(c), `<p class="sub" style="margin:0 0 10px">Le chèque de ${esc(eur(c.montant))} n’est plus suivi ni compté. Il reste dans « Annulés », d’où on peut le rétablir.</p>
+        <label class="sub">Motif (facultatif)<input class="inp" id="chq-annul-motif" maxlength="80" placeholder="Erreur de saisie, client a réglé autrement…" style="width:100%;margin-top:4px"></label>`, "Annuler le chèque");
+      if (!ok) return;
+      const motif = ((document.getElementById("chq-annul-motif") || {}).value || "").trim();
+      const avant = {statut:c.statut, completLe:c.completLe};
+      c.annulation = {date:TODAY_KEY, par:moiLie() || S.me || "", motif, avant:c.statut}; c.statut = "annule"; chqMajComplet(c);
+      render();
+      toast("Chèque de " + nomEmetteur(c) + ", " + eur(c.montant) + ", annulé.", () => { Object.assign(c, avant); delete c.annulation; if (!avant.completLe) delete c.completLe; });
+      return;
+    }
+    case "chq-retablir": {
+      const c = chqOf(el.dataset.cheque); if (!c || c.statut !== "annule") return;
+      const annul = c.annulation; c.statut = (annul && annul.avant) || "recu"; delete c.annulation; chqMajComplet(c);
+      render();
+      toast("Chèque rétabli en « " + chqEtatOf(c.statut).label + " ».", () => { c.statut = "annule"; c.annulation = annul; chqMajComplet(c); });
       return;
     }
     case "chq-del": {
