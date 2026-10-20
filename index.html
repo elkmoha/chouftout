@@ -13916,7 +13916,7 @@ const dansTache = (cle, l) => cle === "renouv" || enCours(l);   // un client à 
 const TP = {
   a_traiter:{lib:"À traiter", aide:"Nouveau dossier en attente de traitement", c:"--orange"},
   devis:{lib:"Devis", aide:"Cotation auprès de la mutuelle : le client n'a pas encore choisi", c:"--indigo", facultatif:true},
-  instance:{lib:"En attente de réponse mutuelle", court:"Attente mutuelle", aide:"Demande de prise en charge envoyée", c:"--violet"},
+  instance:{lib:"En attente de réponse mutuelle", court:"Attente mutuelle", etape:"Instance", aide:"Demande de prise en charge envoyée", c:"--violet"},
   pec_ok:{lib:"PEC OK", aide:"Prise en charge accordée", c:"--sarcelle"},
   facture:{lib:"Facturé", aide:"En attente de règlement", c:"--bleu"},
   paye:{lib:"Payé", aide:"Règlement perçu", c:"--vert"},
@@ -14762,19 +14762,45 @@ function animerVers(cible, vitessePx = 0){
     maj:x => poser(x / T), fin:() => { if (cible === 1) feuille.style.visibility = "hidden"; }});
 }
 
+/* 21 oct. 2026 : carte d'équipement refaite (demande de Mohamed) : l'étape en cours en encadré, la frise à points dessous ;
+   Refusé et Annulé passent dans le menu ⋯ de l'équipement (menuEquip), l'étape suivante en bouton en bas (prochainAdmin) */
 function parcoursAdmin(i, l, li, it){
   const chemin = i.tp ? TP_CHEMIN : STP_CHEMIN, table = i.tp ? TP : STP, e = ETAT(i.a);
   const D = i.dAdmin || {};
-  const bouton = (k, contenu, cl = "") => `<button type="button" class="etape-btn ${cl}" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${k}"${k === i.a ? ' aria-current="step"' : ""} title="${D[k] ? titreEt(D[k]) + (k === i.a ? " · état actuel" : "") : k === i.a ? "État actuel" : "Passer à « " + table[k]?.lib + " »"}">${contenu}</button>`;
-  // Une sortie (refusé, annulé) s'affiche en bandeau ; le parcours montre jusqu'où le dossier était allé
+  // Une sortie (refusé, annulé) : la frise montre jusqu'où le dossier était allé
   const ref = e.sortie ? (i.a === "refuse" ? "instance" : "a_traiter") : i.a;
-  // pour une sortie, l'étape où elle est arrivée compte comme franchie
-  const n = chemin.indexOf(ref) + (e.sortie ? 1 : 0);
-  const sortie = e.sortie ? `<div class="bandeau" style="--c:var(${e.c})">${ICO.attention}<span>${e.lib}${D[i.a] ? ` le ${dateCourteEt(D[i.a])}` : ""} : ${e.aide}</span></div>` : "";
-  return sortie + `<ol class="parcours" style="--c:var(${e.c})">${chemin.map((k, j) => {
-    const s = table[k], cl = [j < n ? "fait" : j === n && !e.sortie ? "ici" : "", s.facultatif ? "facultatif" : ""].join(" ");
-    return `<li class="${cl}">${bouton(k, `<span>${s.lib}${s.facultatif && !D[k] ? " <span class=\"petit\">(si cotation)</span>" : ""}${D[k] && j <= n ? `<span class="petit et-date"> · ${dateCourteEt(D[k])}</span>` : ""}<span class="aide">${s.aide}</span></span>`)}</li>`;
-  }).join("")}</ol>` + (i.tp ? `<div class="sorties">${["refuse", "annule"].map(k => `<button type="button" class="sortie${k === i.a ? " active" : ""}" style="--c:var(${TP[k].c})" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${k}" aria-pressed="${k === i.a}" title="${k === i.a ? (D[k] ? titreEt(D[k]) + " · " : "") + "toucher pour retirer « " + TP[k].lib + " »" : TP[k].aide}">${TP[k].lib}${k === i.a && D[k] ? ` · ${dateCourteEt(D[k])}` : ""}</button>`).join("")}</div>` : "");
+  const n = chemin.indexOf(ref) + (e.sortie ? 1 : 0);   // pour une sortie, l'étape où elle est arrivée compte comme franchie
+  const d = D[i.a], j = d ? -joursAvant(d.d) : null;
+  const depuis = d ? `${j > 0 ? `depuis ${j} j · ` : j === 0 ? "aujourd’hui · " : ""}${dateCourteEt(d)}` : "";
+  const aide = i.a === "facture" && l.mut ? `En attente du règlement ${esc(l.mut.nom)}` : e.aide;
+  return `<div class="eq-maint${e.sortie ? " sortie" : ""}" style="--c:var(${e.c})"${d ? ` title="${titreEt(d)}"` : ""}>
+      <div class="eq-maint-tl"><b>${e.lib}</b>${depuis ? `<span class="petit">${depuis}</span>` : ""}</div>
+      <span class="petit">${aide}</span></div>
+    <p class="eq-pas-tl">Dossier</p>
+    <ol class="eq-pas" style="--c:var(${e.sortie ? "--second" : e.c}); --n:${chemin.length}">${chemin.map((k, x) => {
+      const t = table[k], cl = [x < n ? "fait" : x === n && !e.sortie ? "ici" : "", t.facultatif ? "facultatif" : ""].join(" ").trim();
+      return `<li${cl ? ` class="${cl}"` : ""}><button type="button" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${k}"${k === i.a ? ' aria-current="step"' : ""}
+        title="${D[k] ? titreEt(D[k]) + (k === i.a ? " · état actuel" : "") : k === i.a ? "État actuel" : "Passer à « " + t.lib + " »"}"><i aria-hidden="true"></i><span>${t.etape || t.lib}</span></button></li>`;
+    }).join("")}</ol>`;
+}
+// Bouton de l'étape suivante, en bas de la carte
+const ETAPE_VERBE = {devis:"Devis envoyé", instance:"Demande de PEC envoyée", pec_ok:"PEC accordée", facture:"Marquer facturé", paye:"Marquer payé",
+  accord:"Accord du client reçu", s_facture:"Marquer facturé", s_paye:"Marquer payé"};
+function prochainAdmin(i, li, it){
+  if (ETAT(i.a).sortie) return "";
+  const chemin = i.tp ? TP_CHEMIN : STP_CHEMIN, k = chemin[chemin.indexOf(i.a) + 1];
+  return k ? `<button type="button" class="eq-suite" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${k}">${ETAPE_VERBE[k] || "Passer à « " + ETAT(k).lib + " »"}</button>` : "";
+}
+// Menu ⋯ de l'équipement : Refusé, Annulé (tiers payant), retirer l'équipement
+function menuEquip(l, i, li, it){
+  const D = i.dAdmin || {};
+  const sorties = i.tp ? ["refuse", "annule"].map(k => { const on = k === i.a;
+    return `<button type="button" class="sortie${on ? " active" : ""}" style="--c:var(${TP[k].c})" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${k}" aria-pressed="${on}"
+      title="${on ? (D[k] ? titreEt(D[k]) + " · " : "") + "toucher pour retirer « " + TP[k].lib + " »" : TP[k].aide}">${on ? `Retirer « ${TP[k].lib} »` : `Marquer ${TP[k].lib.toLowerCase()}`}</button>`; }) : [];
+  const retirer = l.items.length > 1 ? `<button type="button" class="eq-danger" data-retirer-li="${li}" data-retirer-it="${it}">Retirer ${nomEquip(i.t)}</button>` : "";
+  if (!sorties.length && !retirer) return "";
+  return `<details class="eq-menu"><summary aria-label="Plus d’actions sur ${nomEquip(i.t)}" title="Plus d’actions"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
+    <div class="eq-menu-liste">${sorties.join("")}${retirer}</div></details>`;
 }
 function trois(titre, chemin, table, val, type, li, it = 0, dates = {}){
   const n = chemin.indexOf(val), e = table[val];
@@ -15377,15 +15403,16 @@ document.getElementById("f-recap").addEventListener("click", async ev => {
   recalcArchive(x); rendreRecap(f);
 }, true);
 // Dates d'un équipement : envoi de la demande, accord, facturer avant, facture (modifiables ; le délai saisi est retenu)
-function blocDates(l, li, it){
+function blocDates(l, li, it){   // 21 oct. 2026 : en tuiles, avec la prise en charge
   const i = l.items[it], d = delaiDe(l), lignes = [];
   const champDate = (cle, v, extra = "") => `<input type="date" class="date-champ" data-dt="${cle}" data-li="${li}" data-it="${it}" value="${v || ""}"${extra}>`;
   if (i.tp && l.mut && i.accordLe){
     const j = i.validiteLe ? joursAvant(i.validiteLe) : null, alerte = i.a === "pec_ok" && j != null && j <= REGLAGES.perime;
-    lignes.push(`<div class="ld${alerte ? (j < 0 ? " dt-expire" : " dt-bientot") : ""}"><span>À facturer avant le<span class="petit">accord du ${dateCourteISO(i.accordLe)} · ${d ? `délai ${d.lib} (${esc(d.source === "appris" ? `appris${d.maj ? ", " + d.maj : ""}` : "réglage")})` : `aucun délai connu pour ${esc(l.mut.nom)} · ${esc(l.mut.reseau)} : la date saisie servira par défaut`}</span></span>${champDate("validiteLe", i.validiteLe)}</div>`);
+    lignes.push(`<div class="eq-fait large${alerte ? (j < 0 ? " dt-expire" : " dt-bientot") : ""}"><span>À facturer avant le<span class="petit">accord du ${dateCourteISO(i.accordLe)} · ${d ? `délai ${d.lib} (${esc(d.source === "appris" ? `appris${d.maj ? ", " + d.maj : ""}` : "réglage")})` : `aucun délai connu pour ${esc(l.mut.nom)} · ${esc(l.mut.reseau)} : la date saisie servira par défaut`}</span></span>${champDate("validiteLe", i.validiteLe)}</div>`);
   }
-  if (i.factureLe) lignes.push(`<div class="ld"><span>Facturé le</span>${champDate("factureLe", i.factureLe)}</div>`);
-  return lignes.length ? `<div class="dates-mut">${lignes.join("")}</div>` : "";
+  if (i.factureLe) lignes.push(`<div class="eq-fait"><span>Facturé le</span>${champDate("factureLe", i.factureLe)}</div>`);
+  if (l.mut) lignes.push(`<div class="eq-fait"><span>${i.tp ? "Prise en charge" : "Remboursement"} ${esc(l.mut.nom)}</span>${montant(li, it)}</div>`);
+  return lignes.length ? `<div class="eq-faits">${lignes.join("")}</div>` : "";
 }
 // Journal automatique des modifications : visible des administrateurs
 const ADMINS = ["Mohamed"];
@@ -15814,15 +15841,13 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
       </div>` : ""}
     <p class="tl-sec">Équipements</p>
     ${l.items.map((i, it) => `<div class="bloc">
-      <div class="tl">${tagChoix(idx, it)}${ICO[i.t]}${TYPES[i.t]}${l.items.length > 1
-        ? `<button class="moins" type="button" data-retirer-li="${idx}" data-retirer-it="${it}" aria-label="Retirer ${nomEquip(i.t)}" title="Retirer ${nomEquip(i.t)}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>` : ""}</div>
+      <div class="tl">${tagChoix(idx, it)}${ICO[i.t]}${TYPES[i.t]}${estProgramme(l) ? "" : menuEquip(l, i, idx, it)}</div>
       ${estProgramme(l) ? `<div class="ld"><span class="petit">Pas démarré : la prise en charge, la commande et le BL commenceront à l’activation.</span></div>` : `
       ${parcoursAdmin(i, l, idx, it)}
-      ${blocDates(l, idx, it)}
       ${trois("BL", BL_CHEMIN, BL, i.bl, "bl", idx, it, i.dBl)}
       ${i.t === "lentilles" ? essaiFiche(i, idx, it) : ""}
-      ${l.mut ? `<div class="ld"><span>${i.tp ? "Prise en charge" : "Remboursement"} ${esc(l.mut.nom)}</span>${montant(idx, it)}</div>` : ""}`}
+      ${blocDates(l, idx, it)}
+      ${prochainAdmin(i, idx, it)}`}
     </div>`).join("")}
     ${(() => { const manquants = Object.keys(TYPES).filter(t => !l.items.some(i => i.t === t));
       return manquants.length ? `<label class="ajout">
@@ -18719,6 +18744,9 @@ document.getElementById("f-contenu").addEventListener("click", ev => {
   const b = ev.target.closest("[data-autre-li]"); if (!b) return;
   const li = +b.dataset.autreLi; if (LIGNES[li]) ouvrir(li, false, true);
 });
+// Menu ⋯ d'un équipement : un seul ouvert, fermé au clic ailleurs (21 oct. 2026)
+document.addEventListener("click", e => { const s = e.target.closest(".eq-menu > summary");
+  document.querySelectorAll("#f-contenu .eq-menu[open]").forEach(d => { if (!s || d !== s.parentElement) d.open = false; }); });
 // Retirer un équipement, après confirmation
 document.getElementById("f-contenu").addEventListener("click", async ev => {
   const b = ev.target.closest("[data-retirer-li]"); if (!b) return;
@@ -23521,6 +23549,46 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   :root:root:root body #feuille:not(#luxe) .info-aide{position:relative}
   :root:root:root body #feuille:not(#luxe) .info-aide::before{content:"";position:absolute;inset:-8px}
 }
+
+/* ===== 21 oct. 2026 : carte d'un équipement (fiche client) : encadré de l'étape en cours, frise à points, tuiles, menu ⋯ ===== */
+#zone-suivi .bloc .tl:has(.eq-menu){padding-right:10px}
+#zone-suivi .eq-menu{margin-left:auto; position:relative}
+#zone-suivi .eq-menu > summary{list-style:none; display:grid; place-items:center; width:36px; height:36px; border-radius:50%; cursor:pointer; color:var(--second)}
+#zone-suivi .eq-menu > summary::-webkit-details-marker{display:none}
+#zone-suivi .eq-menu > summary:hover, #zone-suivi .eq-menu[open] > summary{background:var(--remplissage); color:var(--encre)}
+#zone-suivi .eq-menu > summary svg{width:18px; height:18px; color:currentColor}
+#zone-suivi .eq-menu-liste{position:absolute; top:calc(100% + 6px); right:0; z-index:6; display:grid; gap:2px; min-width:220px; padding:6px; border-radius:16px; background:color-mix(in srgb, var(--encre) 9%, var(--fond)); border:1px solid var(--separateur); box-shadow:var(--ombre-2); font-weight:400}
+:root:root #zone-suivi:not(#luxe) .eq-menu-liste > button{display:flex; align-items:center; width:100%; min-height:40px; padding:0 12px; border:0; border-radius:10px; background:none; color:var(--encre); font:inherit; font-size:.875rem; text-align:left; cursor:pointer}
+:root:root #zone-suivi:not(#luxe) .eq-menu-liste > button:hover{background:var(--remplissage)}
+:root:root #zone-suivi:not(#luxe) .eq-menu-liste > .sortie.active{color:var(--c)}
+:root:root #zone-suivi:not(#luxe) .eq-menu-liste > .eq-danger{color:var(--rouge); margin-top:4px; border-top:1px solid var(--separateur); border-radius:0 0 10px 10px}
+#zone-suivi .eq-maint{margin:10px 16px 0; padding:10px 14px; border-radius:14px; background:color-mix(in srgb, var(--c) 10%, transparent)}
+#zone-suivi .eq-maint-tl{display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap}
+#zone-suivi .eq-maint-tl b{font-size:1.25rem; font-weight:600; color:var(--encre)}
+#zone-suivi .eq-maint .petit{font-size:.8125rem; color:var(--second)}
+#zone-suivi .eq-maint.sortie b{color:var(--c)}
+#zone-suivi .eq-pas-tl{margin:12px 16px 6px; font-size:.875rem; color:var(--second)}
+#zone-suivi .eq-pas{list-style:none; margin:0; padding:0 10px 4px; display:grid; grid-template-columns:repeat(var(--n), minmax(0, 1fr))}
+#zone-suivi .eq-pas li{position:relative}
+#zone-suivi .eq-pas li:not(:last-child)::after{content:""; position:absolute; top:13px; left:calc(50% + 8px); right:calc(-50% + 8px); height:2px; border-radius:1px; background:var(--remplissage-fort)}
+#zone-suivi .eq-pas li.fait:not(:last-child)::after{background:var(--c)}
+:root:root #zone-suivi:not(#luxe) .eq-pas button{display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; min-height:44px; padding:7px 2px 4px; border:0; border-radius:10px; background:none; color:var(--tert); font:inherit; font-size:.75rem; line-height:1.2; text-align:center; cursor:pointer}
+:root:root #zone-suivi:not(#luxe) .eq-pas button:hover{background:var(--remplissage)}
+#zone-suivi .eq-pas i{display:block; width:12px; height:12px; border-radius:50%; box-sizing:border-box; border:1.5px solid var(--tert); background:var(--groupe)}
+#zone-suivi .eq-pas li.facultatif:not(.fait):not(.ici) i{border-style:dashed}
+#zone-suivi .eq-pas li.fait button{color:var(--second)}
+#zone-suivi .eq-pas li.fait i{background:var(--c); border-color:var(--c)}
+:root:root #zone-suivi:not(#luxe) .eq-pas li.ici button{color:var(--encre); font-weight:600}
+#zone-suivi .eq-pas li.ici i{border:3px solid var(--c); box-shadow:0 0 0 4px color-mix(in srgb, var(--c) 22%, transparent)}
+#zone-suivi .eq-faits{display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:8px; margin:12px 16px 0}
+#zone-suivi .eq-fait{display:flex; flex-direction:column; justify-content:space-between; gap:6px; min-width:0; padding:8px 12px; border-radius:12px; background:color-mix(in srgb, var(--encre) 4%, transparent); font-size:.8125rem; color:var(--second)}
+#zone-suivi .eq-fait.large{grid-column:1 / -1}
+#zone-suivi .eq-fait > span .petit{display:block; font-size:.75rem; color:var(--tert)}
+#zone-suivi .eq-fait :is(.date-champ, .montant-champ){align-self:flex-start; max-width:100%}
+:root:root #zone-suivi:not(#luxe) .eq-fait:not(.large) .date-champ{width:100%; min-width:0; box-sizing:border-box; padding-inline:8px}
+:root:root #zone-suivi:not(#luxe) .eq-suite{display:flex; align-items:center; justify-content:center; width:calc(100% - 32px); min-height:44px; margin:14px 16px 14px; border:0; border-radius:999px; background:var(--encre); color:var(--fond); font:inherit; font-size:.9375rem; font-weight:600; cursor:pointer}
+:root:root #zone-suivi:not(#luxe) .eq-suite:hover{opacity:.88}
+#zone-suivi .bloc:has(> .eq-faits:last-child, > .trois:last-child) {padding-bottom:12px}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
