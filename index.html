@@ -2643,6 +2643,19 @@ body.selection #zone-suivi main{padding-bottom:110px}
 #zone-suivi .rc-legende i{width:8px; height:8px; border-radius:2px; flex:none}
 #zone-suivi .pt-eq{background:color-mix(in srgb, var(--orange) 55%, transparent)} #zone-suivi .pt-rb{background:var(--vert)} /* Carte d'un membre */
 #zone-suivi .rc-membre, #zone-suivi .rc-famille{margin-top:12px}
+/* 21 oct. 2026 : tableau de la famille ; les cartes des membres sont repliées tant qu'on ne touche pas leur ligne */
+#zone-suivi .rc-membre.replie{display:none}
+#zone-suivi .rc-tableau{margin-top:12px; padding:4px 16px}
+#zone-suivi .rc-tab-l{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:4px; align-items:center; width:100%; padding:10px 0; border:0; border-bottom:.5px solid var(--separateur); background:none; color:inherit; font:inherit; text-align:left; cursor:pointer}
+#zone-suivi .rc-tab-l > :nth-child(n+2){text-align:right; font-variant-numeric:tabular-nums}
+#zone-suivi .rc-tab-l.entete{cursor:default; font-size:.75rem; color:var(--second); padding:8px 0}
+#zone-suivi .rc-tab-l.total{cursor:default; font-weight:600; border-bottom:0}
+#zone-suivi .rc-tab-l[aria-expanded="true"] b{color:var(--bleu)}
+#zone-suivi .rc-tab-st{display:block; font-size:.75rem; font-weight:500; color:var(--second)}
+#zone-suivi .rc-tab-st.ok{color:var(--vert)} #zone-suivi .rc-tab-st.part{color:var(--orange)}
+#zone-suivi .rc-puces{display:flex; flex-wrap:wrap; gap:6px; padding:4px 16px 14px}
+#zone-suivi .rc-puces button{border:1px dashed var(--separateur); background:none; color:var(--second); font:inherit; font-size:.8125rem; border-radius:10px; padding:5px 11px; cursor:pointer}
+@media (max-width:760px){#zone-suivi .rc-puces button{min-height:38px}}
 #zone-suivi .rc-tete{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 4px}
 #zone-suivi .rc-tete b{font-size:1.0625rem; letter-spacing:-.02em}
 #zone-suivi .rc-rac{font-size:.8125rem; font-weight:600; padding:3px 9px; border-radius:7px; background:var(--remplissage); color:var(--second); white-space:nowrap}
@@ -15098,6 +15111,7 @@ function rTotaux(f){
 let recapFam = null;
 // Récap verrouillé par défaut : chaque carte s'ouvre en modification avec le crayon
 const RC_EDIT = new Set();
+const RC_OUVERT = new Set();   // 21 oct. 2026 : cartes dépliées d'une famille (les autres restent repliées sous le tableau)
 const boutonEdit = (cle, qui) => RC_EDIT.has(cle)
   ? `<button class="rc-ok" type="button" data-rc-edit="${cle}">OK</button>`
   : `<button class="rc-crayon" type="button" data-rc-edit="${cle}" aria-label="Modifier ${esc(qui)}" title="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg></button>`;
@@ -15113,12 +15127,15 @@ function lignesLues(lignes, dossier){
       <span class="rc-lue-prix">${t == null ? "—" : rEur(t)}</span></div>`; }).join("");
 }
 function carteBasLue(f, r){
+  // 21 oct. 2026 : seules les lignes renseignées s'affichent ; les autres sont des puces qui ouvrent la modification (la date est déjà dans l'en-tête)
   const t = rTotaux(f), lg = (a, b) => `<div class="ld"><span>${a}</span><span>${b}</span></div>`;
-  return lg("Date du récap", new Date(r.date + "T12:00").toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"})) +
-    lg("Avoir précédent", t.ap != null ? rEur(t.ap) : "—") +
-    lg("Geste commercial", t.bonus != null ? rEur(t.bonus) + (/%$/.test(String(r.bonus).trim()) ? ` <span class="petit">(${r.bonus})</span>` : "") : "—") +
-    lg("Avoir restant", t.avoir != null && (t.ap != null || r.avoirManuel || t.surplus > 0) ? rEur(t.avoir) + (t.surplus > 0 && !r.avoirManuel ? ` <span class="petit">(${t.ap ? "dont " : ""}prise en charge − équipement${t.ap ? ` : ${rEur(t.surplus)}` : ""})</span>` : "") : "—") +
-    `<div class="obs-fiche"><span class="petit">Commentaire</span><div class="rc-comm">${r.commentaire.trim() ? avecMentions(esc(r.commentaire.trim())).replace(/\n/g, "<br>") : '<span class="petit">Aucun commentaire</span>'}</div></div>`;
+  const aAvoirPrec = t.ap != null, aGeste = t.bonus != null, aAvoir = t.avoir != null && (t.ap != null || r.avoirManuel || t.surplus > 0), aComm = !!r.commentaire.trim();
+  const puces = [!aAvoirPrec ? "+ Avoir précédent" : "", !aGeste ? "+ Geste commercial" : "", !aAvoir ? "+ Avoir restant" : "", !aComm ? "+ Commentaire" : ""].filter(Boolean);
+  return (aAvoirPrec ? lg("Avoir précédent", rEur(t.ap)) : "") +
+    (aGeste ? lg("Geste commercial", rEur(t.bonus) + (/%$/.test(String(r.bonus).trim()) ? ` <span class="petit">(${r.bonus})</span>` : "")) : "") +
+    (aAvoir ? lg("Avoir restant", rEur(t.avoir) + (t.surplus > 0 && !r.avoirManuel ? ` <span class="petit">(${t.ap ? "dont " : ""}prise en charge − équipement${t.ap ? ` : ${rEur(t.surplus)}` : ""})</span>` : "")) : "") +
+    (aComm ? `<div class="obs-fiche"><span class="petit">Commentaire</span><div class="rc-comm">${avecMentions(esc(r.commentaire.trim())).replace(/\n/g, "<br>")}</div></div>` : "") +
+    (puces.length ? `<div class="rc-puces">${puces.map(p => `<button type="button" data-rc-edit="famille">${p}</button>`).join("")}</div>` : "");
 }
 /* ---------- Archivage des récapitulatifs ---------- */
 const ARCH_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg>';
@@ -15479,9 +15496,10 @@ function rendreRecap(f){
     ${enteteRecap(f, r.date)}
     <section class="rc-synthese" id="rcSynthese" aria-live="polite"></section>
     <section class="bloc rc-reglement" id="rcReglement" hidden></section>
+    ${f.solo ? "" : `<section class="bloc rc-tableau" id="rcTableau" aria-label="Récapitulatif par personne"></section>`}
 
     ${ordreFam(f).map(c => `
-    <section class="bloc rc-membre" aria-label="${c.prenom} ${nomCasse(c)}">
+    <section class="bloc rc-membre${!f.solo && !RC_OUVERT.has(c.dossier) && !RC_EDIT.has(c.dossier) ? " replie" : ""}" id="rcm-${c.dossier}" aria-label="${c.prenom} ${nomCasse(c)}">
       <div class="rc-tete">
         <div><b>${c.prenom} ${nomCasse(c)}</b>${c === f.parent && !f.solo ? '<span class="badge-parent">Principal</span>' : ""}</div>
         <span class="rc-tete-droite"><span class="rc-rac" data-rc-rac="${c.dossier}"></span>${boutonEdit(c.dossier, `${c.prenom} ${nomCasse(c)}`)}</span>
@@ -15542,6 +15560,20 @@ function majRecapCalculs(){
     pill.textContent = !saisi ? "Prix à saisir" : rb > eq ? `Avoir ${rEur(rb - eq)}` : resteM === 0 ? "Rien à payer" : apresAv > 0 ? `Reste ${rEur(apresAv)}` : avO ? `Avancé ${rEur(Math.min(avO, resteM))}` : rgM ? "Réglé" : "Réglé par le renouvellement";
     pill.className = "rc-rac" + (!saisi ? "" : rb > eq ? " avoir" : apresAv > 0 ? " du" : avO ? " avance" : " ok");
   });
+  // Tableau de la famille : une ligne par personne (équipement, remboursé, reste) et l'état de livraison déduit des cases
+  const tab = el.querySelector("#rcTableau");
+  if (tab){
+    const lignesRc = ordreFam(f).map(c => {
+      const eq = rEquipMembre(r, c), saisi = rEquipSaisi(r, c), rb = rRembTotal(c), ls = r.lignes[c.dossier].filter(l => l.texte.trim() || rNum(l.prix) != null), liv = ls.filter(l => l.livre).length;
+      const st = !ls.length ? "" : liv === ls.length ? `<span class="rc-tab-st ok">Livré (${liv}/${ls.length})</span>` : liv ? `<span class="rc-tab-st part">Partiel (${liv}/${ls.length})</span>` : `<span class="rc-tab-st">Non livré (0/${ls.length})</span>`;
+      return {c, eq, saisi, rb, reste:Math.max(0, eq - rb), st};
+    });
+    tab.innerHTML = `<div class="rc-tab-l entete"><span></span><span>Équipement</span><span>Remboursé</span><span>Reste</span></div>` +
+      lignesRc.map(x => `<button type="button" class="rc-tab-l" data-rc-ouvrir="${x.c.dossier}" aria-expanded="${RC_OUVERT.has(x.c.dossier) || RC_EDIT.has(x.c.dossier)}">
+        <span><b>${esc(x.c.prenom)}</b>${x.st}</span>
+        ${x.saisi ? `<span>${rEur(x.eq)}</span><span>${rEur(x.rb)}</span><span>${rEur(x.reste)}</span>` : `<span style="grid-column:2 / 5"><span class="rc-rac du">Saisir équipement</span></span>`}</button>`).join("") +
+      `<div class="rc-tab-l total"><span>Total</span><span>${rEur(lignesRc.reduce((s, x) => s + x.eq, 0))}</span><span>${rEur(lignesRc.reduce((s, x) => s + x.rb, 0))}</span><span>${rEur(lignesRc.reduce((s, x) => s + x.reste, 0))}</span></div>`;
+  }
   el.querySelectorAll(".rc-ligne").forEach(x => { const l = r.lignes[x.dataset.rcD][+x.dataset.rcK], v = rLigneTotal(l); x.querySelector("[data-rc-tot]").textContent = v == null ? "" : rEur(v); });
   // Synthèse : le grand chiffre est le résultat final (avoir restant, reste à payer ou reste à charge), le détail en dessous
   const couvert = t.equip ? Math.max(0, Math.min(1, 1 - t.reste / t.equip)) : 0;
@@ -16602,6 +16634,15 @@ document.getElementById("f-recap").addEventListener("click", async ev => {
   if (ev.target.closest("#rcCloturer")){ cloturer(f); return; }
   const ov = ev.target.closest("[data-rc-vue]");
   if (ov){ RC_VUE = ov.dataset.rcVue === "en-cours" ? null : +ov.dataset.rcVue; RC_EDIT.clear(); document.getElementById("f-recap").scrollTop = 0; rendreRecap(f); return; }
+  const ouv = ev.target.closest("[data-rc-ouvrir]");
+  if (ouv){ const d = ouv.dataset.rcOuvrir, ouvre = !(RC_OUVERT.has(d) || RC_EDIT.has(d));
+    const membre = f.membres.find(m => String(m.dossier) === d), vide = membre && !rEquipSaisi(r, membre);
+    RC_EDIT.delete(d); ouvre ? RC_OUVERT.add(d) : RC_OUVERT.delete(d);
+    if (ouvre && vide) RC_EDIT.add(d);   // pas encore d'équipement : la ligne ouvre directement la saisie
+    rendreRecap(f);
+    if (ouvre) document.getElementById("rcm-" + d)?.scrollIntoView({block:"nearest", behavior:"smooth"});
+    document.querySelector(`#f-recap [data-rc-ouvrir="${d}"]`)?.focus({preventScroll:true});
+    return; }
   const ed = ev.target.closest("[data-rc-edit]");
   if (ed){ const cle = ed.dataset.rcEdit, entre = !RC_EDIT.has(cle);
     entre ? RC_EDIT.add(cle) : RC_EDIT.delete(cle); rendreRecap(f);
