@@ -23449,27 +23449,6 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   }).observe(zs, {attributes:true, attributeFilter:["hidden"]});
 })();
 </script>
-<script id="luxe-recherche-js">
-/* Recherche unifiée (refonte luxe) : dans Dossiers, la barre du haut ouvre la même recherche globale que dans les autres onglets
-   (celle de Ctrl K, qui couvre dossiers, commandes, chèques, verres, équipe et écrans) au lieu de filtrer la liste.
-   On passe par le raccourci que l'application écoute déjà : aucune de ses fonctions n'est modifiée. */
-(() => {
-  const q = document.getElementById("q"); if (!q) return;
-  const ouvrir = texte => {
-    document.body.dispatchEvent(new KeyboardEvent("keydown", {key:"k", ctrlKey:true, bubbles:true}));   // depuis body : les écouteurs lisent e.target.closest
-    if (!texte) return;
-    setTimeout(() => { const i = document.getElementById("searchInput"); if (!i) return; i.value = texte; i.dispatchEvent(new Event("input", {bubbles:true})); i.focus(); }, 40);
-  };
-  q.readOnly = true; q.value = ""; q.placeholder = "Rechercher"; q.setAttribute("aria-haspopup", "dialog");
-  q.setAttribute("aria-label", "Rechercher un client, une commande, un chèque, un verre");
-  q.addEventListener("click", e => { e.preventDefault(); q.blur(); ouvrir(""); });
-  q.addEventListener("keydown", e => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); q.blur(); ouvrir(""); }
-    else if (e.key.length === 1){ e.preventDefault(); q.blur(); ouvrir(e.key); }
-  });
-})();
-</script>
 <script id="luxe-recherche-ancree-js">
 /* Recherche ancrée (refonte luxe, 8 oct. 2026) : la recherche globale ne s'ouvre plus en fenêtre au centre de l'écran.
    Sa boîte se pose exactement sur la barre de recherche de l'écran, et les résultats se déroulent juste en dessous ;
