@@ -7517,7 +7517,7 @@ function purgerNotifs(){
   const limite = keyOf(addDays(TODAY, -j));
   S.notifs = S.notifs.filter(n => n.le >= limite);
 }
-const mesNotifs = () => { const moi = moiNotif(); return moi && notifsOn() ? S.notifs.filter(n => n.pour === moi) : []; };
+const mesNotifs = () => { const moi = moiNotif(); return moi && notifsOn() && !!(currentUser() || {}).collab ? S.notifs.filter(n => n.pour === moi) : []; };   // 21 oct. 2026 : comptes personnels seulement
 /* Nouveautés du magasin (8 oct. 2026) : pour toute l'équipe, calculées depuis le catalogue et les annonces ; lues par personne */
 const NOUV_JOURS = 14;
 function nouveautes(){
@@ -9617,7 +9617,7 @@ const AUTH_CLE = "chouftout-auth";
 const authLire = () => { try { const a = JSON.parse(localStorage.getItem(AUTH_CLE) || "null"); return a && a.refresh ? a : null; } catch (_) { return null; } };
 const authEcrire = a => { try { if (a) localStorage.setItem(AUTH_CLE, JSON.stringify(a)); else localStorage.removeItem(AUTH_CLE); } catch (_) {} };
 const authDepuis = r => { const c = ((r.user || {}).app_metadata || {}).chouf || {};
-  return {jeton:r.access_token, refresh:r.refresh_token, fin:Date.now() + (r.expires_in || 3600) * 1e3, compte:c.compte || null, role:c.role || null, mag:c.mag || null, perso:!!c.perso}; };
+  return {jeton:r.access_token, refresh:r.refresh_token, fin:Date.now() + (r.expires_in || 3600) * 1e3, compte:c.compte || null, role:c.role || null, mag:c.mag || null, perso:!!c.perso, collab:c.collab || null, tousMag:!!c.tous_mag}; };
 /* 14 oct. 2026 : ce que le serveur dit du compte connecté (magasin, rôle) ; c'est lui qui décide des droits d'écriture, l'application s'y aligne */
 const authCompte = id => { if (DEMO) return null; const a = authLire(); return a && id && a.compte === id ? a : null; };
 async function authAppel(chemin, corps){
@@ -9696,6 +9696,225 @@ const baseMag = () => (typeof S !== "undefined" && S && S.magasin) || (authLire(
 const baseMagDe = cle => BASE_PAR_MAG.has(cle) ? baseMag() : "*";
 const baseFiltreMag = () => "magasin=in.(%22*%22,18,5)&cle=not.like.fiche:*";   // 17 oct. 2026 : les fiches Cosium ne sont jamais lues en bloc   // tous les magasins : l'autre est rangé dans MAG_DONNEES
 const baseCle = (m, cle) => m + "|" + cle;
+/* 21 oct. 2026 (confidentialité côté serveur, demande de Mohamed) : les données sensibles vivent dans des paquets à part
+   (niveaux, contrats et motifs d'absence de l'équipe, prix d'achat, demandes de l'équipe, noms des clients des chèques, heures réalisées…),
+   que la base ne renvoie qu'aux comptes qui ont le droit de les lire (table cles_droits). En mémoire, l'appli garde les données réunies :
+   PAQUETS[clé].couper() les sépare à l'envoi, baseReunir() les recolle à la lecture. Un paquet qu'on ne peut pas écrire n'est jamais envoyé. */
+const ABS_NEUTRE = "Absence", ABS_PUBLIC = /^(École|Renfort|Repos|Férié|Fermé)/;
+const absPub = v => !v || ABS_PUBLIC.test(v) ? v : ABS_NEUTRE;
+const jsonStable = v => JSON.stringify(v, (k, x) => x && typeof x === "object" && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, c) => { o[c] = x[c]; return o; }, {}) : x);
+const semJours = (sh, f) => { const j = (o, d) => Object.fromEntries(Object.entries(o || {}).map(([pid, x]) => [pid, f(x, d + "|" + pid)]));
+  return Array.isArray(sh) ? sh.map(j) : Object.fromEntries(Object.entries(sh || {}).map(([d, o]) => [d, j(o, d)])); };
+let CONGES_MIENS = {};   // motifs de mes propres demandes de congé (fonction chouf_mes_conges)
+const PAQUETS = {
+  equipe:{parts:["equipe_niveaux", "equipe_contrats", "equipe_absences"],
+    couper:L => { const o = {equipe:[], equipe_niveaux:{}, equipe_contrats:{}, equipe_absences:{}};
+      (L || []).forEach(p => { const {levels, history, contract, status, ...r} = p, abs = {};
+        r.leaves = (p.leaves || []).map(l => { if (l && l.id != null && l.label != null) abs[l.id] = l.label; return l && Object.assign({}, l, {label:absPub(l.label)}); });
+        r.opticien = estOpticien(p);
+        o.equipe.push(r); o.equipe_niveaux[p.id] = {levels:levels || {}, history:history || [], status:status || ""};
+        o.equipe_contrats[p.id] = contract == null ? null : contract; o.equipe_absences[p.id] = abs; });
+      return o; },
+    coller:(L, o) => (L || []).map(p => { const r = Object.assign({}, p), n = (o.equipe_niveaux || {})[p.id], a = (o.equipe_absences || {})[p.id];
+      if (n) Object.assign(r, {levels:n.levels || {}, history:n.history || [], status:n.status || ""});
+      else { if (!r.levels) r.levels = {}; if (!r.history) r.history = []; if (r.status == null) r.status = r.opticien ? "Opticien" : ""; }
+      if (o.equipe_contrats && p.id in o.equipe_contrats) r.contract = o.equipe_contrats[p.id]; else if (r.contract === undefined) r.contract = null;
+      if (a) r.leaves = (r.leaves || []).map(l => l && l.id in a ? Object.assign({}, l, {label:a[l.id]}) : l);
+      return r; })},
+  produits:{parts:["produits_achat", "produits_demandes"],
+    couper:L => { const o = {produits:[], produits_achat:{}, produits_demandes:[]};
+      (L || []).forEach(p => { const {achat, ...r} = p;
+        o.produits_achat[p.id] = {achat:achat == null ? null : achat, h:(p.historique || []).map(h => h && h.achat !== undefined ? h.achat : null)};
+        r.historique = (p.historique || []).map(h => { if (!h || typeof h !== "object") return h; const {achat:_a, ...x} = h; return x; });
+        (p.statut === "propose" ? o.produits_demandes : o.produits).push(r); });
+      return o; },
+    coller:(L, o) => { const dem = o.produits_demandes || [], ids = new Set(dem.map(p => p.id)), ach = o.produits_achat;
+      return [...(L || []).filter(p => !ids.has(p.id)), ...dem].map(p => { const r = Object.assign({}, p), a = ach && ach[p.id];
+        if (a){ r.achat = a.achat; r.historique = (r.historique || []).map((h, i) => h && typeof h === "object" && a.h && a.h[i] != null ? Object.assign({}, h, {achat:a.h[i]}) : h); }
+        else if (r.achat === undefined) r.achat = null;
+        return r; }); }},
+  tarifsMutuelles:{parts:["tarifs_achat", "tarifs_demandes"],
+    couper:L => { const o = {tarifsMutuelles:[], tarifs_achat:{}, tarifs_demandes:{propositions:[], signaux:{}}};
+      (L || []).forEach(t => { const {achat, signal, ...r} = t; o.tarifs_achat[t.id] = achat == null ? null : achat;
+        if (t.statut === "propose") o.tarifs_demandes.propositions.push(Object.assign(r, {signal:signal || null}));
+        else { if (signal) o.tarifs_demandes.signaux[t.id] = signal; o.tarifsMutuelles.push(r); } });
+      return o; },
+    coller:(L, o) => { const d = o.tarifs_demandes || {}, pr = d.propositions || [], ids = new Set(pr.map(t => t.id)), sg = d.signaux, ach = o.tarifs_achat;
+      return [...(L || []).filter(t => !ids.has(t.id)), ...pr].map(t => { const r = Object.assign({}, t);
+        if (ach && t.id in ach) r.achat = ach[t.id]; else if (r.achat === undefined) r.achat = null;
+        if (t.statut !== "propose") r.signal = sg ? sg[t.id] || null : r.signal || null;
+        return r; }); }},
+  reglages:{parts:["reglages_catalogue", "reglages_achat"],
+    couper:v => { if (!v || typeof v !== "object") return {reglages:v};
+      const {tarifs, produits, ...r} = v, p = Object.assign({}, produits), a = {coefs:p.coefs || {}, coefMin:p.coefMin == null ? null : p.coefMin};
+      delete p.coefs; delete p.coefMin;
+      return {reglages:r, reglages_catalogue:{tarifs:tarifs || null, produits:p}, reglages_achat:a}; },
+    coller:(v, o) => { if (!v || typeof v !== "object") return v;
+      const r = Object.assign({}, v), c = o.reglages_catalogue, a = o.reglages_achat, av = (typeof S !== "undefined" && S && S.settings) || {};
+      if (c){ r.tarifs = c.tarifs || r.tarifs; r.produits = Object.assign({}, r.produits, c.produits); }
+      if (!r.tarifs) r.tarifs = av.tarifs;
+      r.produits = Object.assign({}, r.produits || av.produits);
+      if (a) Object.assign(r.produits, {coefs:a.coefs || {}, coefMin:a.coefMin});
+      else if (r.produits.coefs === undefined) r.produits.coefs = {};
+      return r; }},
+  cheques:{parts:["cheques_clients"],
+    couper:L => { const em = ((typeof S !== "undefined" && S && S.settings && S.settings.cheques) || {}).emetteurs || [], o = {cheques:[], cheques_clients:{}};
+      (L || []).forEach(c => { const r = Object.assign({}, c), cl = {emetteur:c.emetteur == null ? null : c.emetteur, dossier:c.dossier == null ? null : c.dossier,
+          suvi:c.suvi == null ? null : c.suvi, note:c.note || "", factures:{}};
+        if (!em.includes(c.emetteur)) r.emetteur = "Client";
+        r.dossier = null; r.suvi = null; r.note = "";
+        r.factures = (c.factures || []).map(f => { if (f && f.id != null) cl.factures[f.id] = f.client == null ? null : f.client; return f && Object.assign({}, f, {client:"Client"}); });
+        o.cheques.push(r); o.cheques_clients[c.id] = cl; });
+      return o; },
+    coller:(L, o) => (L || []).map(c => { const cl = (o.cheques_clients || {})[c.id]; if (!cl) return c;
+      return Object.assign({}, c, {emetteur:cl.emetteur, dossier:cl.dossier, suvi:cl.suvi, note:cl.note,
+        factures:(c.factures || []).map(f => f && f.id in (cl.factures || {}) ? Object.assign({}, f, {client:cl.factures[f.id]}) : f)}); })},
+  semaines:{parts:["semaines_realise"],
+    couper:W => { const o = {semaines:{}, semaines_realise:{}};
+      Object.entries(W || {}).forEach(([k, w]) => { if (!w || typeof w !== "object"){ o.semaines[k] = w; return; }
+        const {real, ...r} = w, abs = {};
+        const neutre = (x, cle) => { if (x && typeof x === "object" && x.absence && absPub(x.absence) !== x.absence){ abs[cle] = x.absence; return Object.assign({}, x, {absence:ABS_NEUTRE}); } return x; };
+        if (r.shifts) r.shifts = semJours(r.shifts, (x, c) => neutre(x, "s|" + c));
+        if (r.manuel) r.manuel = Object.fromEntries(Object.entries(r.manuel).map(([c, x]) => [c, neutre(x, "m|" + c)]));
+        o.semaines[k] = r; o.semaines_realise[k] = {real:real == null ? null : real, abs}; });
+      return o; },
+    coller:(W, o) => Object.fromEntries(Object.entries(W || {}).map(([k, w]) => { if (!w || typeof w !== "object") return [k, w];
+      const r = Object.assign({}, w), s = (o.semaines_realise || {})[k];
+      if (s){ const a = s.abs || {}, remettre = (x, cle) => a[cle] && x && typeof x === "object" && x.absence ? Object.assign({}, x, {absence:a[cle]}) : x;
+        if (s.real) r.real = s.real;
+        if (r.shifts) r.shifts = semJours(r.shifts, (x, c) => remettre(x, "s|" + c));
+        if (r.manuel) r.manuel = Object.fromEntries(Object.entries(r.manuel).map(([c, x]) => [c, remettre(x, "m|" + c)])); }
+      if (!r.real) r.real = Array.from({length:7}, () => ({}));
+      return [k, r]; }))},
+  conges:{parts:["conges_motifs"],
+    couper:L => { const o = {conges:[], conges_motifs:{}};
+      (L || []).forEach(c => { const {motif, note, ...r} = c; o.conges.push(r); o.conges_motifs[c.id] = {motif:motif || "", note:note || ""}; });
+      return o; },
+    coller:(L, o) => (L || []).map(c => { const m = (o.conges_motifs || {})[c.id] || CONGES_MIENS[c.id];
+      return m ? Object.assign({}, c, {motif:m.motif || "", note:m.note || ""}) : Object.assign({motif:"", note:""}, c); })},
+  annonces:{parts:["annonces_lues"],
+    couper:L => { const o = {annonces:[], annonces_lues:{}};
+      (L || []).forEach(a => { const {lus, ...r} = a; o.annonces.push(r); o.annonces_lues[a.id] = lus || {}; });
+      return o; },
+    coller:(L, o) => (L || []).map(a => Object.assign({}, a, {lus:Object.assign({}, a.lus || {}, (o.annonces_lues || {})[a.id] || {})}))}
+};
+const PAQ_PART = Object.fromEntries(Object.entries(PAQUETS).flatMap(([k, P]) => P.parts.map(p => [p, k])));   // paquet séparé → donnée de l'appli
+const PAQ_NOMS = {equipe:"l’équipe", produits:"le catalogue", tarifsMutuelles:"la grille tarifaire", reglages:"les réglages", cheques:"les chèques",
+  semaines:"le planning et les horaires", conges:"les congés", annonces:"les annonces", comptes:"les comptes", roles:"les rôles", dossiers:"les dossiers",
+  commandes:"les commandes", fichesAtelier:"les fiches atelier", numeroAtelier:"les fiches atelier", duplicatas:"les duplicatas", taches:"les tâches",
+  competences:"les compétences", retards:"les retards", moisClotures:"la clôture des mois", journal:"le journal des clôtures", suiviClients:"le suivi",
+  signalements:"les signalements", process:"les process", fichesMutuelles:"les fiches mutuelles"};
+const BRUT = {};   // dernière valeur de chaque paquet telle que la base l'a donnée (ou qu'on lui a envoyée) : « magasin|clé »
+/* rangs de la base (paquets séparés) → rangs de l'appli (données réunies) */
+function baseReunir(rangs){
+  const touches = new Map();
+  rangs.forEach(r => { const m = r.magasin || baseMagDe(PAQ_PART[r.cle] || r.cle), L = PAQ_PART[r.cle] || r.cle;
+    BRUT[baseCle(m, r.cle)] = r.valeur; touches.set(baseCle(m, L), {magasin:m, cle:L}); });
+  return [...touches.values()].map(({magasin, cle}) => { const P = PAQUETS[cle], base = BRUT[baseCle(magasin, cle)];
+    if (base === undefined) return null;
+    if (!P) return {magasin, cle, valeur:base};
+    const o = {}; P.parts.forEach(p => { const v = BRUT[baseCle(magasin, p)]; if (v !== undefined) o[p] = v; });
+    return {magasin, cle, valeur:P.coller(base, o)}; }).filter(Boolean);
+}
+/* ce qu'on a maintenant, au format des paquets, noté comme connu de la base (seulement les paquets reçus) */
+function baseNoter(m, cle, v){
+  const P = PAQUETS[cle];
+  Object.entries(P ? P.couper(v) : {[cle]:v}).forEach(([c, x]) => { if (c === cle || BRUT[baseCle(m, c)] !== undefined) baseVu[baseCle(m, c)] = jsonStable(x); });
+}
+/* Droits d'écriture, d'après les mêmes tables que la base (cles_droits, roles_droits) : rien n'est envoyé qui serait refusé */
+const DROITS = {cles:null, role:null};
+async function droitsLire(){
+  try { const [c, r] = await Promise.all([baseAppel("cles_droits?select=motif,lire,ecrire,par_magasin,autre_lire,autre_ecrire"), baseAppel("roles_droits?select=role,perms,admin,deux_mag")]);
+    const a = authLire() || {}; DROITS.cles = c || []; DROITS.role = (r || []).find(x => x.role === a.role) || {role:a.role, perms:[], admin:false, deux_mag:false}; }
+  catch (e){ console.warn("Droits :", e); }
+}
+const droitCle = c => (DROITS.cles || []).filter(d => d.motif === c || (d.motif.endsWith(":") && c.startsWith(d.motif)))
+  .sort((x, y) => (y.motif === c) - (x.motif === c) || y.motif.length - x.motif.length)[0] || null;
+const aDroit = p => p === "*connecte" || (!!DROITS.role && (DROITS.role.admin || (DROITS.role.perms || []).includes(p)));
+const mesMags = () => { const a = authLire() || {}, r = DROITS.role || {};
+  if (r.admin || r.deux_mag || a.tousMag) return MAGASINS.map(m => m.id);
+  const p = a.collab ? personOf(a.collab) : null, rf = p ? renfortLe(p, TODAY) : null;
+  return [a.mag, rf && rf.mag].filter(Boolean); };
+function droitEcrire(m, c){
+  if (!DROITS.cles) return true;   // déclarations illisibles : la base tranche
+  const d = droitCle(c); if (!d || !(d.ecrire || []).some(aDroit)) return false;
+  if (!d.par_magasin) return m === "*";
+  return mesMags().includes(m) || (!!d.autre_ecrire && !!(authLire() || {}).perso);
+}
+const BASE_REFUS_ECRIT = new Set();
+const baseRefusNote = (m, c) => { const k = baseCle(m, c); if (BASE_REFUS_ECRIT.has(k)) return; BASE_REFUS_ECRIT.add(k);
+  toast("Ton compte n’a pas le droit d’enregistrer " + (PAQ_NOMS[PAQ_PART[c] || c] || "« " + c + " »") + (m !== "*" && m !== baseMag() ? " de " + magDe(m).nom : "") + " : ce changement reste sur cet appareil."); };
+/* 21 oct. 2026 : notifications dans leur table (chacun ne lit que les siennes ; comptes personnels seulement, décision de Mohamed) */
+const NOTIF_VU = new Map(), NOTIF_MIENNES = new Map();   // id → « lue » d'après la base ; id → magasin, envoyées depuis cet appareil
+let notifVersion = 0, notifLecture = false;
+const notifDepuis = r => { const p = new Date(r.cree_le).toLocaleString("sv-SE", {timeZone:"Europe/Paris"});
+  return {id:r.id, pour:r.destinataire, type:r.type, texte:r.texte, lien:r.lien, par:r.par, le:p.slice(0, 10), heure:p.slice(11, 16), lu:!!r.lue}; };
+const notifListe = m => m === baseMag() ? S.notifs : (MAG_DONNEES[m] || {}).notifs;
+async function notifsLire(){
+  const a = authLire(); if (DEMO || !a || !a.collab || notifLecture) return;
+  notifLecture = true;
+  try { const rangs = await baseAppel(`notifications?select=*&destinataire=eq.${encodeURIComponent(a.collab)}&version=gt.${notifVersion}&order=version&limit=500`);
+    (rangs || []).forEach(r => { notifVersion = Math.max(notifVersion, r.version); NOTIF_VU.set(r.id, !!r.lue);
+      const L = notifListe(r.magasin); if (!L) return; const i = L.findIndex(x => x.id === r.id);
+      if (i >= 0) L[i].lu = !!r.lue; else L.unshift(notifDepuis(r)); });
+    if (rangs && rangs.length) render();
+  } catch (e){ console.warn("Notifications :", e); } finally { notifLecture = false; }
+}
+async function notifsEnvoyer(){
+  const a = authLire(); if (DEMO || !a || !basePret) return;
+  const ici = []; MAGASINS.forEach(m => (notifListe(m.id) || []).forEach(n => ici.push([m.id, n])));
+  const presentes = new Set(ici.map(([, n]) => n.id));
+  for (const [m, n] of ici){
+    if (!NOTIF_VU.has(n.id) && !NOTIF_MIENNES.has(n.id) && n.pour && n.texte){
+      NOTIF_MIENNES.set(n.id, m);
+      try { await baseAppel("notifications", {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({id:n.id, magasin:m, destinataire:n.pour,
+        type:n.type || "autre", texte:String(n.texte).slice(0, 1000), lien:n.lien || null, par:n.par || null})}); }
+      catch (e){ console.warn("Notification :", e); }
+    } else if (NOTIF_VU.has(n.id) && NOTIF_VU.get(n.id) !== !!n.lu && n.pour === a.collab){
+      NOTIF_VU.set(n.id, !!n.lu);
+      try { await baseAppel(`notifications?id=eq.${encodeURIComponent(n.id)}`, {method:"PATCH", headers:{Prefer:"return=minimal"}, body:JSON.stringify({lue:!!n.lu})}); }
+      catch (e){ console.warn("Notification :", e); }
+    }
+  }
+  [...NOTIF_MIENNES.keys()].filter(id => !presentes.has(id)).forEach(id => { NOTIF_MIENNES.delete(id);   // réception annulée : retirée tant qu'elle n'est pas lue
+    baseAppel(`notifications?id=eq.${encodeURIComponent(id)}`, {method:"DELETE", headers:{Prefer:"return=minimal"}}).catch(e => console.warn("Notification :", e)); });
+}
+/* 21 oct. 2026 : congés, le motif de ma propre demande passe par une fonction de la base quand je ne gère pas les congés */
+async function congesMiensLire(){ const a = authLire(); if (DEMO || !a || !a.collab) return;
+  try { CONGES_MIENS = (await baseAppel("rpc/chouf_mes_conges", {method:"POST", body:"{}"})) || {}; } catch (e){ CONGES_MIENS = {}; console.warn("Congés :", e); } }
+async function congesMotifsEnvoyer(){
+  const a = authLire(); if (DEMO || !a || !a.collab) return;
+  for (const m of MAGASINS.map(x => x.id)){
+    if (droitEcrire(m, "conges_motifs")) continue;
+    const L = m === baseMag() ? S.conges : (MAG_DONNEES[m] || {}).conges, enBase = BRUT[baseCle(m, "conges")] || [];
+    for (const c of (L || []).filter(c => c && c.pid === a.collab)){
+      const v = {motif:c.motif || "", note:c.note || ""}, av = CONGES_MIENS[c.id] || {};
+      if (v.motif === (av.motif || "") && v.note === (av.note || "")) continue;
+      if (!Array.isArray(enBase) || !enBase.some(x => x && x.id === c.id)) continue;   // la demande n'est pas encore dans la base
+      CONGES_MIENS[c.id] = v;
+      try { await baseAppel("rpc/chouf_conge_motif", {method:"POST", body:JSON.stringify({m, id:c.id, motif:v.motif, note:v.note})}); }
+      catch (e){ console.warn("Congé :", e); }
+    }
+  }
+}
+/* 21 oct. 2026 : un paquet absent de la base, ou que ce compte ne peut pas lire, ne garde jamais les données d'exemple : il est vidé.
+   Sans accès aux comptes, le compte connecté est construit d'après le jeton. */
+function baseManquants(rangs){
+  const recu = new Set(rangs.map(r => baseCle(r.magasin || "*", PAQ_PART[r.cle] || r.cle))), mv = magVide();
+  const vide = (k, v) => { const p = SAUVE_CLES[k]; if (p && p !== "tasks" && p in mv) return JSON.parse(JSON.stringify(mv[p]));
+    return Array.isArray(v) ? [] : typeof v === "number" ? 0 : v && typeof v === "object" ? {} : v; };
+  actMuet = true;
+  try {
+    Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (["notifications", "reglages", "roles"].includes(k)) return;
+      if (!recu.has(baseCle(baseMagDe(k), k))) S[s] = vide(k, S[s]); });
+    if (!recu.has(baseCle("*", "comptes"))){ const a = authLire() || {}, p = a.collab ? personOf(a.collab) : null, u = userOf(a.compte) || {};
+      if (a.compte) S.users = [Object.assign({pw:"", pwTemp:false}, u, {id:a.compte, role:a.role, collab:a.collab || null, actif:true, mag:a.mag, tousMag:!!a.tousMag,
+        name:p ? p.name : "Équipe " + magDe(a.mag || MAGASINS[0].id).nom, login:u.login || a.compte})]; }
+    if (!recu.has(baseCle(baseMag(), "dossiers")) && window.SuviAPI) try { window.SuviAPI.restaurer(JSON.parse(mv.dossiers), true); } catch (e){ console.warn("Base partagée, dossiers :", e); }
+    S.notifs = []; Object.values(MAG_DONNEES).forEach(d => { if (d) d.notifs = []; });
+    render();
+  } finally { actMuet = false; }
+}
 /* l'autre magasin (rangé dans MAG_DONNEES), au format de la base */
 const baseAutre = () => { const o = MULTI && !DEMO ? MAGASINS.find(m => m.id !== S.magasin && MAG_DONNEES[m.id]) : null; if (!o) return null;
   const d = MAG_DONNEES[o.id], inv = Object.fromEntries(Object.entries(SAUVE_CLES).map(([k, p]) => [p, k])), out = {};
@@ -9704,9 +9923,10 @@ const baseAutre = () => { const o = MULTI && !DEMO ? MAGASINS.find(m => m.id !==
   return {mag:o.id, data:out}; };
 function baseAppliquerAutre(o, rangs){ const d = MAG_DONNEES[o]; if (!d) return;
   rangs.forEach(r => { const p = r.cle === "dossiers" ? "dossiers" : SAUVE_CLES[r.cle]; if (!p) return;
-    d[p] = r.cle === "dossiers" ? JSON.stringify(r.valeur) : r.valeur; baseVu[baseCle(o, r.cle)] = JSON.stringify(r.valeur); }); }
+    d[p] = r.cle === "dossiers" ? JSON.stringify(r.valeur) : r.valeur; baseNoter(o, r.cle, r.valeur); }); }
 /* répartit ce que renvoie la base : le commun et le magasin affiché vont dans S, l'autre magasin dans MAG_DONNEES */
-function baseRepartir(rangs){
+function baseRepartir(bruts){
+  const rangs = baseReunir(bruts.filter(r => r.cle !== "notifications"));
   const ici = rangs.filter(r => r.magasin === "*" || r.magasin === baseMag() || !r.magasin), ailleurs = rangs.filter(r => r.magasin && r.magasin !== "*" && r.magasin !== baseMag());
   if (ici.length) baseAppliquer(ici);
   [...new Set(ailleurs.map(r => r.magasin))].forEach(m => baseAppliquerAutre(m, ailleurs.filter(r => r.magasin === m)));
@@ -9756,7 +9976,7 @@ function fichesChercher(q){
 let baseVu = {}, baseVersion = 0, basePret = false, baseEnPanne = false, baseMinuterie = null, baseRefus = new Set();   // baseRefus : ensembles illisibles, jamais renvoyés
 const baseAppel = async (chemin, o = {}) => { const j = await authJeton(); if (!j) throw new Error("base : pas connecté");
   const r = await fetch(BASE.url + chemin, Object.assign({}, o, {headers:Object.assign({apikey:BASE.cle, Authorization:"Bearer " + j, "Content-Type":"application/json"}, o.headers || {})}));
-  if (!r.ok) throw new Error("base " + r.status); const t = await r.text(); return t ? JSON.parse(t) : null; };
+  if (!r.ok) throw Object.assign(new Error("base " + r.status), {statut:r.status}); const t = await r.text(); return t ? JSON.parse(t) : null; };
 /* 16 oct. 2026 (demande de Mohamed) : historique durable, table « historique » (ajout seul, ni modification ni suppression) :
    connexions et activité, partagés entre les appareils. Envoi groupé 2 s après le dernier ajout ; en cas d'échec, gardé et renvoyé ensuite. */
 let HISTO_FILE = [], histoMinuteur = null;
@@ -9812,24 +10032,42 @@ const basePanne = e => { console.warn("Base partagée :", e); if (!baseEnPanne){
 const DEMO = /[?&]demo=1\b/.test(location.search);
 if (DEMO) addEventListener("DOMContentLoaded", () => { const a = document.createElement("a"); a.id = "demoPastille"; a.href = location.pathname; a.textContent = "Données fictives · rien n’est envoyé";
   a.title = "Mode démonstration : la base partagée n’est ni lue ni écrite. Clic : revenir à la base partagée."; document.body.appendChild(a); });
+/* 21 oct. 2026 : ce qu'il y a à envoyer, paquets séparés, au format de la base (l'ancien paquet des notifications n'est plus envoyé) */
+function basePhysiques(){
+  const out = [], ajouter = (m, cle, v) => { if (cle === "notifications" || v === undefined) return; const P = PAQUETS[cle];
+    Object.entries(P ? P.couper(v) : {[cle]:v}).forEach(([c, x]) => { if (x !== undefined) out.push({mag:m, cle:c, valeur:x, j:jsonStable(x)}); }); };
+  Object.entries(baseLocal()).forEach(([cle, v]) => ajouter(baseMagDe(cle), cle, v));
+  const au = baseAutre(); if (au) Object.entries(au.data).forEach(([cle, v]) => ajouter(au.mag, cle, v));
+  return out;
+}
 async function baseEnvoyer(){
   if (DEMO) return;
-  if (!basePret) return;
+  if (!basePret || baseRefus.size) return;   // dossiers illisibles : rien n'est renvoyé (chèques et planning en dépendent)
   const par = (currentUser() || {}).name || null;
-  const au = baseAutre();
-  const rangs = Object.entries(baseLocal()).map(([cle, v]) => ({mag:baseMagDe(cle), cle, valeur:v, j:JSON.stringify(v)}))
-    .concat(au ? Object.entries(au.data).map(([cle, v]) => ({mag:au.mag, cle, valeur:v, j:JSON.stringify(v)})) : [])
-    .filter(r => r.valeur !== undefined && baseVu[baseCle(r.mag, r.cle)] !== r.j && !baseRefus.size);   // dossiers illisibles : rien n'est renvoyé (chèques et planning en dépendent)
-  if (!rangs.length) return;
-  rangs.forEach(r => { baseVu[baseCle(r.mag, r.cle)] = r.j; });
-  try { await baseAppel("donnees?on_conflict=magasin,cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
-    body:JSON.stringify(rangs.map(r => ({magasin:r.mag, cle:r.cle, valeur:r.valeur, par, session:BASE.session})))}); baseEnPanne = false;
-    if (parent !== window) parent.postMessage({chouf:"maj"}, "*"); }   // 9 oct. 2026 : dans le panneau de l'extension, la barre de Cosium se met à jour
-  catch (e){ rangs.forEach(r => { delete baseVu[baseCle(r.mag, r.cle)]; }); basePanne(e); }
+  const changes = basePhysiques().filter(r => baseVu[baseCle(r.mag, r.cle)] !== r.j);
+  const rangs = changes.filter(r => droitEcrire(r.mag, r.cle));
+  /* 21 oct. 2026 : un paquet que ce compte ne peut pas écrire n'est jamais envoyé (il écraserait les données) ; un message le dit après un geste */
+  changes.filter(r => !rangs.includes(r)).forEach(r => { baseVu[baseCle(r.mag, r.cle)] = r.j; if (Date.now() - actGeste < 5000) baseRefusNote(r.mag, r.cle); });
+  if (rangs.length){
+    rangs.forEach(r => { baseVu[baseCle(r.mag, r.cle)] = r.j; });
+    const poster = L => baseAppel("donnees?on_conflict=magasin,cle", {method:"POST", headers:{Prefer:"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify(L.map(r => ({magasin:r.mag, cle:r.cle, valeur:r.valeur, par, session:BASE.session})))});
+    try { await poster(rangs); rangs.forEach(r => { BRUT[baseCle(r.mag, r.cle)] = r.valeur; }); baseEnPanne = false;
+      if (parent !== window) parent.postMessage({chouf:"maj"}, "*"); }   // 9 oct. 2026 : dans le panneau de l'extension, la barre de Cosium se met à jour
+    catch (e){
+      if (e.statut !== 403){ rangs.forEach(r => { delete baseVu[baseCle(r.mag, r.cle)]; }); basePanne(e); return; }
+      for (const r of rangs){   // un paquet refusé fait échouer tout l'envoi : les autres repartent un par un
+        try { await poster([r]); BRUT[baseCle(r.mag, r.cle)] = r.valeur; }
+        catch (e2){ if (e2.statut === 403) baseRefusNote(r.mag, r.cle); else { delete baseVu[baseCle(r.mag, r.cle)]; basePanne(e2); } }
+      }
+    }
+  }
+  await congesMotifsEnvoyer();
+  await notifsEnvoyer();
 }
 function baseAppliquer(rangs){
   const data = {};
-  rangs.forEach(r => { data[r.cle] = r.valeur; baseVu[baseCle(r.magasin || baseMagDe(r.cle), r.cle)] = JSON.stringify(r.valeur); });
+  rangs.forEach(r => { data[r.cle] = r.valeur; });
   actMuet = true;   // les changements des collègues ne sont pas les miens : pas d’activité notée
   try {
     Object.entries(SAUVE_CLES).forEach(([k, s]) => { if (k in data) S[s] = data[k]; }); rolesAJour();
@@ -9839,7 +10077,7 @@ function baseAppliquer(rangs){
     render();
   } finally { actMuet = false; }
   // l’ordre des clés revient trié par la base : on note ce qu’on a maintenant pour ne pas le renvoyer
-  Object.entries(baseLocal()).forEach(([cle, v]) => { if (cle in data) baseVu[baseCle(baseMagDe(cle), cle)] = JSON.stringify(v); });
+  Object.entries(baseLocal()).forEach(([cle, v]) => { if (cle in data) baseNoter(baseMagDe(cle), cle, v); });
   if (typeof magPhoto !== "undefined") magPhoto = null;   // un changement venu de la base n'est pas un geste refusé en lecture seule
 }
 async function baseRelever(){
@@ -9851,6 +10089,7 @@ async function baseRelever(){
     const autres = rangs.filter(r => r.session !== BASE.session);
     if (autres.length) baseRepartir(autres);
     baseEnPanne = false;
+    notifsLire();
   } catch (e){ basePanne(e); }
 }
 let baseLancee = false, baseLecture = null;   // baseLecture : lecture en cours, partagée si on rappelle baseDemarrer() pendant ce temps
@@ -9867,13 +10106,16 @@ async function baseDemarrer(){
     if (d.length > 5){ console.warn("Base partagée : trop de démarrages en une minute, lecture suspendue."); setTimeout(baseDemarrer, 60e3); return; } } catch (_) {}
   let fini; baseLecture = new Promise(ok => { fini = ok; });
   try {
+    await Promise.all([droitsLire(), congesMiensLire()]);   // 21 oct. 2026 : droits d'écriture et motifs de mes congés avant les données
     const rangs = await baseAppel("donnees?select=magasin,cle,valeur,version&" + baseFiltreMag());
     baseVersion = rangs.reduce((m, r) => Math.max(m, r.version), 0);
-    if (rangs.length) baseRepartir(rangs);   // sinon, base vide : les données d’exemple deviennent le jeu de départ
+    if (rangs.length) baseRepartir(rangs);
+    baseManquants(rangs);   // 21 oct. 2026 : plus de données d'exemple pour ce que la base ne donne pas
     basePret = true; baseLancee = true;
     /* 14 oct. 2026 : session Supabase valide mais compte inconnu avant la lecture de la base (comptes créés depuis) : on ouvre maintenant */
     if (!S.user){ const a = authLire(); if (a && a.compte && compteUtilisable(userOf(a.compte))) login(a.compte, !DANS_COSIUM && SESSION_REPRISE && SESSION_REPRISE.id === a.compte ? SESSION_REPRISE : null); }
     baseLecture = null; fini();
+    notifsLire();
     await baseEnvoyer();
   } catch (e){ baseLecture = null; fini(); basePanne(e); baseDelai = Math.min(baseDelai * 2, 10 * 60e3); setTimeout(baseDemarrer, baseDelai); return; }   // relance de plus en plus espacée : 30 s, 1 min… jusqu'à 10 min
   setInterval(() => { if (!document.hidden) baseEnvoyer().then(baseRelever); }, 8e3);   // en pause quand l'onglet est caché
