@@ -13827,6 +13827,8 @@ const ilYa = j => { const d = new Date(); d.setDate(d.getDate() - j); return d; 
 const dateCourte = j => { const d = ilYa(j); return d.toLocaleDateString("fr-FR", d.getFullYear() === new Date().getFullYear() ? {day:"numeric", month:"short"} : {day:"numeric", month:"short", year:"numeric"}); };
 const dateLongue = j => ilYa(j).toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"});
 const ouvertLe = l => `créé le ${dateCourte(l.ouvertJ)}`;
+/* 20 oct. 2026 : à la place du rang de la ligne, la date de création en JJ puis MM, l'une sur l'autre */
+const jjmm = l => { const d = ilYa(l.ouvertJ); return `<span class="do-date" title="${esc(ouvertLe(l))}" aria-label="${esc(ouvertLe(l))}"><b>${String(d.getDate()).padStart(2, "0")}</b><b>${String(d.getMonth() + 1).padStart(2, "0")}</b></span>`; };
 const nomCasse = c => c.nom.charAt(0) + c.nom.slice(1).toLowerCase();
 /* 14 oct. 2026 (validé par Mohamed) : un dossier entièrement payé dont l'équipement n'est pas encore remis au client (en préparation ou prêt)
    reste en cours : il ne quitte ni « Tous » ni « Prêts à livrer ». Il se clôt une fois livré, ou à la main. */
@@ -14417,7 +14419,7 @@ function rendreLignes(){
     const s = estSuite(l, i), f = famDe(l.c), es = etatSel(l.c);
     return `<tr class="${s ? "suite" : ""}${f ? " membre" : ""} ${es}" data-i="${idx(l)}" tabindex="0"${SEL.actif ? ` aria-selected="${es === "sel-on"}"` : ""}>
       ${SEL.actif ? `<td class="col-sel">${s ? "" : `<span class="coche">${COCHE}</span>`}</td>` : ""}
-      <td><div class="nom">${l.c.prenom} ${nomCasse(l.c)}${f && f.parent === l.c && !s ? '<span class="badge-parent">Parent</span>' : ""}${l.c.passage && !s ? '<span class="badge-passage">De passage</span>' : ""}</div>
+      <td>${s ? "" : jjmm(l)}<div class="nom">${l.c.prenom} ${nomCasse(l.c)}${f && f.parent === l.c && !s ? '<span class="badge-parent">Parent</span>' : ""}${l.c.passage && !s ? '<span class="badge-passage">De passage</span>' : ""}</div>
         ${s ? `<div class="petit">${l.renouv ? "Renouvellement" : "Même client"}</div>` : es === "sel-off" ? `<div class="petit">Déjà dans ${esc(f.nom)}</div>` : ""}
         ${estProgramme(l) ? `<div class="petit date-prog${aActiver(l) ? " activer" : ""}">${dateProg(l)}</div>` : s ? "" : `<div class="petit date-ouv">${ouvertLe(l)}</div>`}
         ${l.confie && magInfo() ? (a => `<div class="tag-confie" style="--mag:${a.c}">${a.dome}Confié à ${esc(a.nom)}</div>`)(window.ChoufAPI.magDe(l.confie.a)) : ""}
@@ -21837,9 +21839,12 @@ body.arming #app:not(#luxe) .pl-tuile[aria-pressed="false"], #app:not(#luxe) .pl
     -webkit-backdrop-filter:none; backdrop-filter:none; transition:background-color .25s var(--ease-stripe), border-radius .25s var(--ease-stripe)}
   #zone-suivi:not(#luxe) .tableau table{counter-reset:do}
   #zone-suivi:not(#luxe) .tableau tbody tr[data-i]:not(.suite){counter-increment:do}
-  :root:root #zone-suivi:not(#luxe) .tableau tbody tr[data-i] > td:nth-child(1 of :not(.col-sel)){position:relative; padding-left:40px}
-  :root:root:root #zone-suivi:not(#luxe) .tableau tbody tr[data-i]:not(.suite) > td:nth-child(1 of :not(.col-sel))::before{content:counter(do, decimal-leading-zero); display:block; position:absolute; inset:7px auto auto 0; width:auto; height:auto; border:0; background:none; transform:none;
+  :root:root #zone-suivi:not(#luxe) .tableau tbody tr[data-i] > td:nth-child(1 of :not(.col-sel)){position:relative; padding-left:34px}
+  :root:root:root #zone-suivi:not(#luxe) .tableau tbody tr[data-i]:not(.suite) > td:nth-child(1 of :not(.col-sel))::before{content:none; display:block; position:absolute; inset:7px auto auto 0; width:auto; height:auto; border:0; background:none; transform:none;
     font-size:.75rem; font-weight:500; font-variant-numeric:tabular-nums; letter-spacing:.04em; line-height:1; color:var(--second)}
+  :root:root #zone-suivi:not(#luxe) .tableau .do-date{position:absolute; inset:7px auto auto 0; display:flex; flex-direction:column; align-items:center; font-size:.75rem; font-weight:500; font-variant-numeric:tabular-nums; line-height:1.15; color:var(--second)}
+  :root:root #zone-suivi:not(#luxe) .tableau .do-date b{font-weight:500}
+  :root:root #zone-suivi:not(#luxe) .tableau .do-date b + b{align-self:stretch; text-align:center; padding-top:2px; margin-top:2px; border-top:1.5px solid var(--second)}
   :root:root #zone-suivi:not(#luxe) .tableau tbody tr.suite td:first-child::after{left:14px}
   :root:root #zone-suivi:not(#luxe) .tableau .nom{font-size:1.125rem; font-weight:500; letter-spacing:-.02em; line-height:1.25; transition:color .25s ease}
   /* Familles : un intertitre, puis les membres reliés par un trait */
