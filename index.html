@@ -14069,7 +14069,7 @@ const factureTout = l => { const its = l.items.filter(i => i.a !== "annule"); re
 const aSuivre = l => enCours(l) && !factureTout(l);
 const RAPIDES = [
   /* 20 oct. 2026 : « Tous » = dossiers à suivre, sans les facturés ; le bouton « + facturés » les ajoute, et la recherche cherche dans tous les dossiers (clôturés compris) */
-  {k:"tous", lib:"Tous", aide:"Dossiers non clôturés, hors facturés. « + facturés » les ajoute ; la recherche cherche dans tous les dossiers", test:l => filtre.q.trim() ? true : filtre.toutVoir ? enCours(l) : aSuivre(l)},
+  {k:"tous", lib:"Tous", aide:"Dossiers non clôturés, hors facturés. « Vraiment tout ! » affiche tous les dossiers ; la recherche aussi", test:l => (filtre.q.trim() || filtre.toutVoir) ? true : aSuivre(l)},
   {k:"mes", lib:"Mes dossiers", test:l => aSuivre(l) && !!moi() && l.c.conseiller === moi()},
   {k:"relancer", lib:"En retard", urgent:true, get aide(){ return `Action en retard, aucun mouvement depuis plus de ${REGLAGES.immobile} jours, client prévenu qui ne vient pas, ou essai de lentilles sans retour`; },
     test:l => aSuivre(l) && (vieux(l) || acts(l).some(a => a.echeance && a.echeance < isoJour()) || essaiDepasse(l) || prevenuARelancer(l))},
@@ -14145,7 +14145,7 @@ function rendreFiltres(){
   const nbVue = r => r.k === "mes" && !moi() ? null : base.filter(r.test).length;
   const nbActiver = base.filter(aActiver).length, nbRappel = base.filter(aRappeler).length;
   const vr = r => { const n = nbVue(r);
-    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.aide ? ` title="${r.aide}"` : r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${r.aide || RAPIDE_SOUS[r.k]}</small></button>`; };
+    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${r.aide || RAPIDE_SOUS[r.k]}</small></button>`; };
   // « Programmés » sort de « Plus » tant qu'un renouvellement attend d'être activé
   /* 16 oct. 2026 (demande de Mohamed) : six cartes dans l'ordre du parcours ; les alertes en pastille orange sur leur carte ; le reste dans « Autres vues » */
   const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "facturer", "factures"];
@@ -14153,9 +14153,10 @@ function rendreFiltres(){
   const PAST_LIB = {relancer:"en retard", livres:"incomplets", perime:"périmés", encaisser:"à encaisser"};
   const parcours = ORDRE_VUES.map(k => RAPIDES.find(r => r.k === k)).filter(Boolean);
   { const c = RAPIDES.find(r => r.k === filtre.rapide); if (c && !parcours.includes(c) && !Object.values(PASTILLES).flat().includes(c.k)) parcours.push(c); }
-  const pastilles = r => (r.k === "tous" ? `<button type="button" class="vr-pastille info" data-tous-voir aria-pressed="${!!filtre.toutVoir}" title="${filtre.toutVoir ? "Retirer les dossiers facturés de la liste" : "Afficher aussi les dossiers facturés"}">${filtre.toutVoir ? "facturés inclus" : "+ facturés"}</button>` : "") + (PASTILLES[r.k] || []).map(k => { const a = RAPIDES.find(x => x.k === k), n = a ? nbVue(a) : 0;
+  const pastilles = r => (PASTILLES[r.k] || []).map(k => { const a = RAPIDES.find(x => x.k === k), n = a ? nbVue(a) : 0;
     return n ? `<button type="button" class="vr-pastille${k === "confie" ? " info" : ""}" data-rapide="${k}" aria-pressed="${filtre.rapide === k}" style="--c:var(${RAPIDE_C[k]})" title="${esc(a.aide || "")}">${n} ${PAST_LIB[k]}</button>` : ""; }).join("");
-  const carte = r => `<span class="vr-groupe">${vr(r)}${pastilles(r) ? `<span class="vr-pastilles">${pastilles(r)}</span>` : ""}</span>`;
+  const bascule = `<button type="button" class="vr-bascule" role="switch" aria-checked="${!!filtre.toutVoir}" data-tous-voir><span class="vb-rail" aria-hidden="true"><i></i></span>Vraiment tout !</button>`;   // 20 oct. 2026 : remplace la pastille « + facturés »
+  const carte = r => `<span class="vr-groupe">${vr(r)}${pastilles(r) ? `<span class="vr-pastilles">${pastilles(r)}</span>` : ""}${r.k === "tous" ? bascule : ""}</span>`;
   const principales = (BANDE_VUES.matches ? parcours : RAPIDES.filter(r => (!RAPIDES_PLUS.includes(r.k) || (r.k === "prog" && nbActiver) || (r.k === "renouv" && nbRappel)) && (r.k !== "perime" || nbVue(r) || filtre.rapide === r.k)))
     .filter(r => r.k !== "confie" || nbVue(r) || filtre.rapide === "confie");   // « Confiés » seulement s'il y en a
   /* ce que l'autre magasin a confié à celui-ci : un bouton au-dessus de la liste, qui ouvre ses dossiers sur la vue « Confiés » */
@@ -23461,6 +23462,17 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 }
 @media (max-width:760px){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr > .vr-aide{display:none} }
 @media (prefers-reduced-motion:reduce){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .vr-aide{transition:none} }
+@media (min-width:761px){
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe{margin-bottom:0}
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-bascule{position:absolute; top:calc(100% + 8px); left:6px; display:inline-flex; align-items:center; gap:8px; padding:2px 4px; border:0; background:none; font:inherit; font-size:.8125rem; color:var(--second); cursor:pointer; white-space:nowrap}
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-bascule[aria-checked="true"]{color:var(--encre); font-weight:500}
+}
+@media (max-width:760px){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-bascule{display:none} }
+#zone-suivi .vb-rail{position:relative; flex:none; width:32px; height:18px; border-radius:9px; background:color-mix(in srgb, var(--encre) 22%, transparent); transition:background .2s}
+#zone-suivi .vb-rail i{position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; transition:transform .2s}
+#zone-suivi .vr-bascule[aria-checked="true"] .vb-rail{background:var(--pj-bleu, #4C8DFF)}
+#zone-suivi .vr-bascule[aria-checked="true"] .vb-rail i{transform:translateX(14px)}
+@media (prefers-reduced-motion:reduce){ #zone-suivi .vb-rail, #zone-suivi .vb-rail i{transition:none} }
 </style>
 <script id="luxe-recherche-ancree-js">
 /* Recherche ancrée (refonte luxe, 8 oct. 2026) : la recherche globale ne s'ouvre plus en fenêtre au centre de l'écran.
