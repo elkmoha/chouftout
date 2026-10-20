@@ -14094,6 +14094,13 @@ const RAPIDES = [
   {k:"renouv", lib:"Échéances", aide:"Clients au dossier clôturé et date de leur prochain renouvellement (lunettes 1 an et 1 jour après la facture, lentilles au 1er janvier) : à rappeler à l’échéance", test:l => renouvDe(l).length > 0},
   {k:"clos", lib:"Clôturés", aide:"Équipement clôturé, dossier entièrement payé ou annulé, et passages archivés", test:l => !l.fiche && !estProgramme(l) && (l.archive || clos(l))},
 ];
+/* 20 oct. 2026 : détail des cartes de la bande, une ligne par critère avec son nombre de dossiers ; une ligne à zéro n'est pas affichée */
+const DETAIL_VUES = {
+  traiter:[["PEC à faire", l => l.items.some(i => ["a_traiter", "s_traiter"].includes(i.a))], ["Devis en cours", l => l.items.some(i => i.a === "devis")], ["Refus à résoudre", l => l.items.some(i => i.a === "refuse")]],
+  commander:[["BL à commander", l => l.equip !== "livre" && l.items.some(i => ["pec_ok", "accord"].includes(i.a) && i.bl === "non")], ["Livrés, BL non commandé", l => l.equip === "livre" && l.items.some(i => i.bl === "non")], ["Livrés sans PEC ni accord", l => l.equip === "livre" && l.items.some(i => ["a_traiter", "devis", "instance", "s_traiter"].includes(i.a))]],
+  relancer:[["Sans mouvement", l => vieux(l)], ["Action en retard", l => acts(l).some(a => a.echeance && a.echeance < isoJour())], ["Essai de lentilles sans retour", l => essaiDepasse(l)], ["Client prévenu absent", l => prevenuARelancer(l)]],
+  facturer:[["PEC OK", l => l.items.some(i => i.a === "pec_ok")], ["Accord client", l => l.items.some(i => i.a === "accord") && !bloque(l)]]
+};
 filtre.rapide = "tous";
 filtre.crit = {cons:new Set(), mut:new Set(), res:new Set(), type:new Set(), regime:new Set(), autres:new Set(), cree:null};
 const CRIT_LIB = {cons:"Conseiller", mut:"Mutuelle", res:"Réseau", type:"Équipement", regime:"Régime", autres:"", cree:"Créé"};
@@ -14144,12 +14151,14 @@ function rendreFiltres(){
   // Vues rapides : le nombre tient compte des filtres et de la recherche ; les vues rares passent dans « Plus »
   const nbVue = r => r.k === "mes" && !moi() ? null : base.filter(r.test).length;
   const nbActiver = base.filter(aActiver).length, nbRappel = base.filter(aRappeler).length;
+  const detailVue = (r, bs) => { const d = DETAIL_VUES[r.k]; if (!d){ const t = RAPIDE_SOUS[r.k] || ""; return esc(t.charAt(0).toUpperCase() + t.slice(1)); }
+    const cartes = bs.filter(r.test); return d.map(([lib, t]) => [lib, cartes.filter(t).length]).filter(x => x[1]).map(([lib, n]) => `<span class="vd"><span>${lib}</span><b>${n}</b></span>`).join(""); };
   const vr = r => { const n = nbVue(r);
-    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${r.aide || RAPIDE_SOUS[r.k]}</small></button>`; };
+    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${detailVue(r, base)}</small></button>`; };
   // « Programmés » sort de « Plus » tant qu'un renouvellement attend d'être activé
   /* 16 oct. 2026 (demande de Mohamed) : six cartes dans l'ordre du parcours ; les alertes en pastille orange sur leur carte ; le reste dans « Autres vues » */
-  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "facturer", "factures"];
-  const PASTILLES = {tous:["relancer"], facturer:["perime"]};   // « confiés » : déjà le bandeau sous les cartes
+  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "facturer", "factures", "mes", "relancer", "perime", "livrer", "prog", "renouv", "clos", "confie"];   // 20 oct. 2026 : toutes les vues sur la même rangée qui défile
+  const PASTILLES = {};   // « confiés » : déjà le bandeau sous les cartes
   const PAST_LIB = {relancer:"en retard", livres:"incomplets", perime:"périmés", encaisser:"à encaisser"};
   const parcours = ORDRE_VUES.map(k => RAPIDES.find(r => r.k === k)).filter(Boolean);
   { const c = RAPIDES.find(r => r.k === filtre.rapide); if (c && !parcours.includes(c) && !Object.values(PASTILLES).flat().includes(c.k)) parcours.push(c); }
@@ -14158,7 +14167,7 @@ function rendreFiltres(){
   const bascule = `<button type="button" class="vr-bascule" role="switch" aria-checked="${!!filtre.toutVoir}" data-tous-voir><span class="vb-rail" aria-hidden="true"><i></i></span>Vraiment tout !</button>`;   // 20 oct. 2026 : remplace la pastille « + facturés »
   const carte = r => `<span class="vr-groupe">${vr(r)}${pastilles(r) ? `<span class="vr-pastilles">${pastilles(r)}</span>` : ""}${r.k === "tous" ? bascule : ""}</span>`;
   const principales = (BANDE_VUES.matches ? parcours : RAPIDES.filter(r => (!RAPIDES_PLUS.includes(r.k) || (r.k === "prog" && nbActiver) || (r.k === "renouv" && nbRappel)) && (r.k !== "perime" || nbVue(r) || filtre.rapide === r.k)))
-    .filter(r => r.k !== "confie" || nbVue(r) || filtre.rapide === "confie");   // « Confiés » seulement s'il y en a
+    .filter(r => r.k === "tous" || r.k === "mes" || filtre.rapide === r.k || nbVue(r));   // 20 oct. 2026 : une carte vide n'est pas affichée (sauf Tous, Mes dossiers et la vue choisie)
   /* ce que l'autre magasin a confié à celui-ci : un bouton au-dessus de la liste, qui ouvre ses dossiers sur la vue « Confiés » */
   { let bc = document.getElementById("confiesIci"); const ci = window.ChoufAPI && window.ChoufAPI.confiesIci ? window.ChoufAPI.confiesIci() : null;
     if (!bc){ bc = document.createElement("button"); bc.type = "button"; bc.id = "confiesIci"; bc.className = "confies-ici"; za.after(bc); bc.addEventListener("click", () => window.ChoufAPI.ouvrirConfies()); }
@@ -14170,7 +14179,6 @@ function rendreFiltres(){
   for (const g of ["cons", "mut", "res", "type", "regime", "autres"]) k[g].forEach(v => pills.push(`<button type="button" class="crit" data-crit-g="${g}" data-crit-v="${esc(v)}" title="Retirer ce filtre">${CRIT_LIB[g] ? `<span>${CRIT_LIB[g]}</span>` : ""}${esc(libCrit(g, v))}<i aria-hidden="true">×</i></button>`));
   if (k.cree != null) pills.push(`<button type="button" class="crit" data-crit-g="cree" data-crit-v="${k.cree}"><span>Créé</span>${CREE_LIB[k.cree]}<i aria-hidden="true">×</i></button>`);
   document.getElementById("vuesRapides").innerHTML = principales.map(BANDE_VUES.matches ? carte : vr).join("") + (choisieEnPlus && !principales.includes(choisieEnPlus) && !Object.values(PASTILLES).flat().includes(choisieEnPlus.k) ? vr(choisieEnPlus) : "")
-    + `<button class="vr vr-plus" type="button" data-vr-plus aria-haspopup="true" aria-expanded="false" title="Mes dossiers, alertes, programmés, échéances, clôturés">Autres vues<svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1 1 4 4 4-4"/></svg></button>`
     + (pills.length ? `<span class="vr-crit">${pills.join("")}</span>` : "");
   document.getElementById("doCrit").innerHTML = pills.join("");   // ordinateur : les critères actifs sous le titre de l'index
   // la vue choisie reste visible dans la rangée qui défile (téléphone, et « Plus » au bout de la rangée)
@@ -23461,11 +23469,18 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr:is(:hover, :focus-visible) > .vr-aide{max-height:9em; opacity:1; margin-top:6px}
 }
 @media (max-width:760px){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr > .vr-aide{display:none} }
+#zone-suivi #vuesRapides .vr-aide .vd{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:3px 0; border-top:1px solid color-mix(in srgb, var(--encre) 8%, transparent)}
+#zone-suivi #vuesRapides .vr-aide .vd:first-child{margin-top:2px}
+#zone-suivi #vuesRapides .vr-aide .vd b{flex:none; min-width:1.7em; padding:0 6px; border-radius:999px; text-align:center; font-weight:500; font-variant-numeric:tabular-nums; color:var(--encre); background:color-mix(in srgb, var(--c) 24%, transparent)}
 @media (prefers-reduced-motion:reduce){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .vr-aide{transition:none} }
 @media (min-width:761px){
   :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe{margin-bottom:0}
   :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-bascule{position:absolute; top:calc(100% + 8px); left:6px; display:inline-flex; align-items:center; gap:8px; padding:2px 4px; border:0; background:none; font:inherit; font-size:.8125rem; color:var(--second); cursor:pointer; white-space:nowrap}
   :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-bascule[aria-checked="true"]{color:var(--encre); font-weight:500}
+}
+@media (min-width:761px){
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides{overflow-x:auto; overflow-y:hidden; padding-bottom:44px; scrollbar-width:thin; scroll-snap-type:none}
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe{flex:0 0 clamp(172px, 14vw, 210px)}
 }
 @media (max-width:760px){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-bascule{display:none} }
 #zone-suivi .vb-rail{position:relative; flex:none; width:32px; height:18px; border-radius:9px; background:color-mix(in srgb, var(--encre) 22%, transparent); transition:background .2s}
