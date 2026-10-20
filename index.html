@@ -14746,6 +14746,20 @@ const ordreFam = f => [f.parent, ...f.membres.filter(m => m !== f.parent)];
 const RECAPS_SOLO = new Map();
 const soloDe = c => { if (!RECAPS_SOLO.has(c)) RECAPS_SOLO.set(c, {solo:true, nom:`${c.prenom} ${nomCasse(c)}`, parent:c, membres:[c]}); return RECAPS_SOLO.get(c); };
 const recapProprio = c => famDe(c) || soloDe(c);
+// 20 oct. 2026 : un membre qui rejoint une famille y apporte les lignes de son récap individuel (au lieu de repartir de zéro)
+function reprendreRecapSolo(f, membres){
+  const r = recapDe(f);
+  const frs = [], somme = v => String(Math.round(v * 100) / 100).replace(".", ",");
+  membres.forEach(c => { const sr = RECAPS_SOLO.get(c)?.recap, ls = sr && sr.lignes[c.dossier]; if (ls){ r.lignes[c.dossier] = ls; frs.push([c, sr]); } });
+  // avoirs précédents et avoirs saisis s'additionnent, commentaires mis bout à bout, geste en € additionné (un geste en % est gardé tel quel)
+  const num = (k, d) => frs.map(([, sr]) => rNum(sr[k])).filter(n => n != null).reduce((t, n) => t + n, d);
+  const ap = num("avoirPrec", 0) + (rNum(r.avoirPrec) || 0); if (ap) r.avoirPrec = somme(ap);
+  if (frs.some(([, sr]) => sr.avoirManuel)){ r.avoirManuel = true; r.avoir = somme(num("avoir", rNum(r.avoir) || 0)); }
+  const gestes = frs.map(([, sr]) => String(sr.bonus || "").trim()).filter(Boolean), pct = gestes.find(g => /%$/.test(g));
+  if (!String(r.bonus).trim() && gestes.length) r.bonus = pct || somme(gestes.reduce((t, g) => t + (rNum(g) || 0), 0));
+  const notes = frs.filter(([, sr]) => String(sr.commentaire || "").trim()).map(([c, sr]) => (membres.length > 1 || frs.length > 1 ? c.prenom + " : " : "") + sr.commentaire.trim());
+  if (notes.length) r.commentaire = [String(r.commentaire || "").trim(), ...notes].filter(Boolean).join("\n");
+}
 
 // Exemples remplis (fictifs) pour voir à quoi ressemble un récapitulatif
 (() => {
@@ -14774,6 +14788,15 @@ const recapProprio = c => famDe(c) || soloDe(c);
       remb:[{nom:"Harmonie Mutuelle", lunettes:250, lentilles:null}], eq:330, rb:250, rac:80}]}];
   f.recap = {date:isoJour(), avoirPrec:"", avoir:"", avoirManuel:false, bonus:"", commentaire:"", lignes:{[lemaire.dossier]:[]}};
 })();
+// 20 oct. 2026 : un membre qui quitte sa famille (ou une famille dissoute) emporte les lignes de son récap ; l'héritier (le membre qui reste, ou le parent) reprend aussi les éléments communs
+function recapApresSortie(f, sortants, heritier){
+  const r = f.recap; if (!r) return;
+  sortants.forEach(c => { const ls = r.lignes[c.dossier]; if (!ls) return; const s = soloDe(c);
+    s.recap ||= {date:r.date, avoirPrec:"", avoir:"", avoirManuel:false, bonus:"", commentaire:"", lignes:{}}; s.recap.lignes[c.dossier] = structuredClone(ls); });
+  if (heritier){ const s = soloDe(heritier);
+    s.recap ||= {date:r.date, lignes:{}}; Object.assign(s.recap, {avoirPrec:r.avoirPrec, avoir:r.avoir, avoirManuel:r.avoirManuel, bonus:r.bonus, commentaire:r.commentaire, reglements:structuredClone(r.reglements || [])});
+    if (f.archives && f.archives.length) s.archives = structuredClone(f.archives); }
+}
 // Remboursements d'un membre, repris des dossiers : une entrée par mutuelle, lunettes et lentilles
 function rembMembre(c){
   // la PEC d'un renouvellement ne compte pas ici : elle sert à solder l'avance (voir « Solder avec la PEC »)
@@ -16002,7 +16025,7 @@ feuille.addEventListener("click", async ev => {
     if (!jeton){ l.log.shift(); if (confie) l.confie = confie; if (avantR) l.rattache = avantR; else delete l.rattache; toast("Rattachement impossible pour le moment", null); return; }
     LIGNES.splice(pos, 1);
     if (!LIGNES.some(x => x.c === c)){ const f = famDe(c);
-      if (f){ if (f.membres.length <= 2) FAMS = FAMS.filter(x => x !== f); else { f.membres = f.membres.filter(m => m !== c); if (f.parent === c) f.parent = f.membres[0]; } } }
+      if (f){ recapApresSortie(f, f.membres.length <= 2 ? f.membres : [c], f.membres.length <= 2 ? f.membres.find(m => m !== c) : null); if (f.membres.length <= 2) FAMS = FAMS.filter(x => x !== f); else { f.membres = f.membres.filter(m => m !== c); if (f.parent === c) f.parent = f.membres[0]; } } }
     RENOUV_CACHE = null; rendre();
     const autre = LIGNES.findIndex(x => x.c === c && !x.archive);
     if (autre >= 0) ouvrir(autre, false, true); else fermer();
@@ -16024,7 +16047,7 @@ feuille.addEventListener("click", async ev => {
     const pos = LIGNES.indexOf(l), fams = FAMS.slice(), membres = FAMS.map(f => [f, f.membres.slice(), f.parent]);
     LIGNES.splice(pos, 1);
     if (!LIGNES.some(x => x.c === c)){ const f = famDe(c);   // plus aucune ligne pour ce client : il quitte sa famille
-      if (f){ if (f.membres.length <= 2) FAMS = FAMS.filter(x => x !== f); else { f.membres = f.membres.filter(m => m !== c); if (f.parent === c) f.parent = f.membres[0]; } } }
+      if (f){ recapApresSortie(f, f.membres.length <= 2 ? f.membres : [c], f.membres.length <= 2 ? f.membres.find(m => m !== c) : null); if (f.membres.length <= 2) FAMS = FAMS.filter(x => x !== f); else { f.membres = f.membres.filter(m => m !== c); if (f.parent === c) f.parent = f.membres[0]; } } }
     RENOUV_CACHE = null; rendre();
     const autre = LIGNES.findIndex(x => x.c === c && !x.archive);
     if (autre >= 0) ouvrir(autre, false, true); else fermer();
@@ -16117,6 +16140,7 @@ document.getElementById("selSuivant").addEventListener("click", async () => {
   const membres = [...SEL.clients];
   if (SEL.ajoutA){
     const f = SEL.ajoutA; f.membres.push(...membres);
+    if (f.recap) reprendreRecapSolo(f, membres);
     sortirSelection(); rendre();
     toast(`${membres.length} membre${membres.length > 1 ? "s" : ""} ajouté${membres.length > 1 ? "s" : ""} à ${f.nom}`, () => { f.membres = f.membres.filter(m => !membres.includes(m)); rendre(); });
     return;
@@ -16125,6 +16149,7 @@ document.getElementById("selSuivant").addEventListener("click", async () => {
   if (!r) return;   // on reste en sélection
   const f = {id:famSeq++, nom:r.nom, parent:r.parent, membres, note:""};
   FAMS.push(f);
+  reprendreRecapSolo(f, membres);
   sortirSelection(); rendre();
   toast(`${f.nom} créée, ${membres.length} membres`, () => { FAMS = FAMS.filter(x => x !== f); rendre(); }, null);
 });
@@ -16174,6 +16199,7 @@ document.getElementById("f-contenu").addEventListener("click", async ev => {
     const oui = await confirmer({titre:`Retirer ${c.prenom} de la famille ?`,
       message:dissout ? `Il ne resterait qu’un membre : ${esc(f.nom)} sera dissoute. La note commune sera supprimée.` : `${c.prenom} ne verra plus la note commune de ${esc(f.nom)}.`, bouton:"Retirer"});
     if (!oui) return;
+    recapApresSortie(f, dissout ? f.membres : [c], dissout ? f.membres.find(m => m !== c) : null);
     if (dissout) FAMS = FAMS.filter(x => x !== f);
     else { f.membres = f.membres.filter(m => m !== c); if (f.parent === c) f.parent = f.membres[0]; }
     rafraichirFiche(); toast(dissout ? `${f.nom} dissoute` : `${c.prenom} retiré${c.prenom.endsWith("a") || c.prenom.endsWith("e") ? "e" : ""} de ${f.nom}`, null);
@@ -16184,7 +16210,7 @@ document.getElementById("f-contenu").addEventListener("click", async ev => {
     const f = famPar(d.dataset.famDissoudre);
     const oui = await confirmer({titre:`Dissoudre ${esc(f.nom)} ?`, message:"Les membres et leurs dossiers restent dans le suivi. Seuls le regroupement et la note commune sont supprimés.", bouton:"Dissoudre"});
     if (!oui) return;
-    FAMS = FAMS.filter(x => x !== f); rafraichirFiche(); toast(`${f.nom} dissoute`, null);
+    recapApresSortie(f, f.membres, f.parent); FAMS = FAMS.filter(x => x !== f); rafraichirFiche(); toast(`${f.nom} dissoute`, null);
   }
 });
 document.addEventListener("input", ev => {
