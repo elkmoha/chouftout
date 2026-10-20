@@ -14068,24 +14068,25 @@ const enCours = l => !l.archive && !estProgramme(l) && !clos(l);
 const factureTout = l => { const its = l.items.filter(i => i.a !== "annule"); return its.length > 0 && its.every(i => ["facture", "s_facture", "paye", "s_paye"].includes(i.a)) && its.some(i => i.a === "facture" || i.a === "s_facture"); };
 const aSuivre = l => enCours(l) && !factureTout(l);
 const RAPIDES = [
-  {k:"tous", lib:"Tous", test:aSuivre},
+  /* 20 oct. 2026 : « Tous » = dossiers à suivre, sans les facturés ; le bouton « + facturés » les ajoute, et la recherche cherche dans tous les dossiers (clôturés compris) */
+  {k:"tous", lib:"Tous", aide:"Dossiers non clôturés, hors facturés. « + facturés » les ajoute ; la recherche cherche dans tous les dossiers", test:l => filtre.q.trim() ? true : filtre.toutVoir ? enCours(l) : aSuivre(l)},
   {k:"mes", lib:"Mes dossiers", test:l => aSuivre(l) && !!moi() && l.c.conseiller === moi()},
   {k:"relancer", lib:"En retard", urgent:true, get aide(){ return `Action en retard, aucun mouvement depuis plus de ${REGLAGES.immobile} jours, client prévenu qui ne vient pas, ou essai de lentilles sans retour`; },
     test:l => aSuivre(l) && (vieux(l) || acts(l).some(a => a.echeance && a.echeance < isoJour()) || essaiDepasse(l) || prevenuARelancer(l))},
   {k:"perime", lib:"Bientôt périmé", urgent:true, get aide(){ return `Accord de prise en charge qui expire dans les ${REGLAGES.perime} jours, ou déjà expiré : à facturer en priorité`; }, test:l => aSuivre(l) && accordsEnJeu(l).length > 0},
-  {k:"livrer", lib:"Prêts à livrer", aide:"Équipement prêt, à remettre au client", test:l => aSuivre(l) && l.equip === "pret"},
-  {k:"livres", lib:"Livrés incomplets", urgent:true, aide:"Équipement déjà livré alors que le BL n’est pas commandé, ou qu’un équipement n’a pas encore sa prise en charge (avant PEC OK) ou l’accord du client",
+  {k:"livrer", lib:"Prêts", aide:"Équipement prêt, à remettre au client", test:l => aSuivre(l) && l.equip === "pret"},
+  {k:"livres", lib:"Livrés incomplets", masque:true, urgent:true, aide:"Équipement déjà livré alors que le BL n’est pas commandé, ou qu’un équipement n’a pas encore sa prise en charge (avant PEC OK) ou l’accord du client",
     test:l => aSuivre(l) && l.equip === "livre" && l.items.some(i => i.bl === "non" || ["a_traiter", "devis", "instance", "s_traiter"].includes(i.a))},
   /* 16 oct. 2026 (demande de Mohamed) : les étapes du parcours, regroupées en 4 cartes (plus Tous et À facturer) */
   {k:"traiter", lib:"À traiter", aide:"Prise en charge ou devis à faire, devis en attente du client, refus à résoudre", test:l => aSuivre(l) && l.items.some(i => ["a_traiter", "s_traiter", "devis", "refuse"].includes(i.a))},
   {k:"mutuelle", lib:"Attente mutuelle", aide:"Demande de prise en charge envoyée, pas encore de réponse", test:l => aSuivre(l) && l.items.some(i => i.a === "instance")},
-  {k:"commander", lib:"À commander", aide:"PEC OK ou accord du client, BL pas encore commandé", test:l => aSuivre(l) && l.equip !== "livre" && l.items.some(i => ["pec_ok", "accord"].includes(i.a) && i.bl === "non")},
-  {k:"encours", lib:"En cours", aide:"BL en commande, BL reçu à monter, ou équipement prêt à livrer", test:l => aSuivre(l) && (l.equip === "pret" || l.items.some(i => i.bl === "cours") || (l.equip === "prep" && l.items.some(i => i.bl === "recu" && !["refuse", "annule"].includes(i.a))))},
+  {k:"commander", lib:"À commander", aide:"PEC OK ou accord du client, BL pas encore commandé ; inclut les équipements livrés sans BL commandé ou sans prise en charge / accord", test:l => aSuivre(l) && ((l.equip !== "livre" && l.items.some(i => ["pec_ok", "accord"].includes(i.a) && i.bl === "non")) || (l.equip === "livre" && l.items.some(i => i.bl === "non" || ["a_traiter", "devis", "instance", "s_traiter"].includes(i.a))))},
+  {k:"encours", lib:"En cours", masque:true, aide:"BL en commande, BL reçu à monter, ou équipement prêt à livrer", test:l => aSuivre(l) && (l.equip === "pret" || l.items.some(i => i.bl === "cours") || (l.equip === "prep" && l.items.some(i => i.bl === "recu" && !["refuse", "annule"].includes(i.a))))},
   {k:"facturer", lib:"À facturer", aide:"Livré, prise en charge ou accord obtenu, pas encore facturé",
     test:l => aSuivre(l) && l.equip === "livre" && l.items.some(i => i.a === "pec_ok" || (i.a === "accord" && !bloque(l)))},
   /* 17 oct. 2026 (demande de Mohamed) : dossier dont tous les équipements sont facturés : isolé ici, retiré des autres vues de suivi */
   {k:"factures", lib:"Facturés", aide:"Tous les équipements du dossier sont facturés : en attente du paiement de la mutuelle ou du client", test:l => enCours(l) && factureTout(l)},
-  {k:"encaisser", lib:"Reste à encaisser", aide:"Le récapitulatif a un reste à charge à encaisser ou à reporter", test:l => enCours(l) && soldeClient(l.c)?.cl === "du"},
+  {k:"encaisser", lib:"Reste à encaisser", masque:true, aide:"Le récapitulatif a un reste à charge à encaisser ou à reporter", test:l => enCours(l) && soldeClient(l.c)?.cl === "du"},
   /* 14 oct. 2026 (essai, deux magasins) : dossiers confiés à l'autre magasin ; il les traite, la vente reste comptée dans le magasin du dossier */
   {k:"confie", get lib(){ const m = magInfo(); return m && m.autre ? "Confiés à " + (m.visite ? m.de : m.autre.nom) : "Confiés"; },
     aide:"Dossiers confiés à l’autre magasin : il les traite, la vente reste comptée ici", test:l => !l.archive && !!l.confie && !!magInfo()},
@@ -14118,7 +14119,7 @@ const nbEtats = () => Object.values(filtre.etats).reduce((t, s) => t + s.size, 0
 const viderEtats = () => Object.values(filtre.etats).forEach(s => s.clear());
 const libEtats = g => { const set = filtre.etats[g]; return !set.size ? "Tous" : set.size === 1 ? familles(g).find(f => set.has(f.k))?.lib : `${set.size} états`; };
 const magInfo = () => window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufAPI.magasin() : null;
-const RAPIDES_PLUS = ["mes", "relancer", "perime", "livres", "encaisser", "confie", "livrer", "prog", "renouv", "clos"];   // 16 oct. 2026 : tout ce qui n'a pas de carte, dans « Autres vues »
+const RAPIDES_PLUS = ["mes", "relancer", "perime", "confie", "livrer", "prog", "renouv", "clos"];   // 16 oct. 2026 : tout ce qui n'a pas de carte, dans « Autres vues »
 /* 11 oct. 2026 (essai) : sur ordinateur, les vues sont des tuiles teintées dans une bande qui déborde ; toutes y sont, sans « Plus » */
 const BANDE_VUES = matchMedia("(min-width:1px)");   // 12 oct. 2026 : tuiles aussi sur téléphone
 const RAPIDE_C = {traiter:"--pj-bleu", mutuelle:"--pj-rose", commander:"--pj-or", encours:"--vert", tous:"--pj-bleu", mes:"--pj-cyan", relancer:"--rouge", perime:"--orange", livrer:"--vert", livres:"--pj-rose", facturer:"--violet", factures:"--pj-cyan", encaisser:"--pj-or", prog:"--pj-cyan", renouv:"--pj-or", clos:"--second", confie:"--pj-cyan"};
@@ -14144,15 +14145,15 @@ function rendreFiltres(){
   const nbVue = r => r.k === "mes" && !moi() ? null : base.filter(r.test).length;
   const nbActiver = base.filter(aActiver).length, nbRappel = base.filter(aRappeler).length;
   const vr = r => { const n = nbVue(r);
-    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.aide ? ` title="${r.aide}"` : r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${RAPIDE_SOUS[r.k]}</small></button>`; };
+    return `<button class="vr${(r.k === "prog" ? nbActiver : r.k === "renouv" ? nbRappel : r.urgent && n) ? " urgent" : ""}" type="button" style="--c:var(${RAPIDE_C[r.k]})" data-rapide="${r.k}" aria-pressed="${filtre.rapide === r.k}"${r.aide ? ` title="${r.aide}"` : r.k === "mes" ? ` title="${moi() ? `Dossiers suivis par ${moi()}` : "Choisis qui écrit pour voir tes dossiers"}"` : ""}><span class="vr-lib">${r.lib}</span>${n != null ? `<span class="nb">${n}</span>` : ""}<small class="vr-aide">${r.aide || RAPIDE_SOUS[r.k]}</small></button>`; };
   // « Programmés » sort de « Plus » tant qu'un renouvellement attend d'être activé
   /* 16 oct. 2026 (demande de Mohamed) : six cartes dans l'ordre du parcours ; les alertes en pastille orange sur leur carte ; le reste dans « Autres vues » */
-  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer", "factures"];
-  const PASTILLES = {tous:["relancer", "livres"], facturer:["perime", "encaisser"]};   // « confiés » : déjà le bandeau sous les cartes
+  const ORDRE_VUES = ["tous", "traiter", "mutuelle", "commander", "facturer", "factures"];
+  const PASTILLES = {tous:["relancer"], facturer:["perime"]};   // « confiés » : déjà le bandeau sous les cartes
   const PAST_LIB = {relancer:"en retard", livres:"incomplets", perime:"périmés", encaisser:"à encaisser"};
   const parcours = ORDRE_VUES.map(k => RAPIDES.find(r => r.k === k)).filter(Boolean);
   { const c = RAPIDES.find(r => r.k === filtre.rapide); if (c && !parcours.includes(c) && !Object.values(PASTILLES).flat().includes(c.k)) parcours.push(c); }
-  const pastilles = r => (PASTILLES[r.k] || []).map(k => { const a = RAPIDES.find(x => x.k === k), n = a ? nbVue(a) : 0;
+  const pastilles = r => (r.k === "tous" ? `<button type="button" class="vr-pastille info" data-tous-voir aria-pressed="${!!filtre.toutVoir}" title="${filtre.toutVoir ? "Retirer les dossiers facturés de la liste" : "Afficher aussi les dossiers facturés"}">${filtre.toutVoir ? "facturés inclus" : "+ facturés"}</button>` : "") + (PASTILLES[r.k] || []).map(k => { const a = RAPIDES.find(x => x.k === k), n = a ? nbVue(a) : 0;
     return n ? `<button type="button" class="vr-pastille${k === "confie" ? " info" : ""}" data-rapide="${k}" aria-pressed="${filtre.rapide === k}" style="--c:var(${RAPIDE_C[k]})" title="${esc(a.aide || "")}">${n} ${PAST_LIB[k]}</button>` : ""; }).join("");
   const carte = r => `<span class="vr-groupe">${vr(r)}${pastilles(r) ? `<span class="vr-pastilles">${pastilles(r)}</span>` : ""}</span>`;
   const principales = (BANDE_VUES.matches ? parcours : RAPIDES.filter(r => (!RAPIDES_PLUS.includes(r.k) || (r.k === "prog" && nbActiver) || (r.k === "renouv" && nbRappel)) && (r.k !== "perime" || nbVue(r) || filtre.rapide === r.k)))
@@ -17042,7 +17043,7 @@ function traiterDemandeCosium(){
     DEMANDE_COSIUM = null; const cc = d.cle ? clientsDe().find(x => cleClient(x) === d.cle) : null;
     ch.gesteCosium(cc ? Object.assign({}, d, {nom:nomClient(cc), cons:cc.conseiller}) : d); return; }
   DEMANDE_COSIUM = null; ch.allerDossiers();
-  if (d.quoi === "liste"){ if (RAPIDES.some(r => r.k === d.k)){ filtre.rapide = d.k; viderEtats(); effacerCriteres(); rendre(); } return; }   // indicateur cliqué dans Cosium (9 oct. 2026)
+  if (d.quoi === "liste"){ if (RAPIDES.some(r => r.k === d.k)){ filtre.rapide = d.k === "livres" ? "commander" : d.k; viderEtats(); effacerCriteres(); rendre(); } return; }   // indicateur cliqué dans Cosium (9 oct. 2026)
   const c = clientsDe().find(x => x.dossier === d.dossier || (x.autresDossiers || []).includes(d.dossier));
   if (d.quoi === "fiche"){ if (c) window.SuviAPI.ouvrirClient(cleClient(c)); else toast(`Dossier Cosium ${d.dossier} : pas encore suivi`); return; }
   if (d.quoi === "suivre"){   // panneau de l'extension : une autre fiche s'ouvre dans Cosium, la fiche suit (sauf saisie ou fenêtre en cours)
@@ -17099,7 +17100,7 @@ const coteLarge = () => {
 };
 /* Aucun client ouvert dans Cosium : les indicateurs du suivi, comme les vues rapides de Dossiers (9 oct. 2026, demande de Mohamed) */
 /* 16 oct. 2026 : les six cartes des Dossiers ; les alertes en pastilles orange, seulement s'il y en a */
-const COTE_KPI = ["tous", "traiter", "mutuelle", "commander", "encours", "facturer", "factures"], COTE_ALERTES = ["relancer", "livres", "perime", "encaisser"];
+const COTE_KPI = ["tous", "traiter", "mutuelle", "commander", "facturer", "factures"], COTE_ALERTES = ["relancer", "perime"];
 const coteKpi = () => { const nb = k => { const r = RAPIDES.find(x => x.k === k); return r ? LIGNES.filter(r.test).length : 0; };
   const al = COTE_ALERTES.map(k => [k, nb(k), RAPIDES.find(x => x.k === k)]).filter(([, n, r]) => n && r);
   return `<div class="ct-client"><div class="ct-sur">Suivi du magasin</div><div class="ct-nom">Dossiers</div></div>
@@ -17500,6 +17501,7 @@ document.getElementById("vuesRapides").addEventListener("click", e => {
   if (e.target.closest("[data-crit-tout]")){ effacerCriteres(); return; }
   const c = e.target.closest("[data-crit-g]");
   if (c){ const g = c.dataset.critG; g === "cree" ? filtre.crit.cree = null : filtre.crit[g].delete(c.dataset.critV); rendre(); return; }
+  const tv = e.target.closest("[data-tous-voir]"); if (tv){ filtre.toutVoir = !filtre.toutVoir; filtre.rapide = "tous"; viderEtats(); rendre(); return; }
   const p = e.target.closest("[data-vr-plus]"); if (p){ ouvrirPopEtat(p, "plus"); return; }
   const b = e.target.closest("[data-rapide]"); if (!b) return;
   const go = () => { filtre.rapide = b.dataset.rapide; viderEtats(); rendre(); };
@@ -18266,7 +18268,7 @@ const quitterTdb = () => fermerTdb();
 function fermerTdb(){ if (pageT.hidden) return; pageT.classList.remove("vu"); bulleT.hidden = true; setTimeout(() => { if (!pageT.classList.contains("vu")){ pageT.hidden = true; finTdbSeul(); } }, 380); }
 document.getElementById("ouvrirTdb").addEventListener("click", ouvrirTdb);
 addEventListener("keydown", e => { if (e.key === "Escape" && !pageT.hidden && !ouverte && !document.querySelector(".alerte-fond, .dialogue-fond")){ e.stopImmediatePropagation(); quitterTdb(); } }, true);
-const allerVue = (rapide, etat = null) => { const nouv = rapide === "nouveaux"; filtre.rapide = nouv ? "tous" : rapide; viderEtats(); if (etat) filtre.etats.admin.add(etat);
+const allerVue = (rapide, etat = null) => { const nouv = rapide === "nouveaux"; filtre.rapide = nouv ? "tous" : rapide === "livres" ? "commander" : rapide; viderEtats(); if (etat) filtre.etats.admin.add(etat);
   if (nouv) filtre.crit.cree = 0;   // tuile « Nouveaux clients » : Tous, créés aujourd'hui
   versDossiers(); fermerTdb(); rendre(); scrollTo(0, 0); };
 pageT.addEventListener("click", e => {
@@ -18973,7 +18975,7 @@ window.SuviAPI = {
     filtre.q = ""; const q = document.getElementById("q"); if (q) q.value = "";
     const T = cle ? TACHES_SUVI(jours)[cle] : null;
     FILTRE_TACHE = T ? {lib, test:l => dansTache(cle, l) && T(l)} : null;
-    filtre.rapide = T ? "tous" : (rapide || "tous");
+    filtre.rapide = T ? "tous" : (rapide === "livres" ? "commander" : rapide || "tous");
     rendre();
   },
   ouvrirDossier(idx){ FILTRE_TACHE = null; rendre(); setTimeout(() => ouvrir(idx), 60); },
@@ -18998,7 +19000,7 @@ window.SuviAPI = {
   ouvrirFicheCosium(dossier){ ficheSeuleOuvrir(dossier); },
   /* Les réglages propres aux dossiers, ouverts depuis les Réglages communs */
   ouvrirReglages(){ try { ouvrirPageReglages(); } catch (_) {} },
-  vue(k){ if (RAPIDES.some(r => r.k === k)){ filtre.rapide = k; rendre(); } },   // 14 oct. 2026 : ouvrir Dossiers sur une vue rapide
+  vue(k){ if (k === "livres") k = "commander"; if (RAPIDES.some(r => r.k === k)){ filtre.rapide = k; rendre(); } },   // 14 oct. 2026 : ouvrir Dossiers sur une vue rapide
   /* Réglages des dossiers, lus et modifiés depuis les Réglages communs */
   reglages(){ return {...REGLAGES}; },
   regler(k, v){ if (!(k in REGLAGES)) return; REGLAGES[k] = v; try { rendre(); } catch (_) {} try { noterJournal(`Réglage des dossiers modifié : ${k}`, "reglage"); } catch (_) {} },
@@ -23449,6 +23451,17 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
   }).observe(zs, {attributes:true, attributeFilter:["hidden"]});
 })();
 </script>
+<style id="vues-detail">
+/* 20 oct. 2026 : le détail des cartes de vues n'apparaît qu'au survol ou au focus, il se déplie sous le titre */
+@media (min-width:761px){
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides{align-items:flex-start}
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr{min-height:0}
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .vr-aide{white-space:normal; overflow:hidden; text-overflow:clip; max-height:0; opacity:0; margin-top:0; transition:max-height .28s ease, opacity .2s ease, margin-top .28s ease}
+  :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr:is(:hover, :focus-visible) > .vr-aide{max-height:9em; opacity:1; margin-top:6px}
+}
+@media (max-width:760px){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr > .vr-aide{display:none} }
+@media (prefers-reduced-motion:reduce){ :root:root:root:root:root:root #zone-suivi:not(#luxe) #vuesRapides .vr-groupe > .vr > .vr-aide{transition:none} }
+</style>
 <script id="luxe-recherche-ancree-js">
 /* Recherche ancrée (refonte luxe, 8 oct. 2026) : la recherche globale ne s'ouvre plus en fenêtre au centre de l'écran.
    Sa boîte se pose exactement sur la barre de recherche de l'écran, et les résultats se déroulent juste en dessous ;
