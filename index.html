@@ -14763,7 +14763,7 @@ function animerVers(cible, vitessePx = 0){
 }
 
 /* 21 oct. 2026 : carte d'équipement refaite (demande de Mohamed) : l'étape en cours en encadré, la frise à points dessous ;
-   Refusé et Annulé passent dans le menu ⋯ de l'équipement (menuEquip), l'étape suivante en bouton en bas (prochainAdmin) */
+   Refusé et Annulé passent dans le menu ⋯ de l'équipement (menuEquip) ; on change d'étape dans la frise */
 function parcoursAdmin(i, l, li, it){
   const chemin = i.tp ? TP_CHEMIN : STP_CHEMIN, table = i.tp ? TP : STP, e = ETAT(i.a);
   const D = i.dAdmin || {};
@@ -14782,16 +14782,6 @@ function parcoursAdmin(i, l, li, it){
       return `<li${cl ? ` class="${cl}"` : ""}><button type="button" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${k}"${k === i.a ? ' aria-current="step"' : ""}
         title="${D[k] ? titreEt(D[k]) + (k === i.a ? " · état actuel" : "") : k === i.a ? "État actuel" : "Passer à « " + t.lib + " »"}"><i aria-hidden="true"></i><span>${t.etape || t.lib}</span></button></li>`;
     }).join("")}</ol>`;
-}
-// Bouton de l'étape suivante, en bas de la carte
-const ETAPE_VERBE = {devis:"Devis envoyé", instance:"Demande de PEC envoyée", pec_ok:"PEC accordée", facture:"Marquer facturé", paye:"Marquer payé",
-  accord:"Accord du client reçu", s_facture:"Marquer facturé", s_paye:"Marquer payé"};
-function prochainAdmin(i, li, it){
-  if (ETAT(i.a).sortie) return "";
-  const chemin = i.tp ? TP_CHEMIN : STP_CHEMIN, apres = chemin.slice(chemin.indexOf(i.a) + 1);
-  const k = apres.find(x => !ETAT(x).facultatif), facu = apres[0] && ETAT(apres[0]).facultatif ? apres[0] : null;   // le devis est facultatif : proposé en lien
-  const btn = (x, cl, txt) => `<button type="button" class="${cl}" data-etape="admin" data-li="${li}" data-it="${it}" data-val="${x}">${txt}</button>`;
-  return (k ? btn(k, "eq-suite", ETAPE_VERBE[k] || "Passer à « " + ETAT(k).lib + " »") : "") + (facu ? btn(facu, "eq-suite-alt", "Faire un devis d’abord") : "");
 }
 // Menu ⋯ de l'équipement : Refusé, Annulé (tiers payant), retirer l'équipement
 function menuEquip(l, i, li, it){
@@ -15405,7 +15395,7 @@ document.getElementById("f-recap").addEventListener("click", async ev => {
   recalcArchive(x); rendreRecap(f);
 }, true);
 // Dates d'un équipement : envoi de la demande, accord, facturer avant, facture (modifiables ; le délai saisi est retenu)
-function blocDates(l, li, it){   // 21 oct. 2026 : en tuiles, avec la prise en charge
+function blocDates(l, li, it){   // 21 oct. 2026 : en tuiles (montants dans la carte de la mutuelle)
   const i = l.items[it], d = delaiDe(l), lignes = [];
   const champDate = (cle, v, extra = "") => `<input type="date" class="date-champ" data-dt="${cle}" data-li="${li}" data-it="${it}" value="${v || ""}"${extra}>`;
   if (i.tp && l.mut && i.accordLe){
@@ -15413,7 +15403,6 @@ function blocDates(l, li, it){   // 21 oct. 2026 : en tuiles, avec la prise en c
     lignes.push(`<div class="eq-fait large${alerte ? (j < 0 ? " dt-expire" : " dt-bientot") : ""}"><span>À facturer avant le<span class="petit">accord du ${dateCourteISO(i.accordLe)} · ${d ? `délai ${d.lib} (${esc(d.source === "appris" ? `appris${d.maj ? ", " + d.maj : ""}` : "réglage")})` : `aucun délai connu pour ${esc(l.mut.nom)} · ${esc(l.mut.reseau)} : la date saisie servira par défaut`}</span></span>${champDate("validiteLe", i.validiteLe)}</div>`);
   }
   if (i.factureLe) lignes.push(`<div class="eq-fait"><span>Facturé le</span>${champDate("factureLe", i.factureLe)}</div>`);
-  if (l.mut) lignes.push(`<div class="eq-fait"><span>${i.tp ? "Prise en charge" : "Remboursement"} ${esc(l.mut.nom)}</span>${montant(li, it)}</div>`);
   return lignes.length ? `<div class="eq-faits">${lignes.join("")}</div>` : "";
 }
 // Journal automatique des modifications : visible des administrateurs
@@ -15848,8 +15837,7 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
       ${parcoursAdmin(i, l, idx, it)}
       ${trois("BL", BL_CHEMIN, BL, i.bl, "bl", idx, it, i.dBl)}
       ${i.t === "lentilles" ? essaiFiche(i, idx, it) : ""}
-      ${blocDates(l, idx, it)}
-      ${prochainAdmin(i, idx, it)}`}
+      ${blocDates(l, idx, it)}`}
     </div>`).join("")}
     ${(() => { const manquants = Object.keys(TYPES).filter(t => !l.items.some(i => i.t === t));
       return manquants.length ? `<label class="ajout">
@@ -23590,10 +23578,6 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #zone-suivi .eq-fait > span .petit{display:block; font-size:.75rem; color:var(--tert)}
 #zone-suivi .eq-fait :is(.date-champ, .montant-champ){align-self:flex-start; max-width:100%}
 :root:root #zone-suivi:not(#luxe) .eq-fait:not(.large) .date-champ{width:100%; min-width:0; box-sizing:border-box; padding-inline:8px}
-:root:root #zone-suivi:not(#luxe) .eq-suite{display:flex; align-items:center; justify-content:center; width:calc(100% - 32px); min-height:44px; margin:14px 16px 14px; border:0; border-radius:999px; background:var(--encre); color:var(--fond); font:inherit; font-size:.9375rem; font-weight:600; cursor:pointer}
-:root:root #zone-suivi:not(#luxe) .eq-suite:hover{opacity:.88}
-:root:root #zone-suivi:not(#luxe) .eq-suite-alt{display:block; margin:-6px auto 12px; min-height:40px; padding:0 14px; border:0; background:none; color:var(--second); font:inherit; font-size:.875rem; text-decoration:underline; text-underline-offset:3px; cursor:pointer}
-:root:root #zone-suivi:not(#luxe) .eq-suite-alt:hover{color:var(--encre)}
 #zone-suivi .bloc:has(> .eq-faits:last-child, > .trois:last-child) {padding-bottom:12px}
 </style>
 <script id="luxe-suggestions-js">
