@@ -14609,6 +14609,7 @@ function prevenuFiche(l, idx){
     <span class="prevenu-etat">${p ? `<b${prevenuARelancer(l) ? ' class="vieux"' : ""}>le ${dateCourteISO(p.d)}${prevenuARelancer(l) ? " · à relancer" : ""}</b>` : `<b class="attente">pas encore</b>`}
       <button type="button" class="filtre" data-prevenu="${idx}">${p ? "Noter une relance par téléphone" : "Prévenu par téléphone"}</button></span></div></div>`;
 }
+// 21 oct. 2026 : plus affiché dans la carte (demande de Mohamed) ; gardé si on veut le remettre
 function essaiFiche(i, idx, it){
   const e = i.essai, att = `data-li="${idx}" data-it="${it}"`;
   if (!e) return `<div class="ld ld-essai"><span>Lentilles d’essai</span><button type="button" class="filtre" data-essai="remis" ${att}>Remises au client</button></div>`;
@@ -14840,7 +14841,7 @@ function equipCosium(l, t = "lunettes"){
   const prod = (nom, p) => p ? champ(nom, cp(p.libelle, nom) + `<small class="eq-code">${esc([p.code, p.marque].filter(Boolean).join(" · ") + prix(p))}</small>`, true)
     + (p.lpp ? champ(`LPP ${nom.toLowerCase()}`, cp(p.lpp, `Code LPP ${nom.toLowerCase()}`) + (p.gen ? `<small class="eq-code">générique ${esc(p.gen)}</small>` : ""), true) : "") : "";
   if (t === "lentilles") return it.cosium.equip.map(e => { const tot = ["od", "og"].reduce((s, k) => s + (e[k] && e[k].prix != null ? e[k].prix * (e[k].qte || 1) : 0), 0);
-    return `<p class="tl-sec">Équipement lentilles${e.typeVisite ? ` (${esc(e.typeVisite.toLowerCase())} du ${esc(e.visite)})` : ""}${tot ? ` · ${euros(tot)}` : ""}</p>
+    return `<p class="tl-sec">Équipement lentilles${e.visite ? ` (visite du ${esc(e.visite)})` : ""}${tot ? ` · ${euros(tot)}` : ""}</p>
     <div class="bloc">${prod("Lentille droite", e.od)}${prod("Lentille gauche", e.og)}</div>`; }).join("");
   return it.cosium.equip.map(e => `<p class="tl-sec">Équipement lunettes${e.panier ? ` (${esc(e.panier)}${e.total != null ? ` · ${euros(e.total)}` : ""})` : ""}</p>
     <div class="bloc">${prod("Monture", e.monture)}${prod("Verre droit", e.od)}${prod("Verre gauche", e.og)}${hauteursTexte(e.hauteur) ? champ("Hauteurs (OD / OG)", cp(hauteursTexte(e.hauteur), "Hauteurs"), true) : ""}${e.facture ? champ("Prise en charge", esc(partsTexte(e.facture)), true) : ""}</div>`).join("");
@@ -15868,7 +15869,6 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
       ${estProgramme(l) ? `<div class="ld"><span class="petit">Pas démarré : la prise en charge, la commande et le BL commenceront à l’activation.</span></div>` : `
       ${parcoursAdmin(i, l, idx, it)}
       ${trois("BL", BL_CHEMIN, BL, i.bl, "bl", idx, it, i.dBl)}
-      ${i.t === "lentilles" ? essaiFiche(i, idx, it) : ""}
       ${blocDates(l, idx, it)}`}
     </div>`).join("")}
     ${(() => { const manquants = Object.keys(TYPES).filter(t => !l.items.some(i => i.t === t));
@@ -17600,7 +17600,7 @@ function bandeauOrdo(){
     const memes = libs((it.cosium || {}).equip) === libs(eq);   // 16 oct. 2026 : les codes LPP arrivent après la première lecture : pas de seconde note pour eux
     it.cosium = {equip:eq, dossierLe:d.dossierLe};
     if (!memes) l.histo.unshift({d:isoJour(), par:auteur() || "Extension Cosium", fait:false, texte:d.type === "lentilles"   // 16 oct. 2026 : lentilles (visite, quantités, prix)
-      ? `Lentilles lues dans Cosium : ${eq.map(e => [e.od && `OD ${e.od.libelle}${e.od.qte ? " × " + e.od.qte : ""}`, e.og && `OG ${e.og.libelle}${e.og.qte ? " × " + e.og.qte : ""}`].filter(Boolean).join(", ") + (e.typeVisite ? ` (${e.typeVisite.toLowerCase()} du ${e.visite})` : "")).join(" ; ")}`
+      ? `Lentilles lues dans Cosium : ${eq.map(e => [e.od && `OD ${e.od.libelle}${e.od.qte ? " × " + e.od.qte : ""}`, e.og && `OG ${e.og.libelle}${e.og.qte ? " × " + e.og.qte : ""}`].filter(Boolean).join(", ") + (e.visite ? ` (visite du ${e.visite})` : "")).join(" ; ")}`   // 21 oct. 2026 : type de visite de Cosium (« Essai » par défaut) plus repris
       : `Équipement lu dans Cosium : ${eq.map(e => `monture ${lib(e.monture)}, verres ${lib(e.od)}${e.og && (!e.od || e.og.libelle !== e.od.libelle) ? ` / ${e.og.libelle}` : ""}${e.total != null ? ` (${euros(e.total)})` : ""}`).join(" ; ")}`});
     maj = true;
   }
