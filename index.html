@@ -15762,13 +15762,16 @@ function ficheTuiles(idx){
     ren:[ct.querySelector(":scope > .autres-dossiers")].filter(Boolean)};
   if (blocs.ren.length && blocs.ren[0].previousElementSibling && blocs.ren[0].previousElementSibling.matches(".tl-sec")) blocs.ren.unshift(blocs.ren[0].previousElementSibling);
   /* le journal sort du bloc des actions : il reste visible quelle que soit la tuile ouverte */
-  const j = act.querySelector(":scope > .act-histo"); if (j){ const b = document.createElement("div"); b.className = "bloc fi-journal"; b.appendChild(j); act.after(b); }
-  const T = [{k:"act", v:retard || auj || dem || (as.length ? as.length : "+"), lib:retard ? "en retard" : auj ? "pour aujourd’hui" : dem ? "pour demain" : as.length ? "à faire" : "action",
-    c:retard ? "--rouge" : auj || dem ? "--orange" : "", alerte:!!retard}];
+  /* 21 oct. 2026 (demande de Mohamed, version A) : sans action, plus de tuile « + action » ; le champ d'ajout et le journal restent ensemble, toujours visibles */
+  const j = act.querySelector(":scope > .act-histo"); if (j && as.length){ const b = document.createElement("div"); b.className = "bloc fi-journal"; b.appendChild(j); act.after(b); }
+  if (!as.length) act.classList.add("fi-direct");
+  const T = as.length ? [{k:"act", v:retard || auj || dem || as.length, lib:retard ? "en retard" : auj ? "pour aujourd’hui" : dem ? "pour demain" : "à faire",
+    c:retard ? "--rouge" : auj || dem ? "--orange" : "", alerte:!!retard}] : [];
   if (avs.length) T.push({k:"av", v:euros(avTot), lib:"avance", c:avSolder ? "--orange" : ""});
   if (blocs.ren.length) T.push(prochain && progs.length === autres.length ? {k:"ren", v:dateISO(prochain.debut, "short"), lib:"renouvellement", c:renUrgent ? "--orange" : ""}
     : {k:"ren", v:autres.length, lib:autres.length > 1 ? "autres dossiers" : "autre dossier", c:""});
   if (blocs.avoir.length) T.push({k:"avoir", v:euros(avoirClient(c)), lib:"avoir", c:""});
+  if (!T.length) return;   // rien à savoir : pas de rangée de tuiles
   if (avs.length === 1) blocs.av[0].classList.add("fi-seul");   // une seule avance : son titre et son montant sont sur la tuile
   const cle = cleClient(c), defaut = retard || as.length ? "act" : avSolder ? "av" : renUrgent ? "ren" : null;
   let ouvert = FI_TUILE.has(cle) ? FI_TUILE.get(cle) : defaut; if (ouvert && !T.some(t => t.k === ouvert)) ouvert = defaut;
@@ -15779,8 +15782,7 @@ function ficheTuiles(idx){
     bande.querySelectorAll("[data-fi-tuile]").forEach(b => b.setAttribute("aria-expanded", b.dataset.fiTuile === k));
     T.forEach(t => (blocs[t.k] || []).forEach(n => { n.classList.toggle("fi-cache", t.k !== k); n.classList.add("fi-detail"); if (t.c) n.style.setProperty("--c", `var(${t.c})`); else n.style.removeProperty("--c"); })); };
   bande.addEventListener("click", e => { const b = e.target.closest("[data-fi-tuile]"); if (!b) return;
-    const k = b.dataset.fiTuile === ouvert ? null : b.dataset.fiTuile; FI_TUILE.set(cle, k); poser(k);
-    if (k === "act" && !as.length) act.querySelector('textarea[data-a="new"]')?.focus(); });
+    const k = b.dataset.fiTuile === ouvert ? null : b.dataset.fiTuile; FI_TUILE.set(cle, k); poser(k); });
   poser(ouvert);
 }
 function ouvrir(idx, rafraichir = false, garderFamille = false){
@@ -23137,6 +23139,10 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-avoir.fi-detail > .ld:first-child > b, :root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-avoir.fi-detail > .ld:first-child > span > b{display:none}
 :root:root #zone-suivi:not(#luxe) #f-contenu > .fi-journal{margin-top:10px; padding-top:0; padding-bottom:0}
 :root:root #zone-suivi:not(#luxe) #f-contenu > .fi-journal .act-histo{margin:0; border-top:0}   /* hors du bloc des actions, plus de marge négative : il débordait à gauche */
+/* 21 oct. 2026 : sans action, le bloc n'a que le champ d'ajout et le journal (version A) */
+:root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-act.fi-direct .act-tete > .petit{display:none}
+:root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-act.fi-direct .act-tete:not(:has(> :not(.petit))){display:none}
+:root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-act.fi-direct .act-histo{border-top-color:color-mix(in srgb, var(--encre) 12%, transparent)}
 /* 14 oct. 2026 : connexion par e-mail et mot de passe (Supabase) */
 :root #login .login-mdp{display:grid; gap:6px; width:100%; max-width:380px; justify-self:center; margin-inline:auto}   /* centré sous le titre (signalé par Mohamed) */
 :root #login .login-mdp label{font-size:.875rem; font-weight:500; margin-top:6px}
