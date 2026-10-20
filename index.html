@@ -14549,7 +14549,8 @@ function blocAction(li){
     <div class="act-tete"><span class="petit">Actions à faire${as.length ? ` · ${as.length}` : ""}</span>${htmlAuteur()}</div>
     <ul class="act-liste">${as.map(a => ligneAction(li, a)).join("")}
       <li class="act act-grande act-nouvelle"><span class="act-plus-ico" aria-hidden="true">+</span><div class="act-corps">
-        <textarea class="obs" data-obs-li="${li}" data-a="new" rows="1" enterkeyhint="done" placeholder="Ajouter une action…" aria-label="Nouvelle action"></textarea></div></li></ul>
+        <textarea class="obs" data-obs-li="${li}" data-a="new" rows="1" enterkeyhint="done" placeholder="Ajouter une action…" aria-label="Nouvelle action"></textarea>
+        <div class="act-quand" role="group" aria-label="Pour quand ?"><span class="petit">Pour quand ?</span><button type="button" data-quand="" aria-pressed="true">Sans date</button><button type="button" data-quand="1" aria-pressed="false">Demain</button><button type="button" data-quand="date" aria-pressed="false">${ECH_ICO}Date…</button></div></div></li></ul>
     <details class="act-histo" data-histo-pli${HISTO_OUVERT ? " open" : ""}>
       <summary>Journal du dossier <span class="info-aide" tabindex="0" role="button" aria-label="À quoi sert le journal ?" data-aide="journal">i</span> <span class="petit">${h.length ? h.length : ""}</span>${ICO.chevron}</summary>
       <div class="histo-ajout"><input type="text" data-histo-note="${li}" placeholder="Noter un appel, une info client…" enterkeyhint="done" aria-label="Nouvelle note"><button type="button" data-histo-ok="${li}" disabled>Ajouter</button></div>
@@ -16774,9 +16775,23 @@ document.addEventListener("focusout", ev => {
   const t = ev.target.closest("[data-obs-li]"); if (!t || !t.isConnected) return;
   const li = +t.dataset.obsLi, l = LIGNES[li], a = trouverAct(l, t.dataset.a);
   const vide = a && !a.texte.trim(); if (!vide && !t.dataset.cree) return;
+  if (!vide && ev.relatedTarget?.closest?.(".act-quand")) return;   // choix « Pour quand ? » : on reste sur l'action
   if (vide) acts(l).splice(acts(l).indexOf(a), 1);
   const r = ev.relatedTarget && ev.relatedTarget.closest?.("[data-obs-li]");
   setTimeout(() => redessinerVers(li, r && +r.dataset.obsLi === li ? r.dataset.a : null), 0);
+});
+/* 21 oct. 2026 (demande de Mohamed) : « Pour quand ? » sous une nouvelle action : Sans date (par défaut), Demain, Date… */
+document.addEventListener("mousedown", ev => { if (ev.target.closest("[data-quand]")) ev.preventDefault(); }, true);   // le curseur reste dans le champ
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-quand]"); if (!b) return;
+  const t = b.closest(".act").querySelector("[data-obs-li]"), li = +t.dataset.obsLi, l = LIGNES[li], a = trouverAct(l, t.dataset.a); if (!a) return;
+  if (b.dataset.quand === "date"){   // l'action prend sa place dans la liste, puis le calendrier de son échéance s'ouvre
+    FI_TUILE.set(cleClient(l.c), "act"); redessinerVers(li, null);
+    const i = document.querySelector(`#f-contenu [data-act-ech="${li}"][data-a="${a.id}"]`); try { i.showPicker(); } catch { i?.focus(); }
+    return; }
+  a.echeance = b.dataset.quand ? plusJours(isoJour(), 1) : null;
+  b.parentElement.querySelectorAll("[data-quand]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  t.focus({preventScroll:true});
 });
 // Compte équipe : choisir qui écrit avant de taper l'action
 document.addEventListener("focusin", ev => {
@@ -23143,6 +23158,16 @@ body.arming #app:not(#luxe) .rp td:has(.rp-it){cursor:copy}
 :root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-act.fi-direct .act-tete > .petit{display:none}
 :root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-act.fi-direct .act-tete:not(:has(> :not(.petit))){display:none}
 :root:root #zone-suivi:not(#luxe) #f-contenu > .bloc-act.fi-direct .act-histo{border-top-color:color-mix(in srgb, var(--encre) 12%, transparent)}
+/* 21 oct. 2026 : « Pour quand ? » sous une nouvelle action, visible dès qu'on tape */
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-quand{display:none; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0 4px}
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-corps:has(> .obs:not(:placeholder-shown)) > .act-quand{display:flex}
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-quand > .petit{margin-right:2px; font-size:.8125rem; color:var(--second)}
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-quand > button{display:inline-flex; align-items:center; gap:5px; min-height:30px; padding:0 12px; border:0; border-radius:999px; font:inherit; font-size:.8125rem; font-weight:500; cursor:pointer;
+  background:color-mix(in srgb, var(--encre) 7%, transparent); color:var(--encre); box-shadow:none}
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-quand > button:hover{background:color-mix(in srgb, var(--encre) 12%, transparent)}
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-quand > button[aria-pressed="true"]{background:var(--encre); color:var(--fond)}
+:root:root #zone-suivi:not(#luxe) #f-contenu .act-quand > button svg{width:13px; height:13px}
+@media (max-width:760px){ :root:root #zone-suivi:not(#luxe) #f-contenu .act-quand > button{min-height:40px; padding:0 14px} }
 /* 14 oct. 2026 : connexion par e-mail et mot de passe (Supabase) */
 :root #login .login-mdp{display:grid; gap:6px; width:100%; max-width:380px; justify-self:center; margin-inline:auto}   /* centré sous le titre (signalé par Mohamed) */
 :root #login .login-mdp label{font-size:.875rem; font-weight:500; margin-top:6px}
