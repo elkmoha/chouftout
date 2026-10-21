@@ -15795,11 +15795,11 @@ function ouvrir(idx, rafraichir = false, garderFamille = false){
   document.getElementById("f-titre").textContent = `${c.prenom} ${nomCasse(c)}`;
   // Le prénom du conseiller se change d'un clic, sans changer d'apparence (menu natif invisible posé dessus)
   const mg = window.ChoufAPI && window.ChoufAPI.magasin ? window.ChoufAPI.magasin() : null;   // 14 oct. 2026 : le magasin du dossier, en tête
-  document.getElementById("f-sous").innerHTML = (mg ? `<span class="f-mag${mg.visite ? " visite" : ""}" style="--mag:${mg.c}" title="Dossier de ${esc(mg.nom)} (${esc(mg.lieu)})${mg.lecture ? ", en lecture seule" : ""}">${mg.dome}${esc(mg.nom)}${mg.lecture ? " · lecture seule" : ""}</span> · ` : "") + (c.passage ? `Client de passage · <button class="copie-discrete" type="button" data-copie="${esc(c.cosium.tel)}" data-quoi="Téléphone" title="Copier le téléphone">${esc(c.cosium.tel)}</button>`
+  document.getElementById("f-sous").innerHTML = (mg ? `<span class="f-mag${mg.visite ? " visite" : ""}" style="--mag:${mg.c}" title="Dossier de ${esc(mg.nom)} (${esc(mg.lieu)})${mg.lecture ? ", en lecture seule" : ""}">${mg.dome}<span>${esc(mg.nom)}</span>${mg.lecture ? "<small>lecture seule</small>" : ""}</span>` : "") + `<span class="f-sous-infos"><span class="f-sous-l1">` + (c.passage ? `Client de passage · <button class="copie-discrete" type="button" data-copie="${esc(c.cosium.tel)}" data-quoi="Téléphone" title="Copier le téléphone">${esc(c.cosium.tel)}</button>`
     : !c.dossier ? `<span class="copie-discrete" title="Importé du suivi sans n° Cosium : il se reliera en ouvrant la fiche du client dans Cosium">Dossier Cosium à relier</span>`   // 15 oct. 2026
-    : `<button class="copie-discrete" type="button" data-copie="${c.dossier}" data-quoi="Numéro de dossier" title="Copier le numéro de dossier">Dossier ${c.dossier}</button>`) + ` · <span class="conseiller-choix">${c.conseiller}<select data-conseiller="${idx}" aria-label="Changer le conseiller de ${c.prenom} ${nomCasse(c)}">
+    : `<button class="copie-discrete" type="button" data-copie="${c.dossier}" data-quoi="Numéro de dossier" title="Copier le numéro de dossier">Dossier ${c.dossier}</button>`) + `</span><span class="f-sous-l2"><span class="conseiller-choix">${c.conseiller}<select data-conseiller="${idx}" aria-label="Changer le conseiller de ${c.prenom} ${nomCasse(c)}">
       ${[...new Set([...EQUIPE, c.conseiller])].map(n => `<option${n === c.conseiller ? " selected" : ""}>${n}</option>`).join("")}</select></span> · ` +
-    esc(l.fiche ? "Fiche sans dossier" : l.mut ? `${l.mut.nom}${l.rang ? (l.rang === 1 ? ", 1re mutuelle" : `, ${l.rang}e mutuelle`) : ""}` : "Sans tiers payant");
+    esc(l.fiche ? "Fiche sans dossier" : l.mut ? `${l.mut.nom}${l.rang ? (l.rang === 1 ? ", 1re mutuelle" : `, ${l.rang}e mutuelle`) : ""}` : "Sans tiers payant") + `</span></span>`;
   // Dates sous le nom : création et dernier changement (rouge au-delà de 14 jours sans mouvement)
   document.getElementById("f-dates").innerHTML = (estProgramme(l) ? `Renouvellement prévu le ${dateISO(l.debut)}` : `Créé le ${ilYa(l.ouvertJ).toLocaleDateString("fr-FR", {day:"numeric", month:"short", year:"numeric"})}`) +
     (estProgramme(l) ? "" : ` · <span class="${vieux(l) ? "vieux" : ""}" title="Dernier changement : ${l.depuis === 0 ? "aujourd’hui" : dateLongue(l.depuis)}">${depuis(l.depuis)}</span>`);
@@ -23669,6 +23669,14 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #zone-suivi .eq-fait :is(.date-champ, .montant-champ){align-self:flex-start; max-width:100%}
 :root:root #zone-suivi:not(#luxe) .eq-fait:not(.large) .date-champ{width:100%; min-width:0; box-sizing:border-box; padding-inline:8px}
 #zone-suivi .bloc:has(> .eq-faits:last-child, > .trois:last-child) {padding-bottom:12px}
+/* En-tête de la fiche client (21 oct. 2026, demande de Mohamed, option 2) : pastille du magasin à gauche, dôme au-dessus du nom ;
+   à droite, le n° de dossier, puis conseiller · mutuelle en gris dessous (la ligne ne se coupe plus n'importe où) */
+#zone-suivi #f-sous{display:flex; align-items:center; gap:12px}
+#zone-suivi #f-sous .f-mag{flex:none; flex-direction:column; gap:2px; padding:6px 10px; border-radius:12px; font-size:.75rem; line-height:1.2; text-align:center}
+#zone-suivi #f-sous .f-mag .mag-dome{width:22px; height:18px}
+#zone-suivi #f-sous .f-mag small{font-size:.6875rem; font-weight:500; color:var(--second)}
+#zone-suivi .f-sous-infos{display:flex; flex-direction:column; gap:2px; min-width:0}
+#zone-suivi .f-sous-l2{font-weight:400; color:var(--second)}
 </style>
 <script id="luxe-suggestions-js">
 /* Suggestions des champs (refonte luxe) : pour chaque champ relié à une liste de suggestions (<datalist>), la liste grise du navigateur
