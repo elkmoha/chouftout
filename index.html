@@ -16326,7 +16326,7 @@ feuille.addEventListener("click", async ev => {
     const confie = l.confie, avantR = l.rattache, pos = LIGNES.indexOf(l), fams = FAMS.slice(), membres = FAMS.map(f => [f, f.membres.slice(), f.parent]);
     delete l.confie; l.rattache = {de:mg.id, le:isoJour(), par:auteur() || COMPTE.perso || ""};
     noterLog(l, `Rattaché à ${a.nom} (venait de ${mg.nom})`);
-    const jeton = window.ChoufAPI.rattacher(a.id, JSON.stringify(versGraphe({l})));
+    const jeton = window.ChoufAPI.rattacher(a.id, JSON.stringify(versGraphe({l, jour:isoJour()})));
     if (!jeton){ l.log.shift(); if (confie) l.confie = confie; if (avantR) l.rattache = avantR; else delete l.rattache; toast("Rattachement impossible pour le moment", null); return; }
     LIGNES.splice(pos, 1);
     if (!LIGNES.some(x => x.c === c)){ const f = famDe(c);
@@ -18447,7 +18447,7 @@ function allerDeux(v, etat){
 }
 /* 14 oct. 2026 : « Les deux » : les dossiers de l'autre magasin sont prêtés à LIGNES le temps du calcul, puis retirés */
 let TDB_DEUX = false;
-const tdbAutres = () => { try { const t = window.ChoufAPI && window.ChoufAPI.dossiersAutre ? window.ChoufAPI.dossiersAutre() : null; return t ? depuisGraphe(JSON.parse(t)) : null; } catch (_) { return null; } };
+const tdbAutres = () => { try { const t = window.ChoufAPI && window.ChoufAPI.dossiersAutre ? window.ChoufAPI.dossiersAutre() : null; if (!t) return null; const g = depuisGraphe(JSON.parse(t)); recaler(g.lignes, g.jour); return g; } catch (_) { return null; } };
 function rendreTdb(){
   const ms = window.ChoufAPI && window.ChoufAPI.resumes ? window.ChoufAPI.resumes() : null; if (!ms) TDB_DEUX = false;
   const magsHtml = tdbMags(), autre = TDB_DEUX ? tdbAutres() : null, extra = (autre && autre.lignes) || [];
@@ -18958,6 +18958,21 @@ document.getElementById("f-contenu").addEventListener("click", ev => {
 });
 /* Sauvegarde des dossiers (9 oct. 2026) : un même client sert à plusieurs lignes, à sa famille et à son récapitulatif.
    Ces objets partagés sont notés {$id} la première fois puis {$ref} ensuite, pour retrouver les mêmes liens au rechargement. */
+/* 21 oct. 2026 (signalé par Mohamed : tous les dossiers « créés aujourd'hui ») : ouvertJ et depuis comptent des jours à partir du jour de l'enregistrement.
+   La sauvegarde note ce jour (jour), la relecture ajoute les jours écoulés. Sans ce jour (données d'avant), on les déduit des dates connues du dossier. */
+const datesConnues = l => [...histo(l).map(x => x.d), ...acts(l).map(a => a.le), ...Object.values(l.dEquip || {}).map(x => x && x.d), l.archiveLe,
+  ...l.items.flatMap(i => [...Object.values(i.dAdmin || {}), ...Object.values(i.dBl || {})].map(x => x && x.d))]
+  .filter(d => /^\d{4}-\d\d-\d\d$/.test(d || "") && d <= isoJour()).sort();
+let JOUR_LIGNES = null;   // jour où les compteurs de LIGNES sont justes (poste resté ouvert après minuit : recalé à l'enregistrement)
+function recaler(lignes, jour){
+  if (!Array.isArray(lignes)) return;
+  if (jour){ const k = -joursAvant(jour); if (k > 0) lignes.forEach(l => { l.ouvertJ = (l.ouvertJ || 0) + k; l.depuis = (l.depuis || 0) + k; }); return; }
+  lignes.forEach(l => {
+    if (estProgramme(l)){ l.ouvertJ = -joursAvant(l.debut); return; }
+    const ds = datesConnues(l); if (!ds.length) return;
+    l.ouvertJ = Math.max(l.ouvertJ || 0, -joursAvant(l.activeLe || ds[0])); l.depuis = Math.max(0, -joursAvant(ds[ds.length - 1]));
+  });
+}
 const versGraphe = racine => {
   const vus = new Set(), doubles = new Set(), ids = new Map(); let n = 0;
   const marcher = v => { if (!v || typeof v !== "object") return; if (vus.has(v)){ doubles.add(v); return; } vus.add(v); (Array.isArray(v) ? v : Object.values(v)).forEach(marcher); };
@@ -19211,9 +19226,10 @@ window.SuviAPI = {
   /* 14 oct. 2026 : dossiers rattachés à ce magasin depuis l'autre. Un client déjà suivi ici garde sa fiche : pas de doublon. */
   /* 14 oct. 2026 : ajoute des dossiers (rattachés) au texte des dossiers d'un autre magasin, sans l'ouvrir */
   fusionner(t, textes){ const g = depuisGraphe(JSON.parse(t)), ls = g.lignes || (g.lignes = []), cs = [...new Set(ls.map(l => l.c))];
-    textes.forEach(x => { try { const l = depuisGraphe(JSON.parse(x)).l, c = cs.find(y => cleClient(y) === cleClient(l.c)); if (c) l.c = c; ls.push(l); } catch (_) {} });
+    recaler(ls, g.jour); g.jour = isoJour();   // tout ramené à aujourd'hui avant d'ajouter
+    textes.forEach(x => { try { const r = depuisGraphe(JSON.parse(x)), l = r.l, c = cs.find(y => cleClient(y) === cleClient(l.c)); recaler([l], r.jour); if (c) l.c = c; ls.push(l); } catch (_) {} });
     return JSON.stringify(versGraphe(g)); },
-  accueillir(textes){ textes.forEach(t => { try { const l = depuisGraphe(JSON.parse(t)).l, c = clientsDe().find(x => cleClient(x) === cleClient(l.c)); if (c) l.c = c; LIGNES.push(l); } catch (_) {} });
+  accueillir(textes){ textes.forEach(t => { try { const r = depuisGraphe(JSON.parse(t)), l = r.l, c = clientsDe().find(x => cleClient(x) === cleClient(l.c)); recaler([l], r.jour); if (c) l.c = c; LIGNES.push(l); } catch (_) {} });
     RENOUV_CACHE = null; try { rendre(); } catch (_) {} },
   resume(){ return tdbResume(); },
   /* 14 oct. 2026 (démonstration) : Chouf 5 est recopié de Chouf 18 ; un tiers de dossiers en moins et des montants variés, pour que les chiffres diffèrent */
@@ -19221,10 +19237,12 @@ window.SuviAPI = {
     const f = [0.62, 1.35, 0.85, 1.6, 0.74, 1.18, 0.9]; let k = 0;
     LIGNES.forEach(l => l.items.forEach(i => { const x = f[k++ % f.length]; if (i.devis) i.devis = Math.round(i.devis * x); if (i.pec) i.pec = Math.round(i.pec * x); }));
     RENOUV_CACHE = null; },
-  sauvegarde(){ return versGraphe({lignes:LIGNES, familles:FAMS, famSeq, recapsSolo:[...RECAPS_SOLO], reglages:REGLAGES, journal:JOURNAL}); },
+  sauvegarde(){ if (JOUR_LIGNES && JOUR_LIGNES !== isoJour()) recaler(LIGNES, JOUR_LIGNES); JOUR_LIGNES = isoJour();
+    return versGraphe({jour:isoJour(), lignes:LIGNES, familles:FAMS, famSeq, recapsSolo:[...RECAPS_SOLO], reglages:REGLAGES, journal:JOURNAL}); },
   restaurer(g, discret){   // 9 oct. 2026 : discret = changement d'un collègue reçu de la base (ni journal, ni fermeture)
     const d = depuisGraphe(g);
     if (!d || !Array.isArray(d.lignes)) throw new Error("dossiers absents");
+    recaler(d.lignes, d.jour); JOUR_LIGNES = isoJour();
     if (!discret) try { fermer(); } catch (_) {}
     LIGNES.splice(0, LIGNES.length, ...d.lignes);
     FAMS = Array.isArray(d.familles) ? d.familles : []; famSeq = d.famSeq || FAMS.reduce((m, f) => Math.max(m, f.id || 0), 0) + 1;
