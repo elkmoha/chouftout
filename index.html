@@ -8491,7 +8491,9 @@ const resoudre = (p, fid) => {
 const valeurIdDe = (p, fid) => { const r = resoudre(p, fid); return r && r.valeur ? r.valeur.id : ""; };
 /* Libellé affiché = la gamme seule ; le nom complet (gamme + traitements du fournisseur) sert à reconnaître le verre, à l’imprimer et à l’exporter (9 oct.) */
 /* 16 oct. 2026 : un traitement déjà écrit dans la gamme n'est pas répété (« K 15 Klear Plus ST 24 » et non « … ST 24 15 Klear+ ST ») ; « + » vaut « plus » */
-const motsProduit = x => " " + sansAccent(String(x || "")).toLowerCase().replace(/\+/g, " plus ").replace(/\s+/g, " ").trim() + " ";
+/* 30 oct. 2026 : abréviations Koptical, « Krom. » vaut Kromatic et « K+ » vaut Klear+ (sinon « … Krom. Gris Neo … Kromatic ») */
+const motsProduit = x => " " + sansAccent(String(x || "")).toLowerCase().replace(/\+/g, " plus ").replace(/\s+/g, " ").trim()
+  .replace(/\bkrom\b\.?/g, "kromatic").replace(/\bk plus\b/g, "klear plus") + " ";
 const nomCompletProduit = p => { const n = motsProduit(p.nom);
   return [p.nom].concat(famillesDe(p).map(f => { const r = resoudre(p, f.id), x = r ? (r.nomFourn || (r.valeur ? r.valeur.nom : "")) : ""; return x && !n.includes(motsProduit(x)) ? x : ""; })).filter(Boolean).join(" "); };
 const labelProduit = p => String(p.nom || "").trim() || nomCompletProduit(p);
