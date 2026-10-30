@@ -4252,7 +4252,7 @@ const ACTION_PERM = {
   "dup-role":"reglages.gerer", "del-role":"reglages.gerer", "export":"reglages.gerer", "import-feuille":"reglages.gerer", "reset-demo":"reglages.gerer",
   "open-produit":"tarifs.voir", "oeil":"tarifs.voir", "prod-cat":"tarifs.voir", "prod-reset":"tarifs.voir",
   "prod-archives":"tarifs.gerer", "prod-valider":"tarifs.gerer", "prod-refuser":"tarifs.gerer", "prod-archiver":"tarifs.gerer", "prod-restaurer":"tarifs.gerer",
-  "prod-modifier":"tarifs.gerer", "prod-conseil":"tarifs.gerer", "prod-trait":"tarifs.voir", "prod-trait-vider":"tarifs.voir", "prod-fourn-choix":"tarifs.voir", "filtre-prod":"tarifs.voir", "prod-fav":"tarifs.voir", "prod-favori":"tarifs.gerer", "prod-ajouter":"tarifs.gerer",
+  "prod-modifier":"tarifs.gerer", "prod-conseil":"tarifs.gerer", "prod-trait":"tarifs.voir", "prod-trait-vider":"tarifs.voir", "prod-fourn-choix":"tarifs.voir", "filtre-prod":"tarifs.voir", "prod-fav":"tarifs.voir", "prod-vue":"tarifs.voir", "prod-paire":"tarifs.voir", "grille-plier":"tarifs.voir", "prod-favori":"tarifs.gerer", "prod-ajouter":"tarifs.gerer",
   "trt-del":"reglages.gerer", "fam-up":"reglages.gerer", "fam-down":"reglages.gerer",
   "val-coul":"reglages.gerer", "val-up":"reglages.gerer", "val-down":"reglages.gerer", "tri-up":"reglages.gerer", "tri-down":"reglages.gerer",
   "fam-del":"reglages.gerer", "val-del":"reglages.gerer",
@@ -8704,6 +8704,98 @@ function menuFiltreProd(cle){
       + (sel.length ? `<hr><button type="button" class="menu-ligne effacer" data-action="prod-trait-vider" data-fam="${f.id}"><span class="txt-menu">Effacer ce critère</span></button>` : "");
   }};
 }
+/* 30 oct. 2026 : vue Grille du catalogue (demande de Mohamed). Pour un type, une disponibilité et un fournisseur : les gammes en lignes, les indices en colonnes.
+   Une ligne = le nom sans l'indice, sans le code de dispo (ST 24, Rx) ni les variantes (Asph., Neo, couleurs) ; les variantes d'une même case y sont réunies. */
+const GR_VARIANTES = ["asph", "asph.", "as", "neo", "brun", "gris", "gris-vert", "vert"];
+const GR_ECART = 10;   // écart minimal attendu avec la gamme du dessous, en € par verre
+const GR_CATS = [["blanc", "Verre blanc", "var(--tert)"], ["bleue", "Lumière bleue", "var(--tc-bleu)"], ["photo", "Photochromique", "var(--tc-violet)"], ["solaire", "Solaire", "var(--tc-orange)"]];
+const grilleOk = cat => !!familleOf("indice") && famillesPour(cat).some(f => f.id === "indice");
+const grDecoupe = p => {
+  const mots = String(p.nom || "").trim().split(/\s+/).filter(Boolean), r = resoudre(p, "indice"), ind = r && r.nomFourn ? sansAccent(r.nomFourn) : "";
+  const i = ind ? mots.findIndex(m => sansAccent(m) === ind) : -1, reste = [], vari = [];
+  for (let k = i + 1; k < mots.length; k++){
+    const n = sansAccent(mots[k]);
+    if (n === "st" || n === "rx"){ while (k + 1 < mots.length && /^\d{2}(\/\d{2})?$/.test(mots[k + 1])) k++; continue; }
+    if (GR_VARIANTES.includes(n)) vari.push(/^as/.test(n) ? "Asph." : cap(n)); else reste.push(mots[k]);
+  }
+  const lib = reste.join(" ") || labelProduit(p);
+  return {pre:i > 0 ? mots.slice(0, i).join(" ") : "", lib, cle:motsProduit(lib).trim(), vari};
+};
+const grCat = p => { const r = resoudre(p, "sol"), n = r && r.valeur ? sansAccent(r.valeur.nom) : "";
+  return /photo/.test(n) ? "photo" : /teint|polar|solaire/.test(n) ? "solaire" : /\b(blue|bleu|bleue)\b/.test(sansAccent(p.nom || "")) ? "bleue" : "blanc"; };
+const grRangAr = p => { const f = familleOf("ar"); return f ? Math.max(0, rangCat(p, f)) : 0; };
+const grIndiceTxt = n => /^1\d{1,2}$/.test(n) ? "1," + n.slice(1) : n;
+function grJauge(p){
+  const f = familleOf("ar"); if (!f || !(f.valeurs || []).length) return "";
+  const n = (f.valeurs.length - 1), r = grRangAr(p), v = f.valeurs[r] || {};
+  return `<span class="gr-jauge${r === n && v.couleur ? " haut" : ""}"${r === n ? styleCoul(v.couleur) : ""} title="${esc(v.nom || "")}" aria-label="${esc(v.nom || "")}">${Array.from({length:n}, (_, i) => `<i${i < r ? ' class="on"' : ""}></i>`).join("")}</span>`;
+}
+/* items : les produits gardés par les filtres sauf recherche et favoris ; ok(p) : ceux qui y répondent (les autres cases pâlissent) */
+function grilleProduits(items, ok){
+  const fInd = familleOf("indice"), fDisp = familleOf("dispo"), paire = S.prodPaire && qteCat(items[0].cat) === 2 ? 2 : 1;
+  const gerer = can("tarifs.gerer"), plies = S.grPlies || (S.grPlies = new Set());
+  const sections = [];
+  items.forEach(p => {
+    const d = fDisp ? valeurIdDe(p, "dispo") : "", cle = p.fournisseur + "|" + d;
+    let s = sections.find(x => x.cle === cle);
+    if (!s){ s = {cle, d, fourn:p.fournisseur, items:[]}; sections.push(s); }
+    s.items.push(p);
+  });
+  const rangD = s => { const i = fDisp ? (fDisp.valeurs || []).findIndex(v => v.id === s.d) : -1; return i < 0 ? 999 : i; };
+  sections.sort((a, b) => a.fourn.localeCompare(b.fourn, "fr") || rangD(a) - rangD(b));
+  const plusieursF = uniq(items.map(p => p.fournisseur)).length > 1;
+  return sections.map(s => {
+    const lignes = new Map();
+    s.items.forEach(p => { const x = grDecoupe(p), k = x.pre + "|" + x.cle;
+      if (!lignes.has(k)) lignes.set(k, {pre:x.pre, lib:x.lib, cat:grCat(p), ar:grRangAr(p), ex:p, prods:[]});
+      const l = lignes.get(k); l.prods.push({p, x}); if (rangCat(p, fInd) < rangCat(l.ex, fInd)){ l.lib = x.lib; l.ex = p; } });
+    const cols = [...new Set(s.items.map(p => valeurIdDe(p, "indice")))].sort((a, b) => (fInd.valeurs || []).findIndex(v => v.id === a) - (fInd.valeurs || []).findIndex(v => v.id === b));
+    const enTete = vid => { const noms = uniq(s.items.filter(p => valeurIdDe(p, "indice") === vid).map(p => (resoudre(p, "indice") || {}).nomFourn || ""));
+      const v = valeurOf(fInd, vid); return noms.length === 1 && noms[0] ? grIndiceTxt(noms[0]) : v ? v.nom : "Sans indice"; };
+    const ls = [...lignes.values()], nPre = {};
+    ls.forEach(l => { nPre[l.pre] = (nPre[l.pre] || 0) + l.prods.length; });
+    const dom = Object.keys(nPre).sort((a, b) => nPre[b] - nPre[a])[0];
+    const parCat = nPre[dom] * 2 >= s.items.length && uniq(ls.filter(l => l.pre === dom).map(l => l.cat)).length > 1;
+    const rangC = c => GR_CATS.findIndex(x => x[0] === c);
+    const groupes = [];
+    if (parCat) GR_CATS.forEach(([c, nom, coul]) => { const r = ls.filter(l => l.pre === dom && l.cat === c); if (r.length) groupes.push({nom, coul, cat:true, lignes:r}); });
+    const minPre = pre => Math.min(...s.items.filter(p => grDecoupe(p).pre === pre && p.vente != null).map(p => p.vente));
+    [...new Set(ls.filter(l => !parCat || l.pre !== dom).map(l => l.pre))].sort((a, b) => minPre(a) - minPre(b))   // les gammes du moins cher au plus cher (générations de progressifs)
+      .forEach(pre => groupes.push({nom:pre || "Autres", coul:"var(--tert)", lignes:ls.filter(l => l.pre === pre && (!parCat || l.pre !== dom))}));
+    groupes.forEach(g => g.lignes.sort((a, b) => rangC(a.cat) - rangC(b.cat) || a.ar - b.ar || a.lib.localeCompare(b.lib, "fr")));
+    const prixCase = (l, vid) => l.prods.filter(o => valeurIdDe(o.p, "indice") === vid && o.p.vente != null).sort((a, b) => a.p.vente - b.p.vente);
+    const ecart = (g, l, vid, v) => {
+      if (!gerer) return "";
+      // deux repères : la gamme du dessous dans la même catégorie, et le verre blanc au même antireflet ; on garde le plus petit écart
+      const reperes = [g.lignes.slice(0, g.lignes.indexOf(l)).filter(x => x.cat === l.cat && x.ar < l.ar).pop(),
+        l.cat !== "blanc" ? ls.find(x => x.pre === l.pre && x.cat === "blanc" && x.ar === l.ar) : null]
+        .map(x => x && prixCase(x, vid)[0] ? {x, c:prixCase(x, vid)[0]} : null).filter(Boolean).sort((a, b) => a.c.p.vente < b.c.p.vente ? 1 : -1);
+      if (!reperes.length) return "";
+      const {x:avant, c} = reperes[0], d = Math.round(v - c.p.vente), t = `${esc(avant.lib)} : ${eur(c.p.vente * paire)}`;
+      return d <= 0 ? `<span class="gr-ecart mal" title="${t}">${d === 0 ? "=" : d}</span>` : d < GR_ECART ? `<span class="gr-ecart" title="${t}">+${d}</span>` : "";
+    };
+    const titre = (fDisp && valeurOf(fDisp, s.d) ? valeurOf(fDisp, s.d).nom : "Sans disponibilité") + (plusieursF ? " · " + s.fourn : "");
+    let h = `<div class="gr-bloc"><p class="gr-titre">${esc(titre)}</p><div class="sv-cadre gr-cadre"><table class="gr-table"><thead><tr><th scope="col">Gamme</th>${cols.map(c => `<th scope="col" class="num">${esc(enTete(c))}</th>`).join("")}</tr></thead><tbody>`;
+    groupes.forEach(g => {
+      const k = s.cle + "|" + g.nom, plie = plies.has(k), prix = [];
+      g.lignes.forEach(l => l.prods.forEach(o => { if (o.p.vente != null && ok(o.p)) prix.push(o.p.vente * paire); }));
+      h += `<tr class="gr-groupe${plie ? " plie" : ""}" style="--gr-c:${g.coul}" data-action="grille-plier" data-k="${esc(k)}" tabindex="0" aria-expanded="${!plie}"><td colspan="${cols.length + 1}">${SVG_CHEVRON_BAS}<i class="gr-pt"></i><b>${esc(g.nom)}</b><span>${pluralSv(g.lignes.length, "gamme", "gammes")}${prix.length ? " · " + (Math.min(...prix) === Math.max(...prix) ? eur(prix[0]) : "de " + eur(Math.min(...prix)) + " à " + eur(Math.max(...prix))) : ""}</span></td></tr>`;
+      if (plie) return;
+      g.lignes.forEach(l => {
+        const coulL = (GR_CATS.find(x => x[0] === l.cat) || GR_CATS[0])[2];
+        h += `<tr style="--gr-c:${g.cat ? g.coul : coulL}"><th scope="row">${g.cat ? "" : `<i class="gr-pt" style="--gr-c:${coulL}"></i>`}${esc(l.lib)}${grJauge(l.ex)}</th>` + cols.map(vid => {
+          const c = prixCase(l, vid); if (!c.length) return `<td class="num gr-vide">—</td>`;
+          const m = c[0], memes = c.filter(o => o.p.vente === m.p.vente), autres = c.filter(o => o.p.vente !== m.p.vente), pale = !c.some(o => ok(o.p));
+          const vari = uniq(memes.flatMap(o => o.x.vari)).sort((a, b) => (b === "Asph.") - (a === "Asph.") || (b === "Neo") - (a === "Neo")).join(" · ");
+          return `<td class="num gr-case${pale ? " pale" : ""}" data-action="open-produit" data-prod="${m.p.id}" title="${esc(memes.map(o => labelProduit(o.p)).join(" · "))}">${c.some(o => o.p.favori) && favorisOn() ? `<span class="fav-on" aria-label="Verre à privilégier">★</span>` : ""}${eur(m.p.vente * paire)}${ecart(g, l, vid, m.p.vente)}`
+            + (vari ? `<span class="gr-sous">${esc(vari)}</span>` : "")
+            + autres.map(o => `<span class="gr-sous gr-lien" data-action="open-produit" data-prod="${o.p.id}" title="${esc(labelProduit(o.p))}">${esc(o.x.vari.join(" ") || o.x.lib)} ${eur(o.p.vente * paire)}</span>`).join("") + `</td>`;
+        }).join("") + `</tr>`;
+      });
+    });
+    return h + `</tbody></table></div></div>`;
+  }).join("");
+}
 function renderProduits(){
   const cfg = st().produits;
   const gerer = can("tarifs.gerer");
@@ -8711,9 +8803,12 @@ function renderProduits(){
   const cats = st().tarifs.categories;
   const q = sansAccent(S.prodQ.trim());
   const traitOk = p => famillesPour(p.cat).every(f => { const sel = S.prodTrait[f.id] || []; return !sel.length || sel.includes(valeurIdDe(p, f.id)); });
-  const garde = p => (S.prodArchives ? p.archive : !p.archive) && (!S.prodCat || p.cat === S.prodCat)
-    && (!S.prodFourn || p.fournisseur === S.prodFourn) && traitOk(p) && (!S.prodFav || !favorisOn() || p.favori)
+  const large = p => (S.prodArchives ? p.archive : !p.archive) && (!S.prodCat || p.cat === S.prodCat)
+    && (!S.prodFourn || p.fournisseur === S.prodFourn) && traitOk(p);
+  const repond = p => (!S.prodFav || !favorisOn() || p.favori)
     && (!q || [p.nom, p.ref, p.fournisseur, p.lpp, nomCompletProduit(p)].concat(traitsTxt(p)).some(v => sansAccent(v || "").includes(q)));
+  const garde = p => large(p) && repond(p);
+  const enGrille = (S.prodVue || "grille") === "grille";   // 30 oct. 2026 : en grille, la recherche et les favoris pâlissent les autres cases au lieu de les retirer
   const valides = produitsValides(), actifs = produitsActifs();
   const fourns = uniq(valides.map(p => p.fournisseur)).sort((a, b) => a.localeCompare(b, "fr"));
   const nCat = c => actifs.filter(p => p.cat === c).length;
@@ -8729,6 +8824,7 @@ function renderProduits(){
     <label class="jg-cherche ct-cherche">${SVG_BARRE.loupe}<input class="jg-recherche" type="search" value="${esc(S.prodQ)}" placeholder="Chercher un verre : nom, référence, traitement" aria-label="Chercher un verre" data-edit="prod-q" data-key="prodQ" autocomplete="off"></label>
     ${boutonOeil()}
     <button type="button" class="jg-menu${nF ? " actif" : ""}" data-action="bascule" data-k="prod-filtres" aria-expanded="${filtresOuverts}">Filtres${nF ? ` <b>${nF}</b>` : ""}${SVG_CHEVRON_BAS}</button>
+    ${valides.some(p => !p.archive && grilleOk(p.cat)) ? `<div class="gr-seg gr-vue" role="group" aria-label="Affichage du catalogue">${[["grille", "Grille"], ["liste", "Liste"]].map(([v, t]) => `<button type="button" data-action="prod-vue" data-val="${v}" aria-pressed="${(S.prodVue || "grille") === v}">${t}</button>`).join("")}</div>` : ""}
     ${gerer ? `<button type="button" class="jg-menu" data-action="open-ajout" data-quoi="catalogue">Gérer</button>` : ""}
     ${filtres && !filtresOuverts ? `<button type="button" class="crit-effacer" data-action="prod-reset">Tout afficher</button>` : ""}
   </div>`;
@@ -8747,9 +8843,10 @@ function renderProduits(){
   const groupes = uniq(cats.concat(liste.map(p => p.cat))).map(c => ({c, items:liste.filter(p => p.cat === c).sort(triProd)})).filter(g => g.items.length);
   if (!groupes.length) html += vide(S.prodArchives ? "Aucun produit déréférencé." : "Aucun produit avec ces filtres. Élargis la recherche, ou ajoute la référence au catalogue.");
   groupes.forEach(g => {
-    const n = g.items.filter(aSurveiller).length;
-    html += `<p class="sv-resume"><b>${esc(g.c)}</b><span>${pluralSv(g.items.length, "référence", "références")}${n ? ` · <span style="color:var(--rouge)">${n} à surveiller</span>` : ""}</span></p>`;
-    html += isNarrow() ? `<div class="prod-cards">${cartesProduits(g.items)}</div>` : tableProduits(g.items);
+    const n = g.items.filter(aSurveiller).length, grille = enGrille && grilleOk(g.c);
+    const lot = lotLabel(g.c), bascule = grille && qteCat(g.c) === 2 ? `<span class="gr-seg gr-paire" role="group" aria-label="Prix affichés">${[[false, parUnite(g.c)], [true, lot]].map(([v, t]) => `<button type="button" data-action="prod-paire" data-val="${v ? 1 : ""}" aria-pressed="${!!S.prodPaire === v}">${esc(cap(t))}</button>`).join("")}</span>` : "";
+    html += `<p class="sv-resume"><b>${esc(g.c)}</b><span>${pluralSv(g.items.length, "référence", "références")}${n ? ` · <span style="color:var(--rouge)">${n} à surveiller</span>` : ""}</span>${bascule}</p>`;
+    html += grille ? grilleProduits(valides.filter(p => p.cat === g.c && large(p)), repond) : isNarrow() ? `<div class="prod-cards">${cartesProduits(g.items)}</div>` : tableProduits(g.items);
   });
   return html;   // hausse annuelle, fournisseurs et produits déréférencés : dans le panneau « Gérer » (drawerCatalogue)
 }
@@ -12075,6 +12172,9 @@ document.addEventListener("click", async e => {
     }
     case "prod-reset": S.prodCat = ""; S.prodFourn = ""; S.prodQ = ""; S.prodTrait = {}; S.prodFav = false; render(); return;
     case "prod-fav": S.prodFav = !S.prodFav; render(); return;
+    case "prod-vue": S.prodVue = el.dataset.val === "liste" ? "liste" : "grille"; render(); return;   // 30 oct. 2026 : vue Grille du catalogue
+    case "prod-paire": S.prodPaire = !!el.dataset.val; render(); return;
+    case "grille-plier": { const k = el.dataset.k, s = S.grPlies || (S.grPlies = new Set()); s.has(k) ? s.delete(k) : s.add(k); render(); return; }
     case "prod-favori": {
       const p = produitOf(el.dataset.prod); if (!p) return;
       p.favori = !p.favori;
@@ -24596,6 +24696,43 @@ html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 </style>
 <style id="champs-16-tactile">/* 18 oct. 2026 : écran tactile, champs en 16 px (sinon iOS agrandit la page au toucher) */
 @media (pointer:coarse){ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea{font-size:max(16px, 1em) !important} }
+</style>
+<style id="grille-produits">/* 30 oct. 2026 : vue Grille du catalogue (gammes en lignes, indices en colonnes) */
+#app:not(#luxe) .gr-seg{display:inline-flex; padding:2px; border-radius:9px; background:var(--remplissage); flex:0 0 auto}
+#app:not(#luxe) .gr-seg button{height:30px; padding:0 13px; border:0; border-radius:7px; background:none; color:var(--encre); font:inherit; font-size:.8125rem; font-weight:500; cursor:pointer; white-space:nowrap}
+#app:not(#luxe) .gr-seg button[aria-pressed="true"]{font-weight:600; background:var(--groupe); box-shadow:0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04)}
+:root[data-theme="dark"] #app:not(#luxe) .gr-seg button[aria-pressed="true"]{background:#636366}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) #app:not(#luxe) .gr-seg button[aria-pressed="true"]{background:#636366} }
+#app:not(#luxe) .sv-resume .gr-paire{margin-left:auto}
+#app:not(#luxe) .gr-bloc{margin:0 0 18px}
+#app:not(#luxe) .gr-titre{margin:4px 4px 6px; font-size:.8125rem; color:var(--second); font-weight:500}
+#app:not(#luxe) .gr-cadre{overflow-x:auto}
+#app:not(#luxe) .gr-table{width:100%; border-collapse:collapse; font-size:.875rem; table-layout:fixed}
+#app:not(#luxe) .gr-table thead th:first-child{width:40%}
+#app:not(#luxe) .gr-table thead th{font-weight:500; color:var(--second); font-size:.8125rem; text-align:right; padding:8px 10px; border-bottom:1px solid var(--line)}
+#app:not(#luxe) .gr-table thead th:first-child{text-align:left; padding-left:15px}
+#app:not(#luxe) .gr-table tbody th{text-align:left; font-weight:500; color:var(--encre); padding:9px 10px 9px 12px; border-left:3px solid var(--gr-c); border-bottom:1px solid var(--line-soft, var(--line)); overflow-wrap:anywhere; vertical-align:top}
+#app:not(#luxe) .gr-table td{text-align:right; padding:9px 10px; border-bottom:1px solid var(--line-soft, var(--line)); font-variant-numeric:tabular-nums; vertical-align:top}
+#app:not(#luxe) .gr-case{cursor:pointer; border-radius:8px; transition:opacity .15s}
+#app:not(#luxe) .gr-case:hover{background:var(--remplissage)}
+#app:not(#luxe) .gr-case.pale{opacity:.25}
+#app:not(#luxe) .gr-vide{color:var(--tert)}
+#app:not(#luxe) .gr-sous{display:block; font-size:.75rem; color:var(--tert); line-height:1.35; overflow-wrap:anywhere}
+#app:not(#luxe) .gr-lien{color:var(--second); text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:2px}
+#app:not(#luxe) .gr-ecart{display:inline-block; margin-left:6px; font-size:.6875rem; font-weight:600; border-radius:5px; padding:0 6px; background:var(--orange-soft); color:var(--orange)}
+#app:not(#luxe) .gr-ecart.mal{background:var(--warn-soft); color:var(--warn)}
+#app:not(#luxe) .gr-groupe td{border-left:3px solid var(--gr-c); padding:14px 10px 6px 12px; text-align:left; cursor:pointer; user-select:none; border-bottom:none; white-space:normal}
+#app:not(#luxe) .gr-groupe svg{margin-right:6px; color:var(--tert); transition:transform .15s; vertical-align:2px}
+#app:not(#luxe) .gr-groupe.plie svg{transform:rotate(-90deg)}
+#app:not(#luxe) .gr-groupe b{font-size:.9375rem; color:var(--encre); font-weight:600}
+#app:not(#luxe) .gr-groupe span{margin-left:8px; font-size:.8125rem; color:var(--tert)}
+#app:not(#luxe) .gr-pt{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--gr-c); margin-right:7px; vertical-align:1px}
+#app:not(#luxe) .gr-jauge{display:inline-flex; gap:3px; margin-left:8px; vertical-align:2px}
+#app:not(#luxe) .gr-jauge i{width:6px; height:6px; border-radius:50%; background:var(--line)}
+#app:not(#luxe) .gr-jauge i.on{background:var(--second)}
+#app:not(#luxe) .gr-jauge.haut i.on{background:var(--tc)}
+#app:not(#luxe) .gr-case .fav-on{margin-right:3px}
+@media (max-width:760px){ #app:not(#luxe) .gr-table{font-size:.8125rem} #app:not(#luxe) .gr-table thead th:first-child{width:34%} #app:not(#luxe) .gr-table td{padding:8px 6px} }
 </style>
 <script id="charge-js">document.documentElement.classList.add("charge");   // 16 oct. 2026 : tous les styles sont lus, la page peut s'afficher</script>
 </body>
