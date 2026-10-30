@@ -4252,7 +4252,7 @@ const ACTION_PERM = {
   "dup-role":"reglages.gerer", "del-role":"reglages.gerer", "export":"reglages.gerer", "import-feuille":"reglages.gerer", "reset-demo":"reglages.gerer",
   "open-produit":"tarifs.voir", "oeil":"tarifs.voir", "prod-cat":"tarifs.voir", "prod-reset":"tarifs.voir",
   "prod-archives":"tarifs.gerer", "prod-valider":"tarifs.gerer", "prod-refuser":"tarifs.gerer", "prod-archiver":"tarifs.gerer", "prod-restaurer":"tarifs.gerer",
-  "prod-modifier":"tarifs.gerer", "prod-conseil":"tarifs.gerer", "prod-trait":"tarifs.voir", "prod-trait-vider":"tarifs.voir", "prod-fourn-choix":"tarifs.voir", "filtre-prod":"tarifs.voir", "prod-fav":"tarifs.voir", "prod-vue":"tarifs.voir", "prod-paire":"tarifs.voir", "grille-plier":"tarifs.voir", "prod-favori":"tarifs.gerer", "prod-ajouter":"tarifs.gerer",
+  "prod-modifier":"tarifs.gerer", "prod-conseil":"tarifs.gerer", "prod-trait":"tarifs.voir", "prod-trait-vider":"tarifs.voir", "prod-fourn-choix":"tarifs.voir", "filtre-prod":"tarifs.voir", "prod-fav":"tarifs.voir", "prod-vue":"tarifs.voir", "prod-paire":"tarifs.voir", "grille-plier":"tarifs.voir", "comp-mode":"tarifs.voir", "comp-choisir":"tarifs.voir", "comp-voir":"tarifs.voir", "comp-retirer":"tarifs.voir", "comp-effacer":"tarifs.voir", "comp-ajouter":"tarifs.voir", "comp-conseil":"tarifs.voir", "comp-client":"tarifs.voir", "comp-client-fermer":"tarifs.voir", "prod-favori":"tarifs.gerer", "prod-ajouter":"tarifs.gerer",
   "trt-del":"reglages.gerer", "fam-up":"reglages.gerer", "fam-down":"reglages.gerer",
   "val-coul":"reglages.gerer", "val-up":"reglages.gerer", "val-down":"reglages.gerer", "tri-up":"reglages.gerer", "tri-down":"reglages.gerer",
   "fam-del":"reglages.gerer", "val-del":"reglages.gerer",
@@ -4822,6 +4822,7 @@ function render(){
     if (el) el.focus({preventScroll:true});
   }
   renderDrawer();
+  majCompClient();   // 30 oct. 2026 : comparatif de verres en plein écran client
   placerRaccourcis();
   if (popCtx && popCtx.refresh) popCtx.refresh();
   if (S.cible){
@@ -8787,15 +8788,65 @@ function grilleProduits(items, ok){
           const c = prixCase(l, vid); if (!c.length) return `<td class="num gr-vide">—</td>`;
           const m = c[0], memes = c.filter(o => o.p.vente === m.p.vente), autres = c.filter(o => o.p.vente !== m.p.vente), pale = !c.some(o => ok(o.p));
           const vari = uniq(memes.flatMap(o => o.x.vari)).sort((a, b) => (b === "Asph.") - (a === "Asph.") || (b === "Neo") - (a === "Neo")).join(" · ");
-          return `<td class="num gr-case${pale ? " pale" : ""}" data-action="open-produit" data-prod="${m.p.id}" title="${esc(memes.map(o => labelProduit(o.p)).join(" · "))}">${c.some(o => o.p.favori) && favorisOn() ? `<span class="fav-on" aria-label="Verre à privilégier">★</span>` : ""}${eur(m.p.vente * paire)}${ecart(g, l, vid, m.p.vente)}`
+          const choisi = S.prodComp && (S.prodSel || []).includes(m.p.id);
+          return `<td class="num gr-case${pale ? " pale" : ""}${choisi ? " choisi" : ""}" data-action="${S.prodComp ? "comp-choisir" : "open-produit"}" data-prod="${m.p.id}"${S.prodComp ? ` aria-pressed="${choisi}"` : ""} title="${esc(memes.map(o => labelProduit(o.p)).join(" · "))}">${c.some(o => o.p.favori) && favorisOn() ? `<span class="fav-on" aria-label="Verre à privilégier">★</span>` : ""}${eur(m.p.vente * paire)}${ecart(g, l, vid, m.p.vente)}`
             + (vari ? `<span class="gr-sous">${esc(vari)}</span>` : "")
-            + autres.map(o => `<span class="gr-sous gr-lien" data-action="open-produit" data-prod="${o.p.id}" title="${esc(labelProduit(o.p))}">${esc(o.x.vari.join(" ") || o.x.lib)} ${eur(o.p.vente * paire)}</span>`).join("") + `</td>`;
+            + autres.map(o => `<span class="gr-sous gr-lien${S.prodComp && (S.prodSel || []).includes(o.p.id) ? " choisi" : ""}" data-action="${S.prodComp ? "comp-choisir" : "open-produit"}" data-prod="${o.p.id}" title="${esc(labelProduit(o.p))}">${esc(o.x.vari.join(" ") || o.x.lib)} ${eur(o.p.vente * paire)}</span>`).join("") + `</td>`;
         }).join("") + `</tr>`;
       });
     });
     return h + `</tbody></table></div></div>`;
   }).join("");
 }
+/* 30 oct. 2026 : comparatif de verres (demande de Mohamed). En grille, « Comparer » fait cocher jusqu'à 4 verres ;
+   le comparatif s'ouvre en panneau, puis en plein écran pour le client (sans codes ni écarts internes). */
+const COMP_MAX = 4;
+const compProduits = () => (S.prodSel || []).map(produitOf).filter(p => p && !p.archive);
+const compTitre = p => { const x = grDecoupe(p); return (x.pre.length > 1 ? x.pre + " " : "") + x.lib; };
+function compTable(ps, client){
+  const prixP = p => p.vente == null ? null : p.vente * qteCat(p.cat);
+  const vals = ps.map(prixP).filter(v => v != null), min = vals.length ? Math.min(...vals) : null;
+  const lots = uniq(ps.map(p => lotLabel(p.cat) || parUnite(p.cat)));
+  const trait = (p, fid, avecFourn) => { const r = resoudre(p, fid); if (!r || !r.valeur) return "—";
+    return esc(r.valeur.nom) + (avecFourn && r.nomFourn && sansAccent(r.nomFourn) !== sansAccent(r.valeur.nom) ? ` <span class="comp-fourn">${esc(fid === "indice" ? grIndiceTxt(r.nomFourn) : r.nomFourn)}</span>` : ""); };
+  const lignes = [
+    {lib:"Prix " + (lots.length === 1 ? lots[0] : ""), prix:true, v:ps.map(p => { const v = prixP(p); return v == null ? "—" : `<b class="comp-prix">${eur(v)}</b>${v > min ? `<span class="comp-plus">+${eur(v - min)}</span>` : ""}`; })},
+    ps.some(p => p.cat !== ps[0].cat) ? {lib:"Type", v:ps.map(p => esc(p.cat))} : null,
+    {lib:"Finesse", v:ps.map(p => trait(p, "indice", true))},
+    {lib:"Antireflet", v:ps.map(p => trait(p, "ar", !client) + grJauge(p))},
+    {lib:"Lumière bleue", v:ps.map(p => grCat(p) === "bleue" ? "Filtre lumière bleue" : "—")},
+    {lib:"Solaire", v:ps.map(p => trait(p, "sol", !client))},
+    familleOf("dispo") ? {lib:"Délai", v:ps.map(p => trait(p, "dispo", false))} : null,
+    (() => { const v = ps.map(p => grDecoupe(p).vari.join(" · ")); return v.some(Boolean) ? {lib:"Précision", v:v.map(x => esc(x) || "—")} : null; })(),
+    client ? null : {lib:"Référence", v:ps.map(p => esc(p.ref || "—"))}
+  ].filter(Boolean);
+  const cons = ps.find(p => p.id === S.compConseil);
+  const tete = ps.map(p => `<th scope="col" class="${p === cons ? "comp-conseil" : ""}">${p === cons ? `<span class="comp-badge">Notre conseil</span>` : ""}<span class="comp-nom">${esc(client ? compTitre(p) : labelProduit(p))}</span>`
+    + (client ? "" : `<span class="comp-gestes"><button type="button" class="lien-btn" data-action="comp-conseil" data-prod="${p.id}" aria-pressed="${p === cons}">${p === cons ? "Retirer le conseil" : "Conseiller"}</button><button type="button" class="lien-btn" data-action="comp-retirer" data-prod="${p.id}">Retirer</button></span>`) + `</th>`).join("");
+  return `<div class="comp-cadre"><table class="comp-table${client ? " client" : ""}" style="--n:${ps.length}"><thead><tr><th scope="col"><span class="sr">Critère</span></th>${tete}</tr></thead><tbody>`
+    + lignes.map(l => { const pareil = !l.prix && ps.length > 1 && l.v.every(x => x === l.v[0]);
+      return `<tr class="${pareil ? "pareil" : ""}"><th scope="row">${esc(l.lib.trim())}</th>${l.v.map((x, i) => `<td class="${ps[i] === cons ? "comp-conseil" : ""}">${x}</td>`).join("")}</tr>`; }).join("")
+    + `</tbody></table></div>`;
+}
+function drawerComparatif(){
+  const ps = compProduits(); if (ps.length < 2) return null;
+  return {titre:"Comparatif", sous:pluralSv(ps.length, "verre", "verres") + " côte à côte", corps:`
+    <div class="row" style="margin:0 0 14px; gap:8px"><button type="button" class="btn primary" data-action="comp-client">Montrer au client</button>
+      ${ps.length < COMP_MAX ? `<button type="button" class="btn" data-action="comp-ajouter">Ajouter un verre</button>` : ""}<button type="button" class="btn" data-action="comp-effacer">Tout effacer</button></div>
+    ${compTable(ps, false)}
+    <p class="sub" style="margin-top:10px">Les lignes en gris sont identiques pour tous les verres. « Conseiller » met un verre en avant, aussi pour le client.</p>`};
+}
+/* plein écran client : posé directement sur la page, au-dessus du panneau ; retiré dès qu'on quitte le catalogue */
+function majCompClient(){
+  let el = document.getElementById("compClient");
+  const h = S.user && S.tab === "produits" && canSeeTarifs() ? compClientHTML() : "";
+  if (!h){ if (el) el.remove(); return; }
+  if (!el){ el = document.createElement("div"); el.id = "compClient"; document.body.appendChild(el); }
+  if (el.innerHTML !== h) el.innerHTML = h;
+}
+const compClientHTML = () => { const ps = compProduits(); if (!S.compClient || ps.length < 2) return "";
+  return `<div class="comp-client" role="dialog" aria-modal="true" aria-label="Nos propositions de verres"><div class="comp-client-in">
+    <header><h2>Nos propositions</h2><button type="button" class="btn" data-action="comp-client-fermer">Fermer</button></header>${compTable(ps, true)}</div></div>`; };
 function renderProduits(){
   const cfg = st().produits;
   const gerer = can("tarifs.gerer");
@@ -8825,6 +8876,7 @@ function renderProduits(){
     ${boutonOeil()}
     <button type="button" class="jg-menu${nF ? " actif" : ""}" data-action="bascule" data-k="prod-filtres" aria-expanded="${filtresOuverts}">Filtres${nF ? ` <b>${nF}</b>` : ""}${SVG_CHEVRON_BAS}</button>
     ${valides.some(p => !p.archive && grilleOk(p.cat)) ? `<div class="gr-seg gr-vue" role="group" aria-label="Affichage du catalogue">${[["grille", "Grille"], ["liste", "Liste"]].map(([v, t]) => `<button type="button" data-action="prod-vue" data-val="${v}" aria-pressed="${(S.prodVue || "grille") === v}">${t}</button>`).join("")}</div>` : ""}
+    ${enGrille && valides.some(p => !p.archive && grilleOk(p.cat)) ? `<button type="button" class="jg-menu${S.prodComp ? " actif" : ""}" data-action="comp-mode" aria-pressed="${!!S.prodComp}">Comparer${(S.prodSel || []).length ? ` <b>${S.prodSel.length}</b>` : ""}</button>` : ""}
     ${gerer ? `<button type="button" class="jg-menu" data-action="open-ajout" data-quoi="catalogue">Gérer</button>` : ""}
     ${filtres && !filtresOuverts ? `<button type="button" class="crit-effacer" data-action="prod-reset">Tout afficher</button>` : ""}
   </div>`;
@@ -8848,6 +8900,9 @@ function renderProduits(){
     html += `<p class="sv-resume"><b>${esc(g.c)}</b><span>${pluralSv(g.items.length, "référence", "références")}${n ? ` · <span style="color:var(--rouge)">${n} à surveiller</span>` : ""}</span>${bascule}</p>`;
     html += grille ? grilleProduits(valides.filter(p => p.cat === g.c && large(p)), repond) : isNarrow() ? `<div class="prod-cards">${cartesProduits(g.items)}</div>` : tableProduits(g.items);
   });
+  if (S.prodComp && enGrille){ const n = compProduits().length;   // 30 oct. 2026 : barre du comparatif, collée en bas pendant qu'on coche
+    html += `<div class="comp-barre" role="status"><span>${n ? `<b>${pluralSv(n, "verre choisi", "verres choisis")}</b> sur ${COMP_MAX} au plus` : `Touche les prix à comparer, ${COMP_MAX} au plus`}</span>
+      <span class="comp-barre-b">${n ? `<button type="button" class="btn small" data-action="comp-effacer">Effacer</button>` : ""}<button type="button" class="btn small" data-action="comp-mode">Terminer</button><button type="button" class="btn small primary" data-action="comp-voir">Comparer</button></span></div>`; }
   return html;   // hausse annuelle, fournisseurs et produits déréférencés : dans le panneau « Gérer » (drawerCatalogue)
 }
 /* 13 oct. 2026 (essai) : la gestion du catalogue, hors de l'écran */
@@ -11613,6 +11668,7 @@ function contenuDrawer(d){
   if (d.type === "commande"){ const x = cmdOf(d.id); if (x) contenu = drawerCommande(x); }
   if (d.type === "cheque"){ const x = chqOf(d.id); if (x && canSeeChq()) contenu = drawerCheque(x); }
   if (d.type === "produit"){ const x = produitOf(d.id); if (x && canSeeTarifs()) contenu = drawerProduit(x); }
+  if (d.type === "comparatif" && canSeeTarifs()) contenu = drawerComparatif();   // 30 oct. 2026
   if (d.type === "annonces" && can("planning.voir")) contenu = drawerAnnonces();
   if (d.type === "process"){ const x = processOf(d.id); if (x && !x.archive && can("planning.voir")) contenu = drawerProcess(x); }
   if (d.type === "atelier"){ const x = atlOf(d.id); if (x && canSeeCmd() && atelierOn()) contenu = drawerAtelier(x); }
@@ -11647,7 +11703,7 @@ function renderDrawer(){
       else if (!p && !avant && S.flottes.length){ const place = V.libre(); if (place){ S.flottesTab = S.tab; V.flotterEn(place, true); } }
     } }
   S.drawerPrec = Object.assign({}, d);
-  el.classList.toggle("plein", d.type === "process" || d.type === "atelier" || (d.type === "ajout" && ["devis", "tarif", "catalogue", "duplicata"].includes(d.quoi)));   // 13 oct. 2026 : panneaux larges du Catalogue
+  el.classList.toggle("plein", d.type === "process" || d.type === "atelier" || (d.type === "ajout" && ["devis", "tarif", "catalogue", "duplicata"].includes(d.quoi)) || d.type === "comparatif");   // 13 oct. 2026 : panneaux larges du Catalogue
   el.classList.toggle("large", d.type === "atelier");
   el.classList.toggle("agrandie", !!S.drAgrandi);
   const cle = JSON.stringify(d);
@@ -12000,7 +12056,7 @@ document.addEventListener("click", async e => {
   const el = e.target.closest("[data-action]");
   const inPop = e.target.closest("#pop");
   /* Un clic en dehors de la fiche ouverte la ferme ; un clic sur un autre élément qui ouvre une fiche la remplace */
-  if (S.drawer && $("modal").hidden && !e.target.closest("#drawer, .fl-carte, #modal, #search, #pop, #toastCT, .retour-btn")
+  if (S.drawer && $("modal").hidden && !e.target.closest("#drawer, .fl-carte, #modal, #search, #pop, #toastCT, .retour-btn, #compClient")
       && !$("drawer").classList.contains("dr-flotte")   // 11 oct. 2026 : la fiche détachée reste posée pendant qu'on travaille
       && !appuiDansFiche                                 // 13 oct. 2026 : un glisser parti de la fiche (titre, sélection de texte) et lâché dehors ne la ferme pas
       && !(el && (el.dataset.action || "").startsWith("open-"))){
@@ -12174,6 +12230,19 @@ document.addEventListener("click", async e => {
     case "prod-fav": S.prodFav = !S.prodFav; render(); return;
     case "prod-vue": S.prodVue = el.dataset.val === "liste" ? "liste" : "grille"; render(); return;   // 30 oct. 2026 : vue Grille du catalogue
     case "prod-paire": S.prodPaire = !!el.dataset.val; render(); return;
+    case "comp-mode": S.prodComp = !S.prodComp; render(); return;   // 30 oct. 2026 : comparatif de verres
+    case "comp-choisir": {
+      const id = el.dataset.prod, sel = S.prodSel || (S.prodSel = []), i = sel.indexOf(id);
+      if (i >= 0) sel.splice(i, 1); else if (sel.length >= COMP_MAX){ toast(`${COMP_MAX} verres au plus : retire-en un pour en ajouter un autre.`); return; } else sel.push(id);
+      render(); return;
+    }
+    case "comp-voir": if (compProduits().length < 2){ toast("Choisis au moins 2 verres à comparer."); return; } S.drawer = {type:"comparatif"}; render(); return;
+    case "comp-retirer": S.prodSel = (S.prodSel || []).filter(x => x !== el.dataset.prod); if (compProduits().length < 2){ S.drawer = null; S.compClient = false; S.prodComp = true; } render(); return;
+    case "comp-effacer": S.prodSel = []; S.compConseil = ""; S.compClient = false; if (S.drawer && S.drawer.type === "comparatif") S.drawer = null; render(); return;
+    case "comp-ajouter": S.prodComp = true; S.drawer = null; render(); return;
+    case "comp-conseil": S.compConseil = S.compConseil === el.dataset.prod ? "" : el.dataset.prod; render(); return;
+    case "comp-client": S.compClient = true; render(); return;
+    case "comp-client-fermer": S.compClient = false; render(); return;
     case "grille-plier": { const k = el.dataset.k, s = S.grPlies || (S.grPlies = new Set()); s.has(k) ? s.delete(k) : s.add(k); render(); return; }
     case "prod-favori": {
       const p = produitOf(el.dataset.prod); if (!p) return;
@@ -24733,6 +24802,45 @@ html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 #app:not(#luxe) .gr-jauge.haut i.on{background:var(--tc)}
 #app:not(#luxe) .gr-case .fav-on{margin-right:3px}
 @media (max-width:760px){ #app:not(#luxe) .gr-table{font-size:.8125rem} #app:not(#luxe) .gr-table thead th:first-child{width:34%} #app:not(#luxe) .gr-table td{padding:8px 6px} }
+</style>
+<style id="comparatif-verres">/* 30 oct. 2026 : comparatif de verres (sélection en grille, panneau, plein écran client) */
+#app:not(#luxe) .gr-case.choisi{background:color-mix(in srgb, var(--bleu) 14%, transparent); box-shadow:inset 0 0 0 1.5px var(--bleu)}
+#app:not(#luxe) .gr-case.choisi::before{content:"✓"; float:left; color:var(--bleu); font-weight:700}
+#app:not(#luxe) .gr-lien.choisi{color:var(--bleu); font-weight:600}
+#app:not(#luxe) .comp-barre{position:sticky; bottom:16px; z-index:30; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin:16px 0 0; padding:10px 12px 10px 16px; border-radius:14px; background:var(--groupe); box-shadow:0 6px 24px rgba(0,0,0,.18), 0 0 0 .5px var(--line); font-size:.875rem; color:var(--encre)}
+#app:not(#luxe) .comp-barre-b{display:flex; gap:8px}
+@media (max-width:760px){ #app:not(#luxe) .comp-barre{bottom:calc(96px + env(safe-area-inset-bottom, 0px))} }
+.comp-cadre{overflow-x:auto}
+.comp-table{width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:.875rem}
+.comp-table th, .comp-table td{padding:10px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line)}
+.comp-table thead th{font-weight:600; color:var(--encre); vertical-align:bottom}
+.comp-table thead th:first-child, .comp-table tbody th{width:118px; color:var(--second); font-weight:500; font-size:.8125rem}
+.comp-table tr.pareil td, .comp-table tr.pareil th{color:var(--tert)}
+.comp-table .comp-conseil{background:color-mix(in srgb, var(--bleu) 8%, transparent)}
+.comp-table thead .comp-conseil{border-radius:12px 12px 0 0}
+:root:root .comp-table .comp-badge{display:inline-block; margin:0 0 6px; padding:2px 8px; border-radius:999px; background:var(--primaire); color:var(--fond); font-size:.6875rem; font-weight:600}   /* couleurs de l'accent choisi (blanc en Stripe luxe sombre) */
+.comp-nom{display:block; overflow-wrap:anywhere}
+.comp-gestes{display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; font-weight:400}
+.comp-gestes .lien-btn{background:none; border:0; padding:0; color:var(--bleu); font:inherit; font-size:.75rem; cursor:pointer}
+.comp-prix{font-size:1.125rem; font-variant-numeric:tabular-nums}
+.comp-plus{display:block; font-size:.75rem; color:var(--second)}
+.comp-fourn{color:var(--tert); font-size:.75rem}
+.comp-table .gr-jauge{display:inline-flex; gap:3px; margin-left:8px; vertical-align:2px}
+.comp-table .gr-jauge i{width:6px; height:6px; border-radius:50%; background:var(--line)}
+.comp-table .gr-jauge i.on{background:var(--second)}
+.comp-table .gr-jauge.haut i.on{background:var(--tc)}
+.comp-client{position:fixed; inset:0; z-index:2147483000; overflow:auto; background:var(--fond); color:var(--encre)}
+.comp-client-in{max-width:1100px; margin:0 auto; padding:max(28px, env(safe-area-inset-top)) 24px 40px}
+.comp-client header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 24px}
+.comp-client h2{font-size:1.75rem; font-weight:600; margin:0}
+.comp-table.client{font-size:1.125rem}
+.comp-table.client th, .comp-table.client td{padding:16px 14px}
+.comp-table.client thead th:first-child, .comp-table.client tbody th{width:150px; font-size:1rem}
+.comp-table.client .comp-nom{font-size:1.25rem}
+.comp-table.client .comp-prix{font-size:1.75rem}
+.comp-table.client .comp-plus{font-size:.9375rem}
+@media (max-width:760px){ .comp-table th, .comp-table td{padding:8px 5px} .comp-table thead th:first-child, .comp-table tbody th{width:70px; font-size:.75rem} .comp-gestes{gap:2px 8px} }
+@media (max-width:760px){ .comp-table.client{font-size:1rem} .comp-table.client th, .comp-table.client td{padding:12px 8px} .comp-table.client thead th:first-child, .comp-table.client tbody th{width:92px} .comp-table.client .comp-prix{font-size:1.375rem} .comp-table.client .comp-nom{font-size:1.0625rem} .comp-client-in{padding-left:14px; padding-right:14px} }
 </style>
 <script id="charge-js">document.documentElement.classList.add("charge");   // 16 oct. 2026 : tous les styles sont lus, la page peut s'afficher</script>
 </body>
