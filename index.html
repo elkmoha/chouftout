@@ -8455,7 +8455,7 @@ function basculerOeil(){
 function boutonOeil(){
   if (!peutOeil()) return "";
   const txt = S.oeil ? "Masquer les prix d’achat" : "Voir les prix d’achat";
-  return `<button type="button" class="btn icon oeil" data-action="oeil" aria-pressed="${!!S.oeil}" aria-label="${txt}" title="${txt}">${oeilSvg(!S.oeil)}</button>`;
+  return `<button type="button" class="btn icon oeil" data-action="oeil" aria-pressed="${!!S.oeil}" aria-label="${txt}">${oeilSvg(!S.oeil)}</button>`;   // 30 oct. 2026 : pas d'infobulle, un client ne doit pas lire à quoi sert l'œil
 }
 const produitsValides = () => S.produits.filter(p => p.statut === "valide");
 const produitsActifs = () => produitsValides().filter(p => !p.archive);
@@ -8802,6 +8802,9 @@ function grilleProduits(items, ok){
    le comparatif s'ouvre en panneau, puis en plein écran pour le client (sans codes ni écarts internes). */
 const COMP_MAX = 4;
 const compProduits = () => (S.prodSel || []).map(produitOf).filter(p => p && !p.archive);
+/* 30 oct. 2026 : délai réel du verre de stock, lu dans le code Koptical du nom (ST 24, ST 96, ST 24/96 selon la puissance) ; « Stock sous 24 h » trompait le client */
+const compDelai = p => { const r = resoudre(p, "dispo"), m = String(p.nom || "").match(/\bST\s+(\d{2})(?:\/(\d{2}))?\b/i);
+  return esc(r && r.valeur ? r.valeur.nom : "—") + (m ? `<span class="comp-delai">${m[2] ? m[1] + " à " + m[2] + " h selon la correction" : "sous " + m[1] + " h"}</span>` : ""); };
 const compTitre = p => { const x = grDecoupe(p); return (x.pre.length > 1 ? x.pre + " " : "") + x.lib; };
 function compTable(ps, client){
   const prixP = p => p.vente == null ? null : p.vente * qteCat(p.cat);
@@ -8816,7 +8819,7 @@ function compTable(ps, client){
     {lib:"Antireflet", v:ps.map(p => trait(p, "ar", !client) + grJauge(p))},
     {lib:"Lumière bleue", v:ps.map(p => grCat(p) === "bleue" ? "Filtre lumière bleue" : "—")},
     {lib:"Solaire", v:ps.map(p => trait(p, "sol", !client))},
-    familleOf("dispo") ? {lib:"Délai", v:ps.map(p => trait(p, "dispo", false))} : null,
+    familleOf("dispo") ? {lib:"Délai", v:ps.map(compDelai)} : null,
     (() => { const v = ps.map(p => grDecoupe(p).vari.join(" · ")); return v.some(Boolean) ? {lib:"Précision", v:v.map(x => esc(x) || "—")} : null; })(),
     client ? null : {lib:"Référence", v:ps.map(p => esc(p.ref || "—"))}
   ].filter(Boolean);
@@ -9129,10 +9132,8 @@ function drawerProduit(p){
     ${st().produits.lpp ? ligneInfo("Code LPP", p.lpp ? copiable(p.lpp) : "—") : ""}
     ${remise != null ? `<p class="remise-ligne">Remise exceptionnelle possible : ${p.remise} % au maximum, soit ${eur(L ? remise * q : remise)}${L ? " " + esc(L) : ""}.</p>` : ""}`;
   if (peutOeil()){
-    // 17 oct. 2026 : l'œil seul sur sa ligne laissait un grand vide ; un lien, comme dans les autres fiches
-    const titreConf = can("tarifs.achat") ? "prix d’achat et la marge" : "prix d’achat";
-    corps += S.oeil ? `<div class="dr-conf"><h4>${cap(titreConf)}</h4><div class="gestes-liens"><button type="button" data-action="oeil" aria-pressed="true">Masquer</button></div></div>`
-      : `<div class="gestes-liens dr-oeil"><button type="button" data-action="oeil" aria-pressed="false">${oeilSvg(true)} Voir le ${titreConf}</button></div>`;
+    // 30 oct. 2026 (demande de Mohamed) : l'œil seul, sans texte ; un client qui regarde l'écran ne doit pas comprendre ce qu'il montre
+    corps += `<div class="gestes-liens dr-oeil"><button type="button" data-action="oeil" aria-pressed="${!!S.oeil}" aria-label="${S.oeil ? "Masquer" : "Afficher"}">${oeilSvg(!S.oeil)}</button></div>`;
     if (S.oeil){
       corps += `<div class="dr-conf-bloc">`;
       if (p.achat == null) corps += `<p class="sub" style="margin:0">Prix d’achat pas encore saisi.</p>`;
@@ -23669,7 +23670,7 @@ html.mode-cosium #zone-suivi:not(#luxe) .avis-mut-bt{padding-left:0}
 #drawer .dlist:not(#luxe) > summary::-webkit-details-marker{display:none}
 @media (max-width:760px){ :is(#drawer, .fl-carte):not(#luxe) .dlist .dmini.verif-ligne > .cb{width:34px;height:34px;min-width:34px} }
 #drawer .dr-oeil:not(#luxe){margin:14px 0 4px}
-#drawer .dr-oeil:not(#luxe) button svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px}
+#drawer .dr-oeil:not(#luxe) button svg{width:18px;height:18px;vertical-align:-4px;margin-right:0}
 /* 17 oct. 2026 : sur téléphone, un code à copier (fiches prix et produit) se touche sur 44 px sans grandir la ligne */
 @media (max-width:760px){ #drawer .copiable:not(#luxe){min-height:44px;margin-top:-11px;margin-bottom:-11px} }
 /* 17 oct. 2026 : étapes d'un process en bloc numéroté 01, 02…, comme le mode d'emploi d'une tâche */
@@ -24823,6 +24824,7 @@ html.mode-cosium.cosium-cote .ct-lien i{font-style:normal; color:var(--second)}
 .comp-gestes{display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; font-weight:400}
 .comp-gestes .lien-btn{background:none; border:0; padding:0; color:var(--bleu); font:inherit; font-size:.75rem; cursor:pointer}
 .comp-prix{font-size:1.125rem; font-variant-numeric:tabular-nums}
+.comp-delai{display:block; font-size:.8125rem; color:var(--second)}
 .comp-plus{display:block; font-size:.75rem; color:var(--second)}
 .comp-fourn{color:var(--tert); font-size:.75rem}
 .comp-table .gr-jauge{display:inline-flex; gap:3px; margin-left:8px; vertical-align:2px}
