@@ -8708,6 +8708,7 @@ function menuFiltreProd(cle){
 /* 30 oct. 2026 : vue Grille du catalogue (demande de Mohamed). Pour un type, une disponibilité et un fournisseur : les gammes en lignes, les indices en colonnes.
    Une ligne = le nom sans l'indice, sans le code de dispo (ST 24, Rx) ni les variantes (Asph., Neo, couleurs) ; les variantes d'une même case y sont réunies. */
 const GR_VARIANTES = ["asph", "asph.", "as", "neo", "brun", "gris", "gris-vert", "vert"];
+const GR_HORS_CLE = ["kolor"];   // 31 oct. 2026 : Koptical écrit « Kolor » en 1,5 mais pas en 1,6 (« K 16 Brun 85% AR Interne ») : une seule ligne
 const GR_ECART = 10;   // écart minimal attendu avec la gamme du dessous, en € par verre
 const GR_CATS = [["blanc", "Verre blanc", "var(--tert)"], ["bleue", "Lumière bleue", "var(--tc-bleu)"], ["photo", "Photochromique", "var(--tc-violet)"], ["solaire", "Solaire", "var(--tc-orange)"]];
 const grilleOk = cat => !!familleOf("indice") && famillesPour(cat).some(f => f.id === "indice");
@@ -8720,7 +8721,7 @@ const grDecoupe = p => {
     if (GR_VARIANTES.includes(n)) vari.push(/^as/.test(n) ? "Asph." : cap(n)); else reste.push(mots[k]);
   }
   const lib = reste.join(" ") || labelProduit(p);
-  return {pre:i > 0 ? mots.slice(0, i).join(" ") : "", lib, cle:motsProduit(lib).trim(), vari};
+  return {pre:i > 0 ? mots.slice(0, i).join(" ") : "", lib, cle:motsProduit(reste.filter(m => !GR_HORS_CLE.includes(sansAccent(m))).join(" ") || lib).trim(), vari};
 };
 const grCat = p => { const r = resoudre(p, "sol"), n = r && r.valeur ? sansAccent(r.valeur.nom) : "";
   return /photo/.test(n) ? "photo" : /teint|polar|solaire/.test(n) ? "solaire" : /\b(blue|bleu|bleue)\b/.test(sansAccent(p.nom || "")) ? "bleue" : "blanc"; };
@@ -8787,7 +8788,7 @@ function grilleProduits(items, ok){
         h += `<tr style="--gr-c:${g.cat ? g.coul : coulL}"><th scope="row">${g.cat ? "" : `<i class="gr-pt" style="--gr-c:${coulL}"></i>`}${esc(l.lib)}${grJauge(l.ex)}</th>` + cols.map(vid => {
           const c = prixCase(l, vid); if (!c.length) return `<td class="num gr-vide">—</td>`;
           const m = c[0], memes = c.filter(o => o.p.vente === m.p.vente), autres = c.filter(o => o.p.vente !== m.p.vente), pale = !c.some(o => ok(o.p));
-          const vari = uniq(memes.flatMap(o => o.x.vari)).sort((a, b) => (b === "Asph.") - (a === "Asph.") || (b === "Neo") - (a === "Neo")).join(" · ");
+          const vari = uniq(memes.flatMap(o => o.x.vari)).sort((a, b) => (b === "Asph.") - (a === "Asph.") || (b === "Neo") - (a === "Neo") || a.localeCompare(b, "fr")).join(" · ");   // couleurs dans le même ordre partout
           const choisi = S.prodComp && (S.prodSel || []).includes(m.p.id);
           return `<td class="num gr-case${pale ? " pale" : ""}${choisi ? " choisi" : ""}" data-action="${S.prodComp ? "comp-choisir" : "open-produit"}" data-prod="${m.p.id}"${S.prodComp ? ` aria-pressed="${choisi}"` : ""} title="${esc(memes.map(o => labelProduit(o.p)).join(" · "))}">${c.some(o => o.p.favori) && favorisOn() ? `<span class="fav-on" aria-label="Verre à privilégier">★</span>` : ""}${eur(m.p.vente * paire)}${ecart(g, l, vid, m.p.vente)}`
             + (vari ? `<span class="gr-sous">${esc(vari)}</span>` : "")
